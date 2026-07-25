@@ -21,6 +21,12 @@ unberührt.
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "7.0"}`.
 - **Build bei jeder Änderung hochzählen**, nie überschreiben.
+- **Branch `ems-integration`** (Verbund-Konvention, Dietmar 25.07.2026, identischer Name in allen
+  Modul-Repos): Auffangbecken für riskante Fixes/Experimente aus der laufenden EMS-Anbindung, solange
+  das EMS selbst noch gebaut wird — damit während dieser Phase nichts Ungeprüftes direkt bei echten
+  Beta-Testern landet. Erst nach Bewährung Merge nach `beta`. Von `beta` abgezweigt, aktuell noch
+  ohne konkreten Inhalt (Stand 25.07.2026). Normale Weiterentwicklung bleibt auf `beta`, solange kein
+  konkreter EMS-Integrationsgrund für `ems-integration` vorliegt.
 
 ## Zusammenarbeit mit anderen Repos
 
