@@ -15,7 +15,11 @@ unberührt.
 
 ## Release-Workflow
 
-- Entwicklung läuft auf dem Branch **`beta`** (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
+- ⚠️ **TEMPORÄR (seit 25.07.2026, Dietmar):** Während der laufenden EMS-Integrationsphase geht
+  **ausschließlich auf `ems-integration`** — keine Ausnahme mehr für "sichere" Fixes auf `beta`,
+  bis anders angesagt. Arbeitsbranch also `ems-integration`, nicht `beta`, solange diese Zeile steht.
+- Normalerweise (außerhalb der Integrationsphase) läuft Entwicklung auf dem Branch **`beta`**
+  (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
 - **Stable gibt der Nutzer frei** — nicht ungefragt nach `main` mergen/pushen.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
