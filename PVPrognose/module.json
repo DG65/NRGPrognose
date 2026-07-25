@@ -1,12 +1,14 @@
 {
     "id": "{257DD4E8-9705-462E-89FC-56D0A1038353}",
     "library": "{2D15AFF6-7CD5-4147-B438-B4288BD598AE}",
-    "name": "PVPrognose",
+    "name": "NRGPVPrognose",
     "type": 3,
     "vendor": "DG65",
     "aliases": [
         "PV-Prognose",
-        "PV-Erzeugungsprognose"
+        "PV-Erzeugungsprognose",
+        "PVPrognose",
+        "NRGPVPrognose"
     ],
     "parentRequirements": [],
     "childRequirements": [],

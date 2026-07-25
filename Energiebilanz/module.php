@@ -10,7 +10,7 @@ declare(strict_types=1);
  * P10/P50/P90-Bänder in einem Diagramm. Beide Quellen werden automatisch per
  * Modul-GUID gefunden; die Kachel funktioniert auch PV-only.
  */
-class Energiebilanz extends IPSModule
+class NRGEnergiebilanz extends IPSModule
 {
     // Request-lokaler Cache der automatisch erkannten Einheiten je Variable
     private $unitCache = [];

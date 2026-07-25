@@ -34,7 +34,7 @@ define('PVF_SRC_SOLCAST',       2);
 define('PVF_CONTRACT_FORECAST',   '1.0'); // GetForecast / GetSnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 
-class PVPrognose extends IPSModule
+class NRGPVPrognose extends IPSModule
 {
     // Request-lokales Modell: [offset => 24×{p10,p50,p90} in W]
     private $modelCache = null;
@@ -1084,6 +1084,6 @@ class PVPrognose extends IPSModule
         if ($level > $configLevel) { return; }
         $prefix = ($level === PVF_LOG_VERBOSE) ? 'VERBOSE' : 'INFO';
         $this->SendDebug($prefix, $message, 0);
-        if ($level <= PVF_LOG_BASIC) { IPS_LogMessage('PVPrognose', $message); }
+        if ($level <= PVF_LOG_BASIC) { IPS_LogMessage('NRGPVPrognose', $message); }
     }
 }

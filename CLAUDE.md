@@ -7,11 +7,22 @@ ist **NRG-Stack** (Dietmar, 23.07.2026); „DG65" bleibt Hersteller/Org. Unsere 
 Prognose-Schicht („Wissen") innerhalb des NRG-Stack. Nur Doku/Anzeige — Idents/Verträge/Klassennamen
 unberührt.
 
-| Ordner | Modul | Präfix | GUID |
+| Ordner | `module.json name` / PHP-Klasse | Präfix | GUID |
 |---|---|---|---|
-| `Lastprognose/` | Verbrauchsprognose (k-NN) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
-| `PVPrognose/` | PV-Erzeugungsprognose (physikbasiert) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
-| `Energiebilanz/` | Kombinierte Kachel (HTML-SDK) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
+| `Lastprognose/` | `NRGLastprognose` (vorher `Lastprognose`, als Alias erhalten) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
+| `PVPrognose/` | `NRGPVPrognose` (vorher `PVPrognose`, als Alias erhalten) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
+| `Energiebilanz/` | `NRGEnergiebilanz` (vorher `Energiebilanz`, als Alias erhalten) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
+
+**Modul-Umbenennung auf NRG-Präfix (Verbund-Konvention, Dietmar 25.07.2026, analog ChargerHub Commit
+5e9ea21):** `module.json`/`library.json` `name` bekommt den `NRG`-Präfix, alter Name bleibt als
+Alias. GUID, Präfix (`LFC`/`PVF`/`EFTILE`), Idents unangetastet. **Abweichend von ChargerHub bewusst
+auch die PHP-Klasse mitgeändert** (`class Lastprognose` → `class NRGLastprognose` usw., exakt
+passend zu `module.json name`) — ChargerHub hat auf `ems-integration` `name` geändert, ohne die
+Klasse anzupassen; das widerspricht der bestätigten Regel „`module.json name` muss exakt der
+PHP-Klasse entsprechen, sonst 'Konnte Instanz nicht erstellen — Class ... not found'" (siehe
+`ips-module-pitfalls`). Für bereits bestehende Instanzen unkritisch (Bindung läuft über die GUID),
+aber für die **Neuanlage** einer Instanz unter dem neuen Namen sicherheitshalber konsistent gehalten,
+solange das bei ChargerHub nicht verifiziert ist.
 
 ## Release-Workflow
 
