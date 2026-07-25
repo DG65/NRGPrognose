@@ -1,4 +1,4 @@
-# Hinweise für Claude — Repo DG65/Prognose
+# Hinweise für Claude — Repo DG65/NRGPrognose (vorher DG65/Prognose)
 
 ## Was hier liegt
 

@@ -58,6 +58,6 @@ Wird eine Hintergrundfarbe gesetzt, gilt sie für die gesamte Kachel, und die Te
 nach deren Helligkeit. Ohne gesetzte Farbe (transparent) folgt die Kachel dem Hell-/Dunkelmodus des
 Anzeigegeräts bzw. dem IPS-Theme.
 
-Teil der **[EnergiePrognose-Suite](https://github.com/DG65/Prognose)**.
+Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)**.
 
 > **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/EMS/blob/main/SUITE.md).
