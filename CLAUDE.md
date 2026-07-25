@@ -9,20 +9,25 @@ unberührt.
 
 | Ordner | `module.json name` / PHP-Klasse | Präfix | GUID |
 |---|---|---|---|
-| `Lastprognose/` | `NRGLastprognose` (vorher `Lastprognose`, als Alias erhalten) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
-| `PVPrognose/` | `NRGPVPrognose` (vorher `PVPrognose`, als Alias erhalten) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
-| `Energiebilanz/` | `NRGEnergiebilanz` (vorher `Energiebilanz`, als Alias erhalten) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
+| `Lastprognose/` | `Lastprognose` (unverändert; `NRGLastprognose` nur als Alias) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
+| `PVPrognose/` | `PVPrognose` (unverändert; `NRGPVPrognose` nur als Alias) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
+| `Energiebilanz/` | `Energiebilanz` (unverändert; `NRGEnergiebilanz` nur als Alias) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
 
-**Modul-Umbenennung auf NRG-Präfix (Verbund-Konvention, Dietmar 25.07.2026, analog ChargerHub Commit
-5e9ea21):** `module.json`/`library.json` `name` bekommt den `NRG`-Präfix, alter Name bleibt als
-Alias. GUID, Präfix (`LFC`/`PVF`/`EFTILE`), Idents unangetastet. **Abweichend von ChargerHub bewusst
-auch die PHP-Klasse mitgeändert** (`class Lastprognose` → `class NRGLastprognose` usw., exakt
-passend zu `module.json name`) — ChargerHub hat auf `ems-integration` `name` geändert, ohne die
-Klasse anzupassen; das widerspricht der bestätigten Regel „`module.json name` muss exakt der
-PHP-Klasse entsprechen, sonst 'Konnte Instanz nicht erstellen — Class ... not found'" (siehe
-`ips-module-pitfalls`). Für bereits bestehende Instanzen unkritisch (Bindung läuft über die GUID),
-aber für die **Neuanlage** einer Instanz unter dem neuen Namen sicherheitshalber konsistent gehalten,
-solange das bei ChargerHub nicht verifiziert ist.
+**Modul-Umbenennung auf NRG-Präfix (Verbund-Konvention, Dietmar 25.07.2026) — `library.json`
+umgesetzt, `module.json`/Klasse NICHT.** `library.json name` → `NRGPrognose` (sicher, reines
+Anzeigefeld ohne Klassenbezug). `module.json name` je Submodul dagegen **unverändert** gelassen
+(`Lastprognose`/`PVPrognose`/`Energiebilanz`), der neue NRG-Name nur zusätzlich in `aliases`.
+
+**Korrektur-Historie (25.07.2026, wichtig):** Ursprünglich hatten wir `module.json name` UND die
+PHP-Klasse konsistent auf `NRGLastprognose` usw. umgestellt (in der Annahme, das sei der sichere Weg,
+da ChargerHub `name` geändert hatte, ohne die Klasse anzupassen). Kurz danach live verifiziert: Beim
+tatsächlichen Neuverknüpfen (`MC_DeleteModule`+`MC_CreateModule`) brach die Instanz bei **mehreren**
+Verbund-Modulen (ChargerHub, MigrationsHub, InverterHub, InverterHubTile) mit „Class ... does not
+exist" — **unabhängig davon, ob Name und Klasse zueinander passten.** Für bereits registrierte
+Module gilt Regel 4 (`ips-module-pitfalls`) also uneingeschränkt bei JEDEM Neuladen, nicht nur bei
+der Allererstregistrierung. Deshalb umgehend zurückgerudert: `module.json name` und die PHP-Klasse
+wieder auf den Original-Zustand, NRG-Name bleibt nur als Alias. GUID, Präfix (`LFC`/`PVF`/`EFTILE`),
+Idents waren durchgehend unangetastet.
 
 ## Release-Workflow
 

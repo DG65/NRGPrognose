@@ -53,7 +53,7 @@ define('LFC_DT_SUN',  2);   // Sonntag / Feiertag
 // Zeitliche Auflösung (Minuten je Slot). 60 = stündlich (robust über
 // AC_GetAggregatedValues), <60 = aus Rohwerten integriert (AC_GetLoggedValues).
 
-class NRGLastprognose extends IPSModule
+class Lastprognose extends IPSModule
 {
     // Request-lokaler Cache der Prognosetemperaturen [0=>heute,1=>morgen,2=>übermorgen]
     private $fcTempCache = null;
@@ -1366,7 +1366,7 @@ class NRGLastprognose extends IPSModule
         $prefix = ($level === LFC_LOG_VERBOSE) ? 'VERBOSE' : 'INFO';
         $this->SendDebug($prefix, $message, 0);
         if ($level <= LFC_LOG_BASIC) {
-            IPS_LogMessage('NRGLastprognose', $message);
+            IPS_LogMessage('Lastprognose', $message);
         }
     }
 }
