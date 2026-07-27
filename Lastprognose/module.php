@@ -339,8 +339,14 @@ class Lastprognose extends IPSModule
      * nur "wie viel Verbrauch im Fenster", die Wahl des Fensters (z.B. der
      * PV-Startzeitpunkt) obliegt dem Aufrufer — keine Abhängigkeit zu PVF.
      * Deckt bis zu 3 Tage ab (heute/morgen/übermorgen, unser Horizont);
-     * darüber hinaus fehlende Anteile werden nicht ergänzt, 'coverage'
-     * zeigt an, welcher Anteil des Fensters tatsächlich abgedeckt ist.
+     * darüber hinaus fehlende Anteile werden nicht ergänzt. 'coverage' zeigt
+     * an, welcher Anteil des Fensters tatsächlich mit einer ECHTEN Prognose
+     * abgedeckt ist — Tage ohne Nachbarn (z.B. unkonfigurierte Instanz, siehe
+     * emptyForecast()) zählen NICHT als abgedeckt, auch wenn ihr Nullprofil
+     * strukturell gültig ist. Sonst würde eine kaputte Konfiguration einem
+     * unbeaufsichtigten Aufrufer "kwh=0, coverage=1.0" vortäuschen statt
+     * ehrlich "keine Daten" zu melden (Verbund-Ziel „Zuverlässigkeit ohne
+     * KI-Krücke" — niemand schaut hier live nach, ob's stimmt).
      * Für das EMS per LFC_GetEnergyWindow($id, $fromTs, $toTs) abrufbar.
      */
     public function GetEnergyWindow(int $fromTs, int $toTs): array
@@ -363,6 +369,9 @@ class Lastprognose extends IPSModule
             $fc = $this->GetForecast($offset);
             $mean = $fc['mean'] ?? null;
             if (!is_array($mean)) { continue; }
+            // Kein echter Nachbar gefunden -> emptyForecast()-Fallback (Nullprofil).
+            // Zählt für 'coverage' als NICHT abgedeckt, auch wenn strukturell gültig.
+            $realData = (($fc['neighbors'] ?? 0) > 0);
 
             foreach ($mean as $i => $w) {
                 $slotStart = $dayStart + $i * $slotSec;
@@ -372,7 +381,7 @@ class Lastprognose extends IPSModule
                 if ($ovEnd <= $ovStart) { continue; }
                 $ovSec = $ovEnd - $ovStart;
                 $kwh += ((float)$w) * ($ovSec / 3600.0) / 1000.0; // W * h / 1000 = kWh
-                $coveredSec += $ovSec;
+                if ($realData) { $coveredSec += $ovSec; }
             }
         }
 

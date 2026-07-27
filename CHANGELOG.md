@@ -11,8 +11,11 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   produziert" — Grundlage für ein dynamisches Batterie-Ziel-SoC (EMS) statt eines festen
   Prozentwerts. Summiert slotgenau über bis zu 3 Tage (unser Horizont), mit anteiliger
   Berücksichtigung an den Fensterrändern; `coverage` (0..1) zeigt, welcher Anteil des Fensters
-  tatsächlich mit Prognosedaten abgedeckt ist. Bewusst ohne PV-Bezug: das Zeitfenster bestimmt der
-  Aufrufer, keine neue Abhängigkeit zu PVF. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
+  tatsächlich mit einer ECHTEN Prognose abgedeckt ist — Tage ohne Nachbarn (z. B. unkonfigurierte
+  Instanz) zählen NICHT als abgedeckt, auch wenn ihr Nullprofil strukturell gültig ist. Sonst hätte
+  eine kaputte Konfiguration einem unbeaufsichtigten Aufrufer „kwh=0, coverage=1.0" statt ehrlich
+  „keine Daten" vorgetäuscht. Bewusst ohne PV-Bezug: das Zeitfenster bestimmt der Aufrufer, keine
+  neue Abhängigkeit zu PVF. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
 - **Sondereffekt-Ausschluss aus der Lernbasis (`EMS_GetSpecialEvents`, Verbund-Vertrag 1.0).**
   Beide Prognose-Module fragen jetzt — sofern ein NRG-Stack-EMS installiert ist — externe
   Regeleingriffe der letzten 14 Tage ab (§14a-Dimmung, Tibber-Regelenergie, Direktvermarktung,
