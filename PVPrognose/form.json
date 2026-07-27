@@ -312,6 +312,19 @@
                             }
                         }
                     ]
+                },
+                {
+                    "type": "PopupButton",
+                    "caption": "ℹ️ Wann „Kalibrieren\" ausschalten?",
+                    "popup": {
+                        "caption": "Spalte „Kalibrieren\"",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Ausschalten bei einem ABGEREGELTEN Generator — z. B. ein DC-MPPT-Laderegler mit Strom- oder Spannungslimit, oder ein Generator, der bei voller Batterie abgeregelt wird. Die gemessene Leistung ist dort künstlich gedrosselt und würde die Selbstkalibrierung dauerhaft zu klein lernen lassen (die Prognose zeigt dann weniger, als wetterbedingt möglich wäre). Für einen frei einspeisenden Generator (z. B. AC-gekoppelt ohne Limit) bleibt „Kalibrieren\" an — dort passt die Kalibrierung normal."
+                            }
+                        ]
+                    }
                 }
             ]
         },

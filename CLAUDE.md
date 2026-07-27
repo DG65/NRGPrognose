@@ -232,3 +232,13 @@ Gruppierung zusammengehöriger Felder, Step-by-Step-Lesefluss ohne Scroll-Zickza
 zwischen entfernten Panels für zusammengehörige Einstellungen), Feldkanten/-breiten einer Spalte auf
 einer Linie statt kreuz und quer — bei jeder Formular-Änderung mitdenken, auch außerhalb des
 Zielumbaus oben.
+
+**Feld-Tooltips (Ergänzung 27.07.2026):** IP-Symcon kennt kein natives Mouseover-Tooltip-Attribut
+(gegen offizielle Doku geprüft, weder `form.json` allgemein noch List-Spalten). Für erklärungs-
+bedürftige Einzelfelder: `PopupButton` (ℹ️-Icon, Klick statt Hover) für die fokussierte Erklärung
+EINES Felds; `Label` bleibt für kurze, immer sichtbare Erklärungen; das „Dokumentation & Hilfe"-Panel
+bleibt für den Gesamtzusammenhang. **Bei uns umgesetzt:** PV-Generatorliste, Spalte „Kalibrieren" —
+war bisher nur in zwei benachbarten Absätzen (Panel-Label davor, Kalibrierungs-Panel danach) erklärt,
+nicht direkt am Feld. Jetzt zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in
+allen drei Formularen geprüft: bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein
+weiterer Bedarf gefunden.
