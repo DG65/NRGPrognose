@@ -94,6 +94,13 @@ $m2 = PVF_GetModuleArea(int $InstanzID);
 
 // Modulfläche je Generator: Liste [{name, modules, areaPerModule, area}]
 $perGen = PVF_GetModuleAreas(int $InstanzID);
+
+// Erwartete PV-Erzeugung (kWh) in einem beliebigen Zeitfenster — symmetrisch zu
+// LFC_GetEnergyWindow, eigenständig (keine Kopplung zu LFC). Deckt bis zu 3 Tage ab;
+// 'coverage' (0..1) zeigt an, welcher Anteil tatsächlich mit einem echten Modell
+// abgedeckt ist (0 bei API-/Netzwerkfehler oder fehlenden Generatoren).
+$w = PVF_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
+// => ['contractVersion'=>'1.0', 'from'=>.., 'to'=>.., 'kwh'=>.., 'coverage'=>..]
 ```
 
 ## Modul-Metadaten (für InverterHub)

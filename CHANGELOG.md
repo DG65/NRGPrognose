@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **PV-Prognose: neue Funktion `PVF_GetEnergyWindow($id,$fromTs,$toTs)`.** Symmetrisches Gegenstück
+  zu `LFC_GetEnergyWindow` auf der Erzeugungsseite — erwartete PV-Erzeugung (kWh) in einem
+  beliebigen Zeitfenster, für die Netto-Energiebilanz (Bedarf minus Erzeugung) eines EMS. Bewusst
+  eigenständig: keine neue Kopplung zu LFC, der Aufrufer kombiniert beide Fenster selbst. Da
+  `neighbors` bei PVF (physikbasiert) auch im Erfolgsfall immer 0 ist und daher kein brauchbares
+  Realdaten-Signal wie bei LFC liefert, prüft die Funktion stattdessen den internen Modellstatus:
+  schlägt die Quelle (API/Netzwerk) fehl oder fehlen Generatoren, zählt `coverage` konsequent 0,
+  statt „kwh=0, coverage=1.0" vorzutäuschen. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
 - **Update-Meldepflicht für `EMS_GetSpecialEvents` erfüllt (Verbund-Konvention).** Bisher wurde die
   Rückgabe blind konsumiert; jetzt wird `contractVersion` je Ereignis geprüft. Liefert das EMS eine
   uns unbekannte Major, wird die Kopplung deaktiviert (kein Sondereffekt-Ausschluss mehr, statt

@@ -33,6 +33,7 @@ define('PVF_SRC_SOLCAST',       2);
 // der anderen nicht fälschlich zur Deaktivierung zwingt.
 define('PVF_CONTRACT_FORECAST',   '1.0'); // GetForecast / GetSnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
+define('PVF_CONTRACT_ENERGYWINDOW', '1.0'); // GetEnergyWindow
 
 class PVPrognose extends IPSModule
 {
@@ -286,6 +287,62 @@ class PVPrognose extends IPSModule
     public function GetStatusText()
     {
         return (string) $this->GetValue('PVF_Status');
+    }
+
+    /**
+     * Erwartete PV-Erzeugung (kWh) in einem beliebigen Zeitfenster [$fromTs,
+     * $toTs) — symmetrisch zu LFC_GetEnergyWindow, eigenständig (keine
+     * Kopplung zu LFC; die Netto-Bilanz aus Verbrauch minus Erzeugung bildet
+     * der Aufrufer selbst aus beiden Fenster-Funktionen). Deckt bis zu 3 Tage
+     * ab (unser Horizont); 'coverage' (0..1) zeigt an, welcher Anteil des
+     * Fensters tatsächlich mit einem ECHTEN Modell abgedeckt ist — anders als
+     * bei LFC trägt 'neighbors' bei PVF (physikbasiert, kein k-NN) auch im
+     * Erfolgsfall immer 0 und taugt nicht als Signal. Stattdessen wird geprüft,
+     * ob buildModel() (API/Netzwerk) tatsächlich ein Modell geliefert hat —
+     * bei Fehlschlag bzw. fehlenden Generatoren zählt nichts als abgedeckt,
+     * statt "kwh=0, coverage=1.0" vorzutäuschen.
+     * Für das EMS per PVF_GetEnergyWindow($id, $fromTs, $toTs) abrufbar.
+     */
+    public function GetEnergyWindow(int $fromTs, int $toTs): array
+    {
+        $result = [
+            'contractVersion' => PVF_CONTRACT_ENERGYWINDOW,
+            'from' => $fromTs,
+            'to'   => $toTs,
+            'kwh'  => 0.0,
+            'coverage' => 0.0,
+        ];
+        if ($toTs <= $fromTs) { return $result; }
+        if (count($this->pvGenerators()) === 0) { return $result; }
+
+        $slotSec = $this->slotMinutes() * 60;
+        $kwh = 0.0;
+        $coveredSec = 0;
+
+        for ($offset = 0; $offset <= 2; $offset++) {
+            $dayStart = strtotime('today +' . $offset . ' days');
+            $fc = $this->GetForecast($offset);
+            // buildModel() deckt alle 3 Tage in einem Rutsch ab; modelCache
+            // bleibt null, wenn die Quelle (API/Netzwerk) fehlschlug.
+            $realData = ($this->modelCache !== null);
+            $mean = $fc['mean'] ?? null;
+            if (!is_array($mean)) { continue; }
+
+            foreach ($mean as $i => $w) {
+                $slotStart = $dayStart + $i * $slotSec;
+                $slotEnd   = $slotStart + $slotSec;
+                $ovStart = max($slotStart, $fromTs);
+                $ovEnd   = min($slotEnd, $toTs);
+                if ($ovEnd <= $ovStart) { continue; }
+                $ovSec = $ovEnd - $ovStart;
+                $kwh += ((float)$w) * ($ovSec / 3600.0) / 1000.0; // W * h / 1000 = kWh
+                if ($realData) { $coveredSec += $ovSec; }
+            }
+        }
+
+        $result['kwh'] = round($kwh, 3);
+        $result['coverage'] = round($coveredSec / ($toTs - $fromTs), 3);
+        return $result;
     }
 
     /**

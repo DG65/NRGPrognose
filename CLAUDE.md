@@ -74,7 +74,15 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
   Zeitfenster (z. B. für EMS: dynamisches Batterie-Ziel-SoC statt fixem Prozentwert, „wie viel
   Energie wird bis zum PV-Start morgen früh gebraucht"). Bewusst **ohne PV-Bezug**: Das Fenster
   (`$fromTs`/`$toTs`) bestimmt der Aufrufer, keine Abhängigkeit von PVF in LFC. `coverage` (0..1)
-  zeigt an, welcher Anteil des Fensters innerhalb unseres 3-Tage-Horizonts liegt.
+  zeigt an, welcher Anteil des Fensters innerhalb unseres 3-Tage-Horizonts liegt — UND nur, wenn
+  in dem Zeitraum echte Prognosedaten vorlagen (kein Nachbar gefunden ⇒ nicht als abgedeckt
+  gezählt, auch wenn das Nullprofil strukturell gültig ist).
+- `PVF_CONTRACT_ENERGYWINDOW` (`GetEnergyWindow`) — symmetrisches Gegenstück auf der
+  Erzeugungsseite, eigenständig (keine Kopplung zu LFC; Netto-Bilanz bildet der Aufrufer aus
+  beiden Fenstern selbst). `neighbors` ist bei PVF **kein** brauchbares Realdaten-Signal (auch
+  im Erfolgsfall immer 0, physikbasiert statt k-NN) — stattdessen prüft `GetEnergyWindow` den
+  internen `modelCache`-Zustand: schlägt `buildModel()` fehl (API/Netzwerk) oder fehlen
+  Generatoren, zählt nichts als `coverage`, statt `kwh=0, coverage=1.0` vorzutäuschen.
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.
