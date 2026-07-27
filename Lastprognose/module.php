@@ -62,6 +62,12 @@ class Lastprognose extends IPSModule
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
     private $loggedCache = [];
+    // Major der EMS_GetSpecialEvents-Vertragsversion, gegen die wir die Felder
+    // from/to/deviceId/source/reason deuten; bei Abweichung Kopplung deaktivieren.
+    private const EMS_EVENTS_MAJOR = 1;
+    // Wird gesetzt, wenn ein Aufruf einen unbekannten Vertrags-Major lieferte
+    // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
+    private $specialEventsVersionMismatch = null;
 
     // ----------------------------------------------------------------
     //  Modul-Lebenszyklus
@@ -466,6 +472,10 @@ class Lastprognose extends IPSModule
         }
         if ($excluded > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+        }
+        if ($this->specialEventsVersionMismatch !== null) {
+            $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
+                $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         $this->SetValue('LFC_Accuracy', $txt);
         $this->log(LFC_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
@@ -898,11 +908,31 @@ class Lastprognose extends IPSModule
      */
     private function fetchSpecialEvents(int $lookbackDays): array
     {
+        $this->specialEventsVersionMismatch = null;
         if (!function_exists('EMS_GetSpecialEvents')) { return []; }
         $from = strtotime('today -' . $lookbackDays . ' days');
         $to   = time();
         $events = @EMS_GetSpecialEvents(0, $from, $to);
-        return is_array($events) ? $events : [];
+        if (!is_array($events)) { return []; }
+
+        // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle Kompatibilität
+        // gilt nur innerhalb derselben Major. Liefert das EMS eine uns unbekannte
+        // Major, deuten wir die Felder nicht blind — Kopplung deaktivieren (wie
+        // vor Einführung der Sondereffekt-Markierung: keine Tage ausgeschlossen)
+        // statt mit falsch interpretierten Daten zu lernen, und sichtbar melden.
+        foreach ($events as $e) {
+            $verStr = (string)($e['contractVersion'] ?? '1.0');
+            $major  = (int)explode('.', $verStr)[0];
+            if ($major !== self::EMS_EVENTS_MAJOR) {
+                $this->specialEventsVersionMismatch = $verStr;
+                $this->log(LFC_LOG_BASIC, sprintf(
+                    'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+                    $verStr, self::EMS_EVENTS_MAJOR
+                ));
+                return [];
+            }
+        }
+        return $events;
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */

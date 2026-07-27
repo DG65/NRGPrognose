@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Update-Meldepflicht für `EMS_GetSpecialEvents` erfüllt (Verbund-Konvention).** Bisher wurde die
+  Rückgabe blind konsumiert; jetzt wird `contractVersion` je Ereignis geprüft. Liefert das EMS eine
+  uns unbekannte Major, wird die Kopplung deaktiviert (kein Sondereffekt-Ausschluss mehr, statt
+  Felder falsch zu deuten) und **sichtbar** in der Variable *Prognosegüte* gemeldet
+  („⚠️ EMS-Vertrag X nicht unterstützt … Modul-Update prüfen"), zusätzlich geloggt. Proaktiv aus dem
+  Verbund-Zielbild „Zuverlässigkeit ohne KI-Krücke" abgeleitet, nicht explizit angefragt.
+- **Fix: `GetEnergyWindow`-`coverage` täuschte bei unkonfigurierter Instanz Sicherheit vor.** Tage
+  ohne echte Prognose (kein Nachbar gefunden, z. B. fehlende Konfiguration) lieferten intern ein
+  strukturell gültiges Nullprofil — `coverage` zeigte fälschlich „vollständig abgedeckt" statt
+  „keine Daten". Jetzt zählen solche Tage nicht mehr als abgedeckt. Noch am selben Tag proaktiv
+  gefunden und behoben, bevor ein Konsument sich auf die vorherige Semantik verlassen konnte.
 - **Lastprognose: neue Funktion `LFC_GetEnergyWindow($id,$fromTs,$toTs)`.** Erwarteter Verbrauch
   (kWh) in einem beliebigen Zeitfenster, z. B. „von jetzt bis morgen früh, wenn die PV wieder
   produziert" — Grundlage für ein dynamisches Batterie-Ziel-SoC (EMS) statt eines festen
