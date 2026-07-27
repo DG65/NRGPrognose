@@ -70,6 +70,11 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
 - `GetModuleArea` liefert ein Skalar (float) und kann kein Feld tragen — Version dort über
   `GetGenerators`. `GetModuleAreas` liefert eine flache Liste (unverändert, additive Feld-Ergänzung
   bräche die Struktur) — Version ebenfalls über `GetGenerators`.
+- `LFC_CONTRACT_ENERGYWINDOW` (`GetEnergyWindow`) — Verbrauchsprognose in einem beliebigen
+  Zeitfenster (z. B. für EMS: dynamisches Batterie-Ziel-SoC statt fixem Prozentwert, „wie viel
+  Energie wird bis zum PV-Start morgen früh gebraucht"). Bewusst **ohne PV-Bezug**: Das Fenster
+  (`$fromTs`/`$toTs`) bestimmt der Aufrufer, keine Abhängigkeit von PVF in LFC. `coverage` (0..1)
+  zeigt an, welcher Anteil des Fensters innerhalb unseres 3-Tage-Horizonts liegt.
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.

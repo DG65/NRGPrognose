@@ -85,6 +85,15 @@ $snap = LFC_GetSnapshot(int $InstanzID, string $date); // [] wenn kein Snapshot
 
 // Sofortige Neuberechnung auslösen
 LFC_Rebuild(int $InstanzID);
+
+// Erwarteter Verbrauch (kWh) in einem beliebigen Zeitfenster, z.B. "von jetzt
+// bis morgen früh, wenn die PV wieder produziert" — für ein dynamisches
+// Batterie-Ziel-SoC statt eines festen Prozentwerts. Deckt bis zu 3 Tage ab
+// (unser Horizont); 'coverage' (0..1) zeigt an, welcher Anteil des Fensters
+// tatsächlich mit Prognosedaten abgedeckt ist (Fenster ohne Bezug zur PV —
+// den PV-Startzeitpunkt bestimmt der Aufrufer selbst, z.B. aus PVF).
+$w = LFC_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
+// => ['contractVersion'=>'1.0', 'from'=>.., 'to'=>.., 'kwh'=>.., 'coverage'=>..]
 ```
 
 Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *PV-Prognose*

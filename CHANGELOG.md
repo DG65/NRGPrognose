@@ -6,6 +6,13 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Lastprognose: neue Funktion `LFC_GetEnergyWindow($id,$fromTs,$toTs)`.** Erwarteter Verbrauch
+  (kWh) in einem beliebigen Zeitfenster, z. B. „von jetzt bis morgen früh, wenn die PV wieder
+  produziert" — Grundlage für ein dynamisches Batterie-Ziel-SoC (EMS) statt eines festen
+  Prozentwerts. Summiert slotgenau über bis zu 3 Tage (unser Horizont), mit anteiliger
+  Berücksichtigung an den Fensterrändern; `coverage` (0..1) zeigt, welcher Anteil des Fensters
+  tatsächlich mit Prognosedaten abgedeckt ist. Bewusst ohne PV-Bezug: das Zeitfenster bestimmt der
+  Aufrufer, keine neue Abhängigkeit zu PVF. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
 - **Sondereffekt-Ausschluss aus der Lernbasis (`EMS_GetSpecialEvents`, Verbund-Vertrag 1.0).**
   Beide Prognose-Module fragen jetzt — sofern ein NRG-Stack-EMS installiert ist — externe
   Regeleingriffe der letzten 14 Tage ab (§14a-Dimmung, Tibber-Regelenergie, Direktvermarktung,
