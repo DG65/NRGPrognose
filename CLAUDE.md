@@ -37,6 +37,15 @@ Idents waren durchgehend unangetastet.
 - Normalerweise (außerhalb der Integrationsphase) läuft Entwicklung auf dem Branch **`beta`**
   (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
 - **Stable gibt der Nutzer frei** — nicht ungefragt nach `main` mergen/pushen.
+- **Vor jedem beta→main-Wechsel: Neuinstallations-Simulation** (SUITE.md/EMS-Repo, Commits `875fe1d`+
+  `630e15a`, Grundregel "keine eigene Anlage als Norm annehmen"). Formular komplett durchgehen wie ein
+  Nutzer OHNE Dietmars Hardware/Region/Sonderkonfiguration: Fabrikat-Nennungen nur als „z. B.", klar
+  ob ein Feld automatisch (Discovery/Vertrag) oder manuell kommt, kein Default, der eine eigene
+  Sonderkonfiguration widerspiegelt, Volltextsuche nach eigenen Objekt-/Variablen-IDs/PLZ/Kampagnen-
+  namen. **Erstmals durchgeführt 28.07.2026** (build 59): keine Fabrikat-/Auto-Discovery-Verstöße
+  gefunden (unsere „(Pflicht)"-Panels sind herstellerneutral und ohne Discovery-Alternative; Lat/Long-
+  Default 49.0/9.0 ist generisch, keine eigene Adresse; keine eigenen IDs im Code). Einzige Baustelle
+  war Feld-Klarheit für Laien, siehe „Korrektur"-Spalte in PVPrognose weiter unten in der Historie.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "7.0"}`.
