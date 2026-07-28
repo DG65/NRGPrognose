@@ -335,6 +335,29 @@
                             }
                         }
                     ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Was bedeutet „Korrektur\"?"
+                        },
+                        {
+                            "type": "PopupButton",
+                            "caption": "?",
+                            "width": "70px",
+                            "popup": {
+                                "caption": "Spalte „Korrektur\"",
+                                "items": [
+                                    {
+                                        "type": "Label",
+                                        "caption": "Manueller Korrekturfaktor je Generator — multipliziert die berechnete Erzeugung. 1,00 = keine Korrektur (Standard). Kleinere Werte (z. B. 0,90) senken die Prognose um 10 %, größere (z. B. 1,10) erhöhen sie um 10 % — z. B. für bekannte Verschattung oder eine abweichende reale Modulleistung. Optional: bei aktiver Selbstkalibrierung wirkt dieser Faktor zusätzlich zum automatisch gelernten Korrekturfaktor (multiplikativ kombiniert), nicht anstelle davon."
+                                    }
+                                ]
+                            }
+                        }
+                    ]
                 }
             ]
         },

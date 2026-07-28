@@ -6,6 +6,12 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **PV-Prognose: Feld-Erklärung für „Korrektur" (Verbund-weite Usability-Prüfung).** Die Spalte
+  „Korrektur" in der Generatorliste zeigte nur eine nackte Zahl (Standard 1,00) ohne Erklärung, was
+  der Wert bedeutet oder wie er mit der Selbstkalibrierung zusammenwirkt — für Laien ohne
+  Hintergrundwissen unklar. Jetzt ein PopupButton direkt darunter: 1,00 = keine Korrektur,
+  kleinere/größere Werte skalieren die Prognose prozentual, wirkt multiplikativ zusätzlich zur
+  automatischen Kalibrierung (nicht anstelle davon).
 - **PV-Prognose: Feld-Erklärung für „Kalibrieren" (Verbund-Konvention Feld-Tooltips).** IP-Symcon
   kennt kein natives Mouseover-Tooltip; die Spalte „Kalibrieren" in der Generatorliste war bisher
   nur in benachbarten Absätzen erklärt, nicht direkt am Feld. Jetzt ein PopupButton direkt unter der
