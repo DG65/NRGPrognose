@@ -8,9 +8,11 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
 
 - **PV-Prognose: Feld-Erklärung für „Kalibrieren" (Verbund-Konvention Feld-Tooltips).** IP-Symcon
   kennt kein natives Mouseover-Tooltip; die Spalte „Kalibrieren" in der Generatorliste war bisher
-  nur in benachbarten Absätzen erklärt, nicht direkt am Feld. Jetzt ein `ℹ️`-PopupButton direkt
-  unter der Liste mit der fokussierten Erklärung (wann für abgeregelte Generatoren ausschalten).
-  Andere Felder geprüft: bereits ausreichend durch vorhandene Label-Elemente abgedeckt.
+  nur in benachbarten Absätzen erklärt, nicht direkt am Feld. Jetzt ein PopupButton direkt unter der
+  Liste mit der fokussierten Erklärung (wann für abgeregelte Generatoren ausschalten). Andere Felder
+  geprüft: bereits ausreichend durch vorhandene Label-Elemente abgedeckt.
+  Styling nach InverterHub-Live-Test präzisiert: `caption="i"` (reiner Buchstabe statt Emoji) mit
+  `width="70px"`, da eine geringere Breite im WebFront-Skin ohne sichtbaren Effekt bleibt.
 - **PV-Prognose: neue Funktion `PVF_GetEnergyWindow($id,$fromTs,$toTs)`.** Symmetrisches Gegenstück
   zu `LFC_GetEnergyWindow` auf der Erzeugungsseite — erwartete PV-Erzeugung (kWh) in einem
   beliebigen Zeitfenster, für die Netto-Energiebilanz (Bedarf minus Erzeugung) eines EMS. Bewusst

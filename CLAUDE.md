@@ -233,12 +233,17 @@ zwischen entfernten Panels für zusammengehörige Einstellungen), Feldkanten/-br
 einer Linie statt kreuz und quer — bei jeder Formular-Änderung mitdenken, auch außerhalb des
 Zielumbaus oben.
 
-**Feld-Tooltips (Ergänzung 27.07.2026):** IP-Symcon kennt kein natives Mouseover-Tooltip-Attribut
-(gegen offizielle Doku geprüft, weder `form.json` allgemein noch List-Spalten). Für erklärungs-
-bedürftige Einzelfelder: `PopupButton` (ℹ️-Icon, Klick statt Hover) für die fokussierte Erklärung
-EINES Felds; `Label` bleibt für kurze, immer sichtbare Erklärungen; das „Dokumentation & Hilfe"-Panel
-bleibt für den Gesamtzusammenhang. **Bei uns umgesetzt:** PV-Generatorliste, Spalte „Kalibrieren" —
-war bisher nur in zwei benachbarten Absätzen (Panel-Label davor, Kalibrierungs-Panel danach) erklärt,
-nicht direkt am Feld. Jetzt zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in
-allen drei Formularen geprüft: bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein
-weiterer Bedarf gefunden.
+**Feld-Tooltips (Ergänzung 27.07.2026, präzisiert 28.07.2026):** IP-Symcon kennt kein natives
+Mouseover-Tooltip-Attribut (gegen offizielle Doku geprüft, weder `form.json` allgemein noch
+List-Spalten). Für erklärungsbedürftige Einzelfelder: `PopupButton` (Klick statt Hover) für die
+fokussierte Erklärung EINES Felds, mit `caption="i"` (reiner Buchstabe, kein Emoji) und
+`width="70px"` — InverterHub hat live getestet, dass `width` unter ~70px keinen sichtbaren Effekt
+hat (WebFront-Skin erzwingt eine Mindestbreite) und Icon-Größe/Hintergrund grundsätzlich nicht
+änderbar sind (globaler Skin); `"i"` + `70px` ergibt eine quadratisch wirkende Fläche
+(SUITE.md-Konvention, Commit `a587531`). Der Button steht typischerweise in einer `RowLayout` neben
+einem kurzen Kontext-`Label`, damit das bloße „i" nicht ohne Bezug dasteht. `Label` bleibt für kurze,
+immer sichtbare Erklärungen; das „Dokumentation & Hilfe"-Panel bleibt für den Gesamtzusammenhang.
+**Bei uns umgesetzt:** PV-Generatorliste, Spalte „Kalibrieren" — war bisher nur in zwei benachbarten
+Absätzen (Panel-Label davor, Kalibrierungs-Panel danach) erklärt, nicht direkt am Feld. Jetzt
+zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in allen drei Formularen geprüft:
+bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein weiterer Bedarf gefunden.
