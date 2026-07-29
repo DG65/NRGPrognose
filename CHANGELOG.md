@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **NRG-Stack-Markenkonvention.** Bibliotheksname `NRGPrognose` → **„NRG-Stack Prognose"**,
+  Modul-Aliase `NRGLastprognose`/`NRGPVPrognose`/`NRGEnergiebilanz` → **„NRG-Stack
+  Lastprognose"/„NRG-Stack PVPrognose"/„NRG-Stack Energiebilanz"** (analog zu NRGDashboard,
+  Commit `3d1706f`). Nur Anzeigenamen (`library.json` „name", `module.json` „aliases")
+  geändert — GUIDs und `module.json` „name" (= PHP-Klasse) unverändert, bestehende Instanzen
+  und künftige Updates nicht betroffen. Dabei nebenbei behoben: `vendor` in allen drei
+  `module.json` stand fälschlich auf `"DG65"` (= Modulentwickler) statt leer — die
+  Store-Review-Checkliste verlangt hier den Hersteller des angebundenen Geräts, und diese
+  drei Module binden kein Fremdgerät an (reine Software/Wetter-API).
 - **PV-Prognose: Feld-Erklärung für „Korrektur" (Verbund-weite Usability-Prüfung).** Die Spalte
   „Korrektur" in der Generatorliste zeigte nur eine nackte Zahl (Standard 1,00) ohne Erklärung, was
   der Wert bedeutet oder wie er mit der Selbstkalibrierung zusammenwirkt — für Laien ohne
