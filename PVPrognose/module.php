@@ -824,7 +824,9 @@ class PVPrognose extends IPSModule
 
         $time = $j['hourly']['time'];
         $gti  = $j['hourly']['global_tilted_irradiance'] ?? [];
+        $temp = $j['hourly']['temperature_2m'] ?? [];
         $pr   = $this->ReadPropertyFloat('PVF_PR');
+        $tc   = $this->ReadPropertyFloat('PVF_TempCoeff');
         $kwpW = $g['kwp'] * 1000.0;
         $today = date('Y-m-d');
 
@@ -833,7 +835,18 @@ class PVPrognose extends IPSModule
         for ($i = 0; $i < $n; $i++) {
             list($date, $hour) = $this->omSlot($time[$i]); // Stundenbeginn (siehe fetchOpenMeteo)
             if ($date >= $today) { continue; }             // nur abgeschlossene Tage
-            $w = $kwpW * ((float)($gti[$i] ?? 0) / 1000.0) * $pr;
+            $irr = (float)($gti[$i] ?? 0);
+            $ta  = (float)($temp[$i] ?? 20);
+            // Dieselbe Temperatur-Abminderung wie im eigentlichen Forecast (fetchOpenMeteo).
+            // Sonst faengt der Selbstkalibrierungs-Faktor (gemessen/hier-modelliert) den
+            // Temperatureffekt zusaetzlich ein und der spaeter im Forecast schon ange-
+            // wendete Temperaturabzug wird doppelt gerechnet -> Prognose zu niedrig.
+            $derate = 1.0;
+            if ($tc != 0.0 && $irr > 0) {
+                $tcell  = $ta + $irr / 800.0 * 20.0;
+                $derate = 1.0 + ($tc / 100.0) * ($tcell - 25.0);
+            }
+            $w = $kwpW * ($irr / 1000.0) * $pr * max(0.0, $derate);
             if (!isset($byDate[$date])) { $byDate[$date] = array_fill(0, 24, 0.0); }
             $byDate[$date][$hour] = $w;
         }

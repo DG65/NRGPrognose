@@ -6,6 +6,16 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: PV-Prognose unterschätzte die Erzeugung systematisch, wenn Selbstkalibrierung aktiv
+  war.** `fetchOpenMeteoPast()` (die Vergangenheits-Modellierung für die
+  Selbstkalibrierungs-Basis) rechnete OHNE die Temperatur-Abminderung, die der eigentliche
+  Forecast (`fetchOpenMeteo()`) aber anwendet. Dadurch fing der gelernte Kalibrierungsfaktor
+  (gemessen ÷ modelliert) den Temperatureffekt zusätzlich ein — der im fertigen Forecast
+  bereits separat abgezogene Temperaturverlust wurde effektiv doppelt gerechnet, die
+  Prognose fiel dadurch strukturell zu niedrig aus. `fetchOpenMeteoPast()` wendet jetzt
+  dieselbe NOCT-Näherung wie `fetchOpenMeteo()` an, sodass die Kalibrierung nur noch die
+  temperaturunabhängigen Restverluste (Verschmutzung, Verkabelung, reale PR-Abweichung)
+  lernt.
 - **Fix (kritisch): `EMS_GetSpecialEvents`-Aufruf stürzte `Rebuild()` fatal ab, sobald ein
   EMS installiert war.** In beiden Modulen (Last- und PV-Prognose) wurde die EMS-Instanz-ID
   hartkodiert als `0` übergeben statt die tatsächliche Instanz zu suchen — IP-Symcon wirft
