@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: laufende Plausibilitätskontrolle in beiden Modulen (Dietmars Vorschlag, 09.08.2026).**
+  `checkDataPlausibility()` läuft bei jedem `Rebuild()` automatisch mit — kein separater
+  Zeitplan/Cron nötig, nutzt den ohnehin vorhandenen Intervall-Timer. Prüft, ob die für
+  Prognose/Kalibrierung genutzten Messwerte (PV: PowerVar je Generator; Last: Hausverbrauch,
+  Abzugsliste, WP-Geräte) innerhalb der letzten 48 Stunden mindestens einmal einen echten
+  Wertewechsel hatten. Anders als `unloggedVars()` (prüft nur die Konfiguration) erkennt das
+  auch eine zur Laufzeit ausgefallene Quelle, die weiter als archiviert gilt, aber keine
+  frischen Werte mehr liefert (z. B. eine abgebrochene Modbus-Verbindung) — genau die
+  Fehlerklasse, die am 09.08.2026 zwei Wochen unbemerkt blieb, bis der Vergleich Soll/Ist von
+  Hand angestoßen wurde. Auffälligkeiten erscheinen als ⚠️ direkt im Status, sichtbar ohne
+  eigene Statistik-Auswertung.
 - **Fix: PV-Prognose hatte kein try/catch um `Rebuild()`.** Lastprognose fängt Exceptions in
   `Rebuild()` schon lange ab und schreibt sie lesbar in den Status; PV-Prognose nicht — jeder
   unerwartete Fehler (Netzwerk, API-Format, o. ä.) riss den kompletten Lauf ohne Meldung ab,

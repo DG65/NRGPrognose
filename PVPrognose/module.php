@@ -203,12 +203,17 @@ class PVPrognose extends IPSModule
             $this->evaluateAccuracy();
 
             $this->SetValue('PVF_LastUpdate', time());
-            $this->SetValue('PVF_Status', sprintf(
+            $status = sprintf(
                 'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
                 $this->GetValue('PVF_kWhToday'),
                 $this->GetValue('PVF_kWhTomorrow'),
                 $this->GetValue('PVF_kWhDayAfter')
-            ));
+            );
+            $stale = $this->checkDataPlausibility();
+            if (count($stale) > 0) {
+                $status .= ' | ⚠️ ' . implode(' · ', $stale);
+            }
+            $this->SetValue('PVF_Status', $status);
             $this->SetStatus(102);
             $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
 
@@ -217,6 +222,32 @@ class PVPrognose extends IPSModule
             $this->SetStatus(104);
             $this->log(PVF_LOG_BASIC, 'Fehler: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Laufende Plausibilitätskontrolle: läuft bei JEDEM Rebuild() automatisch mit
+     * (kein separater Zeitplan nötig — nutzt den ohnehin vorhandenen Intervall-
+     * Timer des Moduls). Prüft, ob die für Selbstkalibrierung/Prognosegüte
+     * verwendeten PowerVar-Messwerte überhaupt noch aktuell hereinkommen. Genau
+     * diese Fehlerklasse (zwei Wochen unbemerkte Daten-Stille durch eine
+     * geschlossene Modbus-Verbindung, 09.08.2026) fiel bisher niemandem auf,
+     * bis der Vergleich Soll/Ist von Hand angestoßen wurde. 48h Schwelle, weil
+     * jeder normale Tag/Nacht-Zyklus mindestens einmal einen echten Wertewechsel
+     * zeigen muss (auch bei bewölktem Himmel) — kürzer würde jede Nacht falsch
+     * anschlagen, länger verschleppt eine echte Störung unnötig.
+     */
+    private function checkDataPlausibility(): array
+    {
+        $warnings = [];
+        $staleSec = 48 * 3600;
+        foreach ($this->pvGenerators() as $g) {
+            if ($g['powervar'] <= 0 || !IPS_VariableExists($g['powervar'])) { continue; }
+            $age = time() - IPS_GetVariable($g['powervar'])['VariableChanged'];
+            if ($age > $staleSec) {
+                $warnings[] = sprintf('%s: PowerVar seit %.1f Tagen ohne neuen Messwert', $g['name'], $age / 86400);
+            }
+        }
+        return $warnings;
     }
 
     /**

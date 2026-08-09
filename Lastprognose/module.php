@@ -244,6 +244,10 @@ class Lastprognose extends IPSModule
                 $status .= ' | ⚠ nicht archiviert (ignoriert): ' . implode(', ', $missing);
                 $this->log(LFC_LOG_BASIC, 'Nicht archivierte Variablen: ' . implode(', ', $missing));
             }
+            $stale = $this->checkDataPlausibility();
+            if (count($stale) > 0) {
+                $status .= ' | ⚠️ ' . implode(' · ', $stale);
+            }
             $this->SetValue('LFC_Status', $status);
             $this->SetStatus(102);
             $this->log(LFC_LOG_BASIC, 'Neuberechnung abgeschlossen');
@@ -1003,6 +1007,43 @@ class Lastprognose extends IPSModule
         $check($this->ReadPropertyInteger('VAR_WP_Power'));
 
         return array_values(array_unique($missing));
+    }
+
+    /**
+     * Laufende Plausibilitätskontrolle: läuft bei JEDEM Rebuild() automatisch mit
+     * (kein separater Zeitplan nötig — nutzt den ohnehin vorhandenen Intervall-
+     * Timer des Moduls). Prüft, ob die für die Prognose genutzten Messwerte
+     * überhaupt noch aktuell hereinkommen — anders als unloggedVars() (prüft nur
+     * die Konfiguration: "ist Archivierung eingeschaltet") erkennt das auch eine
+     * zur Laufzeit ausgefallene Quelle (z. B. abgebrochene Modbus-Verbindung),
+     * die weiter als archiviert gilt, aber keine frischen Werte mehr liefert.
+     * 48h Schwelle: jeder normale Tag zeigt mindestens einmal einen echten
+     * Wertewechsel, kürzer würde bei manchen Signalen (z. B. Anwesenheit über
+     * ein ganzes Wochenende unverändert) fälschlich anschlagen.
+     */
+    private function checkDataPlausibility(): array
+    {
+        $warnings = [];
+        $staleSec = 48 * 3600;
+        $check = function (int $vid, string $label) use ($staleSec, &$warnings) {
+            if ($vid <= 0 || !IPS_VariableExists($vid)) { return; }
+            $age = time() - IPS_GetVariable($vid)['VariableChanged'];
+            if ($age > $staleSec) {
+                $warnings[] = sprintf('%s: seit %.1f Tagen ohne neuen Messwert', $label, $age / 86400);
+            }
+        };
+
+        $check($this->ReadPropertyInteger('VAR_Consumption'), 'Hausverbrauch');
+        foreach ((array)json_decode($this->ReadPropertyString('ExcludeVars'), true) as $row) {
+            $vid = (int)($row['VariableID'] ?? 0);
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste');
+        }
+        foreach ((array)json_decode($this->ReadPropertyString('WPDevices'), true) as $row) {
+            $vid = (int)($row['PowerVar'] ?? 0);
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'WP-Gerät');
+        }
+
+        return $warnings;
     }
 
     /** Minuten je Slot (60, 30 oder 15). */
