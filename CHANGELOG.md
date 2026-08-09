@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (kritisch): `EMS_GetSpecialEvents`-Aufruf stürzte `Rebuild()` fatal ab, sobald ein
+  EMS installiert war.** In beiden Modulen (Last- und PV-Prognose) wurde die EMS-Instanz-ID
+  hartkodiert als `0` übergeben statt die tatsächliche Instanz zu suchen — IP-Symcon wirft
+  dann "Instance does not implement this function", ein Fatal Error, den `@` nicht abfängt.
+  Betraf `evaluateAccuracy()` und damit den gesamten `Rebuild()`-Aufruf inkl. Prognoseberechnung.
+  Behoben durch `emsInstance()` (analog zum bestehenden `owmInstance()`-Muster,
+  `IPS_GetInstanceListByModuleID` auf die stabile EMS-GUID). PV-Prognose bekam dabei
+  zusätzlich die in Lastprognose bereits vorhandene `contractVersion`-Major-Prüfung
+  (Update-Meldepflicht) nachgezogen, die dort noch fehlte.
 - **NRG-Stack-Markenkonvention.** Bibliotheksname `NRGPrognose` → **„NRG-Stack Prognose"**,
   Modul-Aliase `NRGLastprognose`/`NRGPVPrognose`/`NRGEnergiebilanz` → **„NRG-Stack
   Lastprognose"/„NRG-Stack PVPrognose"/„NRG-Stack Energiebilanz"** (analog zu NRGDashboard,

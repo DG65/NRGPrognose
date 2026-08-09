@@ -35,6 +35,11 @@ define('PVF_CONTRACT_FORECAST',   '1.0'); // GetForecast / GetSnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.0'); // GetEnergyWindow
 
+// EMS — für EMS_GetSpecialEvents (Sondereffekt-Ausschluss). GUID stabil über
+// alle Installationen; Instanz wird zur Laufzeit gesucht (optional, kein Fehler
+// wenn kein EMS installiert ist).
+define('PVF_EMS_GUID', '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}');
+
 class PVPrognose extends IPSModule
 {
     // Request-lokales Modell: [offset => 24×{p10,p50,p90} in W]
@@ -43,6 +48,12 @@ class PVPrognose extends IPSModule
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
     private $loggedCache = [];
+    // Major der EMS_GetSpecialEvents-Vertragsversion, gegen die wir die Felder
+    // from/to/deviceId/source/reason deuten; bei Abweichung Kopplung deaktivieren.
+    private const EMS_EVENTS_MAJOR = 1;
+    // Wird gesetzt, wenn ein Aufruf einen unbekannten Vertrags-Major lieferte
+    // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
+    private $specialEventsVersionMismatch = null;
 
     // ----------------------------------------------------------------
     //  Lebenszyklus
@@ -504,6 +515,10 @@ class PVPrognose extends IPSModule
         }
         if ($excluded > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+        }
+        if ($this->specialEventsVersionMismatch !== null) {
+            $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
+                $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         $this->SetValue('PVF_Accuracy', $txt);
         $this->log(PVF_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
@@ -988,11 +1003,39 @@ class PVPrognose extends IPSModule
      */
     private function fetchSpecialEvents(int $lookbackDays): array
     {
+        $this->specialEventsVersionMismatch = null;
         if (!function_exists('EMS_GetSpecialEvents')) { return []; }
+        $emsId = $this->emsInstance();
+        if ($emsId <= 0) { return []; }
         $from = strtotime('today -' . $lookbackDays . ' days');
         $to   = time();
-        $events = @EMS_GetSpecialEvents(0, $from, $to);
-        return is_array($events) ? $events : [];
+        $events = @EMS_GetSpecialEvents($emsId, $from, $to);
+        if (!is_array($events)) { return []; }
+
+        // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle Kompatibilität
+        // gilt nur innerhalb derselben Major. Liefert das EMS eine uns unbekannte
+        // Major, deuten wir die Felder nicht blind — Kopplung deaktivieren statt
+        // mit falsch interpretierten Daten zu lernen, und sichtbar melden.
+        foreach ($events as $e) {
+            $verStr = (string)($e['contractVersion'] ?? '1.0');
+            $major  = (int)explode('.', $verStr)[0];
+            if ($major !== self::EMS_EVENTS_MAJOR) {
+                $this->specialEventsVersionMismatch = $verStr;
+                $this->log(PVF_LOG_BASIC, sprintf(
+                    'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+                    $verStr, self::EMS_EVENTS_MAJOR
+                ));
+                return [];
+            }
+        }
+        return $events;
+    }
+
+    /** EMS-Instanz für EMS_GetSpecialEvents. 0 = keine vorhanden. */
+    private function emsInstance(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(PVF_EMS_GUID);
+        return (is_array($ids) && count($ids) > 0) ? (int)$ids[0] : 0;
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */

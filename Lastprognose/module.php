@@ -23,6 +23,11 @@ define('LFC_ARCHIVE_GUID', '{43192F0B-135B-4CE7-A0A7-1475603F3060}');
 define('LFC_CONTRACT_FORECAST', '1.0'); // GetForecast / GetSnapshot
 define('LFC_CONTRACT_ENERGYWINDOW', '1.0'); // GetEnergyWindow
 
+// EMS — für EMS_GetSpecialEvents (Sondereffekt-Ausschluss). GUID stabil über
+// alle Installationen; Instanz wird zur Laufzeit gesucht (optional, kein Fehler
+// wenn kein EMS installiert ist).
+define('LFC_EMS_GUID', '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}');
+
 // OpenWeatherData (demel42) — für den Auto-Modus der Temperaturvorhersage.
 // GUID stabil über alle Installationen; Instanz wird zur Laufzeit gesucht.
 define('LFC_OWM_GUID',      '{8072158E-53BF-482A-B925-F4FBE522CEF2}');
@@ -910,9 +915,11 @@ class Lastprognose extends IPSModule
     {
         $this->specialEventsVersionMismatch = null;
         if (!function_exists('EMS_GetSpecialEvents')) { return []; }
+        $emsId = $this->emsInstance();
+        if ($emsId <= 0) { return []; }
         $from = strtotime('today -' . $lookbackDays . ' days');
         $to   = time();
-        $events = @EMS_GetSpecialEvents(0, $from, $to);
+        $events = @EMS_GetSpecialEvents($emsId, $from, $to);
         if (!is_array($events)) { return []; }
 
         // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle Kompatibilität
@@ -1154,6 +1161,13 @@ class Lastprognose extends IPSModule
         }
         $ids = IPS_GetInstanceListByModuleID(LFC_OWM_GUID);
         return (is_array($ids) && count($ids) > 0) ? $ids[0] : 0;
+    }
+
+    /** EMS-Instanz für EMS_GetSpecialEvents. 0 = keine vorhanden. */
+    private function emsInstance(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(LFC_EMS_GUID);
+        return (is_array($ids) && count($ids) > 0) ? (int)$ids[0] : 0;
     }
 
     /**
