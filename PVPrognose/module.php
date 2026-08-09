@@ -181,35 +181,42 @@ class PVPrognose extends IPSModule
             return;
         }
 
-        $this->modelCache = null;
-        $model = $this->buildModel();
-        if ($model === null) {
-            $this->SetValue('PVF_Status', 'Vorhersage konnte nicht geladen werden (API/Netzwerk?)');
+        try {
+            $this->modelCache = null;
+            $model = $this->buildModel();
+            if ($model === null) {
+                $this->SetValue('PVF_Status', 'Vorhersage konnte nicht geladen werden (API/Netzwerk?)');
+                $this->SetStatus(104);
+                return;
+            }
+
+            $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'];
+            $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter'];
+            $fcs = [];
+            for ($offset = 0; $offset <= 2; $offset++) {
+                $fc = $this->GetForecast($offset);
+                $fcs[$offset] = $fc;
+                $this->SetValue($idents[$offset], json_encode($fc));
+                $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
+            }
+            $this->saveSnapshot($fcs);
+            $this->evaluateAccuracy();
+
+            $this->SetValue('PVF_LastUpdate', time());
+            $this->SetValue('PVF_Status', sprintf(
+                'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
+                $this->GetValue('PVF_kWhToday'),
+                $this->GetValue('PVF_kWhTomorrow'),
+                $this->GetValue('PVF_kWhDayAfter')
+            ));
+            $this->SetStatus(102);
+            $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
+
+        } catch (Exception $e) {
+            $this->SetValue('PVF_Status', 'Fehler: ' . $e->getMessage());
             $this->SetStatus(104);
-            return;
+            $this->log(PVF_LOG_BASIC, 'Fehler: ' . $e->getMessage());
         }
-
-        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'];
-        $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter'];
-        $fcs = [];
-        for ($offset = 0; $offset <= 2; $offset++) {
-            $fc = $this->GetForecast($offset);
-            $fcs[$offset] = $fc;
-            $this->SetValue($idents[$offset], json_encode($fc));
-            $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
-        }
-        $this->saveSnapshot($fcs);
-        $this->evaluateAccuracy();
-
-        $this->SetValue('PVF_LastUpdate', time());
-        $this->SetValue('PVF_Status', sprintf(
-            'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
-            $this->GetValue('PVF_kWhToday'),
-            $this->GetValue('PVF_kWhTomorrow'),
-            $this->GetValue('PVF_kWhDayAfter')
-        ));
-        $this->SetStatus(102);
-        $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
     }
 
     /**

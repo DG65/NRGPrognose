@@ -6,6 +6,10 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: PV-Prognose hatte kein try/catch um `Rebuild()`.** Lastprognose fängt Exceptions in
+  `Rebuild()` schon lange ab und schreibt sie lesbar in den Status; PV-Prognose nicht — jeder
+  unerwartete Fehler (Netzwerk, API-Format, o. ä.) riss den kompletten Lauf ohne Meldung ab,
+  genau wie beim `EMS_GetSpecialEvents`-Absturz. Jetzt symmetrisch zu Lastprognose.
 - **Fix: PV-Prognose unterschätzte die Erzeugung systematisch, wenn Selbstkalibrierung aktiv
   war.** `fetchOpenMeteoPast()` (die Vergangenheits-Modellierung für die
   Selbstkalibrierungs-Basis) rechnete OHNE die Temperatur-Abminderung, die der eigentliche
