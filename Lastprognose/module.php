@@ -1017,15 +1017,22 @@ class Lastprognose extends IPSModule
      * die Konfiguration: "ist Archivierung eingeschaltet") erkennt das auch eine
      * zur Laufzeit ausgefallene Quelle (z. B. abgebrochene Modbus-Verbindung),
      * die weiter als archiviert gilt, aber keine frischen Werte mehr liefert.
-     * 48h Schwelle: jeder normale Tag zeigt mindestens einmal einen echten
-     * Wertewechsel, kürzer würde bei manchen Signalen (z. B. Anwesenheit über
-     * ein ganzes Wochenende unverändert) fälschlich anschlagen.
+     *
+     * Zwei Schwellen, bewusst unterschiedlich (Lektion 09.08.2026: eine erste
+     * Fassung meldete den Wallbox-Ladewert einer kaum genutzten Wallbox
+     * fälschlich als "kaputt", obwohl "seit 3 Wochen konstant 0 kW" bei einem
+     * optionalen Verbraucher schlicht "niemand hat geladen" bedeuten kann):
+     * Hausverbrauch MUSS in jedem 48h-Fenster echt schwanken (ein Haus hat
+     * nie über zwei volle Tage exakt konstante Last) — kurze, strenge Schwelle.
+     * Abzugsliste/WP-Geräte sind OPTIONALE Lasten (Wallbox, Wärmepumpe/Klima),
+     * die legitim wochenlang inaktiv sein können (kein Ladevorgang, Saison
+     * ohne Heizen/Kühlen) — deutlich längere, lockere Schwelle, damit nur eine
+     * wirklich verdächtig lange Stille auffällt, nicht der Normalfall.
      */
     private function checkDataPlausibility(): array
     {
         $warnings = [];
-        $staleSec = 48 * 3600;
-        $check = function (int $vid, string $label) use ($staleSec, &$warnings) {
+        $check = function (int $vid, string $label, int $staleSec) use (&$warnings) {
             if ($vid <= 0 || !IPS_VariableExists($vid)) { return; }
             $age = time() - IPS_GetVariable($vid)['VariableChanged'];
             if ($age > $staleSec) {
@@ -1033,14 +1040,14 @@ class Lastprognose extends IPSModule
             }
         };
 
-        $check($this->ReadPropertyInteger('VAR_Consumption'), 'Hausverbrauch');
+        $check($this->ReadPropertyInteger('VAR_Consumption'), 'Hausverbrauch', 48 * 3600);
         foreach ((array)json_decode($this->ReadPropertyString('ExcludeVars'), true) as $row) {
             $vid = (int)($row['VariableID'] ?? 0);
-            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste');
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste', 30 * 86400);
         }
         foreach ((array)json_decode($this->ReadPropertyString('WPDevices'), true) as $row) {
             $vid = (int)($row['PowerVar'] ?? 0);
-            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'WP-Gerät');
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'WP-Gerät', 30 * 86400);
         }
 
         return $warnings;

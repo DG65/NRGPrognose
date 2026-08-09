@@ -6,6 +6,12 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Plausibilitätskontrolle (Lastprognose) meldete optionale Lasten fälschlich als
+  "kaputt".** Die 48h-Schwelle passt für den Hausverbrauch (schwankt immer), aber nicht für
+  Abzugsliste/WP-Geräte (Wallbox, Wärmepumpe/Klima) — die dürfen legitim wochenlang inaktiv
+  sein (kein Ladevorgang, Saison ohne Heizen/Kühlen). Live gefunden: eine kaum genutzte
+  Wallbox stand seit 3 Wochen konstant bei 0 kW, wurde fälschlich als Ausfall gemeldet.
+  Hausverbrauch bleibt bei 48h, Abzugsliste/WP-Geräte jetzt 30 Tage.
 - **Neu: laufende Plausibilitätskontrolle in beiden Modulen (Dietmars Vorschlag, 09.08.2026).**
   `checkDataPlausibility()` läuft bei jedem `Rebuild()` automatisch mit — kein separater
   Zeitplan/Cron nötig, nutzt den ohnehin vorhandenen Intervall-Timer. Prüft, ob die für
