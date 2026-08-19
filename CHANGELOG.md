@@ -8,9 +8,10 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
 
 - **README-Badges (Verbund-Konvention, 18.08.2026).** Badge-Zeile direkt unter der
   H1-Überschrift in allen vier READMEs (Suite + 3 Module): Symcon, Modul-Version,
-  Symcon-Mindestversion, Lizenz, Check-Style-CI, PayPal — nach EMS' Referenzvorlage.
-  Dafür neuer minimaler CI-Workflow `.github/workflows/check-style.yml` (`php -l` über
-  alle PHP-Dateien bei jedem Push), damit das CI-Badge echt ist statt vorgetäuscht.
+  Symcon-Mindestversion, Lizenz, PayPal — nach EMS' Referenzvorlage. Check-Style-CI-Badge
+  bewusst noch NICHT dabei: das GitHub-Token hat den `workflow`-Scope nicht, ein
+  `.github/workflows/`-Push wird von GitHub abgelehnt. SUITE.md-Regel befolgt (kein
+  vorgetäuschtes CI-Badge ohne echte CI) — Workflow + Badge folgen, sobald der Scope da ist.
 - **Fix: Plausibilitätskontrolle (Lastprognose) meldete optionale Lasten fälschlich als
   "kaputt".** Die 48h-Schwelle passt für den Hausverbrauch (schwankt immer), aber nicht für
   Abzugsliste/WP-Geräte (Wallbox, Wärmepumpe/Klima) — die dürfen legitim wochenlang inaktiv
