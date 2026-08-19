@@ -1,5 +1,12 @@
 # Energiebilanz (Kachel)
 
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 Kombinierte **Visualisierungskachel**, die PV-Erzeugung und Verbrauch gemeinsam (oder einzeln) über
 bis zu 3 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
 Netzbezug/Einspeisung. Prefix: `EFTILE`.

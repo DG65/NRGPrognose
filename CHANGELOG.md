@@ -6,6 +6,11 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **README-Badges (Verbund-Konvention, 18.08.2026).** Badge-Zeile direkt unter der
+  H1-Überschrift in allen vier READMEs (Suite + 3 Module): Symcon, Modul-Version,
+  Symcon-Mindestversion, Lizenz, Check-Style-CI, PayPal — nach EMS' Referenzvorlage.
+  Dafür neuer minimaler CI-Workflow `.github/workflows/check-style.yml` (`php -l` über
+  alle PHP-Dateien bei jedem Push), damit das CI-Badge echt ist statt vorgetäuscht.
 - **Fix: Plausibilitätskontrolle (Lastprognose) meldete optionale Lasten fälschlich als
   "kaputt".** Die 48h-Schwelle passt für den Hausverbrauch (schwankt immer), aber nicht für
   Abzugsliste/WP-Geräte (Wallbox, Wärmepumpe/Klima) — die dürfen legitim wochenlang inaktiv
