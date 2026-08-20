@@ -6,6 +6,11 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Button "🔄 Übernehmen erzwingen (ohne Formularänderung)" in allen drei Modulen**
+  (EMS-Angebot, optional). Ruft direkt `IPS_ApplyChanges($id)` auf — praktisch nach jedem
+  Modul-Update, ohne dass erst ein Formularfeld angefasst werden muss. Kein `SetProperty` im
+  `onClick`, daher kein Verstoß gegen die Store-Review-Regel „keine Selbstpersistenz in
+  Formular-Buttons" — persistiert nichts Ungespeichertes.
 - **Sichtbare Rückmeldung bei jeder Aktion (verbindliche Verbund-Konvention, 20.08.2026).**
   Der "Prognose jetzt neu berechnen"-Button gab in beiden Modulen (LFC/PVF) bislang keine
   sichtbare Rückmeldung — `Rebuild()` lief serverseitig korrekt, aber ohne `echo` im `onClick`
