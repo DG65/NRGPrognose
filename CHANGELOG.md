@@ -6,6 +6,18 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Sichtbare Rückmeldung bei jeder Aktion (verbindliche Verbund-Konvention, 20.08.2026).**
+  Der "Prognose jetzt neu berechnen"-Button gab in beiden Modulen (LFC/PVF) bislang keine
+  sichtbare Rückmeldung — `Rebuild()` lief serverseitig korrekt, aber ohne `echo` im `onClick`
+  sah man ohne Formular-Neuöffnen nicht, dass etwas passiert war. `Rebuild()` gibt jetzt einen
+  Ergebnistext mit ✅/⚠️/⛔-Präfix zurück (identisch zu dem, was `LFC_/PVF_Status` speichert),
+  `onClick` ruft `echo LFC_Rebuild($id)`/`echo PVF_Rebuild($id)`. Der Intervall-Timer ruft
+  dieselbe Methode weiterhin auf und ignoriert den Rückgabewert, keine Verhaltensänderung dort.
+  Die anderen Buttons ("Status anzeigen", "…morgen (JSON) ausgeben") hatten bereits `echo` —
+  „Status anzeigen" war laut EMS sogar das Vorbild für die neue Konvention. Energiebilanz'
+  „Darstellung auf Standard zurücksetzen" bleibt unverändert: `ResetStyle()` schreibt per
+  `UpdateFormField()` direkt in die betroffenen Formularfelder zurück, die sichtbare Änderung
+  aller 14 Felder ist die Rückmeldung selbst.
 - **README-Badges (Verbund-Konvention, 18.08.2026).** Badge-Zeile direkt unter der
   H1-Überschrift in allen vier READMEs (Suite + 3 Module): Symcon, Modul-Version,
   Symcon-Mindestversion, Lizenz, PayPal — nach EMS' Referenzvorlage. Check-Style-CI-Badge

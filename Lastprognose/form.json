@@ -507,7 +507,7 @@
         {
             "type": "Button",
             "caption": "Prognose jetzt neu berechnen",
-            "onClick": "LFC_Rebuild($id);"
+            "onClick": "echo LFC_Rebuild($id);"
         },
         {
             "type": "Button",

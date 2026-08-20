@@ -174,20 +174,30 @@ class PVPrognose extends IPSModule
     //  Öffentlich
     // ----------------------------------------------------------------
 
-    public function Rebuild()
+    /**
+     * Neuberechnung anstoßen. Gibt einen menschenlesbaren Ergebnistext zurück
+     * (✅/⚠️/⛔-Präfix) — der Formular-Button ruft das über
+     * "echo PVF_Rebuild($id);" auf, damit man ohne Formular-Neuöffnen sofort
+     * sieht, dass etwas passiert ist (Verbund-Konvention "Sichtbare
+     * Rückmeldung bei jeder Aktion", SUITE.md 20.08.2026). Der Intervall-
+     * Timer ruft dieselbe Methode auf und ignoriert den Rückgabewert.
+     */
+    public function Rebuild(): string
     {
         if (count($this->pvGenerators()) === 0) {
-            $this->SetValue('PVF_Status', 'Keine PV-Generatoren konfiguriert');
-            return;
+            $msg = '⛔ Keine PV-Generatoren konfiguriert.';
+            $this->SetValue('PVF_Status', $msg);
+            return $msg;
         }
 
         try {
             $this->modelCache = null;
             $model = $this->buildModel();
             if ($model === null) {
-                $this->SetValue('PVF_Status', 'Vorhersage konnte nicht geladen werden (API/Netzwerk?)');
+                $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?).';
+                $this->SetValue('PVF_Status', $msg);
                 $this->SetStatus(104);
-                return;
+                return $msg;
             }
 
             $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'];
@@ -204,7 +214,7 @@ class PVPrognose extends IPSModule
 
             $this->SetValue('PVF_LastUpdate', time());
             $status = sprintf(
-                'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
+                '✅ heute %.1f / morgen %.1f / übermorgen %.1f kWh',
                 $this->GetValue('PVF_kWhToday'),
                 $this->GetValue('PVF_kWhTomorrow'),
                 $this->GetValue('PVF_kWhDayAfter')
@@ -216,11 +226,14 @@ class PVPrognose extends IPSModule
             $this->SetValue('PVF_Status', $status);
             $this->SetStatus(102);
             $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
+            return $status;
 
         } catch (Exception $e) {
-            $this->SetValue('PVF_Status', 'Fehler: ' . $e->getMessage());
+            $msg = '⛔ Fehler: ' . $e->getMessage();
+            $this->SetValue('PVF_Status', $msg);
             $this->SetStatus(104);
             $this->log(PVF_LOG_BASIC, 'Fehler: ' . $e->getMessage());
+            return $msg;
         }
     }
 

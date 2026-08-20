@@ -436,7 +436,7 @@
         {
             "type": "Button",
             "caption": "Prognose jetzt neu berechnen",
-            "onClick": "PVF_Rebuild($id);"
+            "onClick": "echo PVF_Rebuild($id);"
         },
         {
             "type": "Button",

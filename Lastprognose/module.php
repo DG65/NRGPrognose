@@ -201,11 +201,20 @@ class Lastprognose extends IPSModule
     /**
      * Vollständige Neuberechnung aller Prognose-Horizonte.
      */
-    public function Rebuild()
+    /**
+     * Neuberechnung anstoßen. Gibt einen menschenlesbaren Ergebnistext zurück
+     * (✅/⚠️/⛔-Präfix) — der Formular-Button ruft das über
+     * "echo LFC_Rebuild($id);" auf, damit man ohne Formular-Neuöffnen sofort
+     * sieht, dass etwas passiert ist (Verbund-Konvention "Sichtbare
+     * Rückmeldung bei jeder Aktion", SUITE.md 20.08.2026). Der Intervall-
+     * Timer ruft dieselbe Methode auf und ignoriert den Rückgabewert.
+     */
+    public function Rebuild(): string
     {
         if ($this->ReadPropertyInteger('VAR_Consumption') <= 0) {
-            $this->SetValue('LFC_Status', 'Keine Verbrauchsvariable konfiguriert');
-            return;
+            $msg = '⛔ Keine Verbrauchsvariable konfiguriert.';
+            $this->SetValue('LFC_Status', $msg);
+            return $msg;
         }
 
         try {
@@ -233,7 +242,7 @@ class Lastprognose extends IPSModule
 
             $this->SetValue('LFC_LastUpdate', time());
             $status = sprintf(
-                'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
+                '✅ heute %.1f / morgen %.1f / übermorgen %.1f kWh',
                 $this->GetValue('LFC_kWhToday'),
                 $this->GetValue('LFC_kWhTomorrow'),
                 $this->GetValue('LFC_kWhDayAfter')
@@ -251,10 +260,13 @@ class Lastprognose extends IPSModule
             $this->SetValue('LFC_Status', $status);
             $this->SetStatus(102);
             $this->log(LFC_LOG_BASIC, 'Neuberechnung abgeschlossen');
+            return $status;
 
         } catch (Exception $e) {
-            $this->SetValue('LFC_Status', 'Fehler: ' . $e->getMessage());
+            $msg = '⛔ Fehler: ' . $e->getMessage();
+            $this->SetValue('LFC_Status', $msg);
             $this->log(LFC_LOG_BASIC, 'Fehler: ' . $e->getMessage());
+            return $msg;
         }
     }
 
