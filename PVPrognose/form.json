@@ -447,6 +447,11 @@
             "type": "Button",
             "caption": "PV-Prognose morgen (JSON) ausgeben",
             "onClick": "echo print_r(PVF_GetForecast($id, 1), true);"
+        },
+        {
+            "type": "Button",
+            "caption": "🔄 Übernehmen erzwingen (ohne Formularänderung)",
+            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges() ausgeführt.';"
         }
     ],
     "status": [
