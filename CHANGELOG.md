@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Performance): `LFC_GetForecast()`/`PVF_GetForecast()` rechneten bei JEDEM externen
+  Aufruf komplett neu, statt den von `Rebuild()` bereits berechneten Stand zu nutzen.**
+  Fund aus der PVMonitor/Dashboard-Sitzung (langsamer Tagesplan-Reiter): Last-Prognose
+  durchsuchte dabei bis zu `LFC_LookbackDays` (Default 365) Kandidatentage mit je einem
+  Archivzugriff, PV-Prognose löste bei jedem Aufruf frische Live-API-Calls aus (Open-Meteo/
+  Forecast.Solar/Solcast — Letzteres ratenbegrenzt) — `$modelCache` half nur innerhalb EINER
+  Skriptausführung, nicht über separate externe Aufrufe hinweg. Beide `GetForecast()` lesen
+  jetzt zuerst den bereits in `LFC_/PVF_Today/Tomorrow/DayAfter` zwischengespeicherten Stand
+  (gültig solange dessen `date`-Feld zum angefragten Offset passt), die teure Berechnung
+  (`computeForecast()`) läuft nur noch in `Rebuild()` selbst und beim allerersten,
+  noch ungecachten Aufruf.
 - **Neu: Button "🔄 Übernehmen erzwingen (ohne Formularänderung)" in allen drei Modulen**
   (EMS-Angebot, optional). Ruft direkt `IPS_ApplyChanges($id)` auf — praktisch nach jedem
   Modul-Update, ohne dass erst ein Formularfeld angefasst werden muss. Kein `SetProperty` im

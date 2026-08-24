@@ -204,7 +204,7 @@ class PVPrognose extends IPSModule
             $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter'];
             $fcs = [];
             for ($offset = 0; $offset <= 2; $offset++) {
-                $fc = $this->GetForecast($offset);
+                $fc = $this->computeForecast($offset);
                 $fcs[$offset] = $fc;
                 $this->SetValue($idents[$offset], json_encode($fc));
                 $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
@@ -264,10 +264,35 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * PV-Prognose für einen Tag als Array. $offset 0/1/2.
-     * Für das EMS per PVF_GetForecast($id, $offset) abrufbar.
+     * PV-Prognose für einen Tag als Array. $offset 0/1/2. Für das EMS per
+     * PVF_GetForecast($id, $offset) abrufbar.
+     *
+     * Performance (Fund aus PVMonitor/Dashboard-Sitzung, 20.08.2026, analog
+     * zum LFC-Fund): $modelCache ist eine reine Request-lokale Instanzvariable
+     * und hilft NUR innerhalb EINER Ausführung (z. B. den 3 Offsets in
+     * Rebuild()) — ein externer Aufruf von außen (PVMonitor, EMS, …) ist immer
+     * eine frische Skriptausführung und löste bisher jedes Mal buildModel()
+     * neu aus (Live-API-Aufrufe an Open-Meteo/Forecast.Solar/Solcast, bei
+     * Forecast.Solar sogar ratenbegrenzt). Jetzt: bevorzugt der von Rebuild()
+     * bereits berechnete und in PVF_Today/Tomorrow/DayAfter zwischen-
+     * gespeicherte Stand, solange das 'date'-Feld noch zum Offset passt.
+     * Rebuild() selbst nutzt computeForecast() direkt.
      */
     public function GetForecast(int $offset)
+    {
+        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'];
+        if (isset($idents[$offset])) {
+            $cached = json_decode($this->GetValue($idents[$offset]), true);
+            $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+            if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
+                return $cached;
+            }
+        }
+        return $this->computeForecast($offset);
+    }
+
+    /** Die eigentliche, teure Modellberechnung — siehe GetForecast() für den Cache davor. */
+    private function computeForecast(int $offset)
     {
         if ($this->modelCache === null) {
             $this->modelCache = $this->buildModel();

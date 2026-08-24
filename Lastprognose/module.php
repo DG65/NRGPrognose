@@ -223,7 +223,7 @@ class Lastprognose extends IPSModule
 
             $fcs = [];
             for ($offset = 0; $offset <= 2; $offset++) {
-                $fc = $this->GetForecast($offset);
+                $fc = $this->computeForecast($offset);
                 $fcs[$offset] = $fc;
                 $this->SetValue($idents[$offset], json_encode($fc));
                 $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
@@ -271,12 +271,37 @@ class Lastprognose extends IPSModule
     }
 
     /**
-     * Liefert die Prognose für einen Tag als Array.
-     * $offset: 0 = heute, 1 = morgen, 2 = übermorgen.
-     * Rückgabe: ['date','slots','p10','p50','p90','kwh','neighbors']
-     * Für das EMS per LFC_GetForecast($id, $offset) abrufbar.
+     * Liefert die Prognose für einen Tag als Array. $offset: 0 = heute,
+     * 1 = morgen, 2 = übermorgen. Für das EMS per LFC_GetForecast($id, $offset)
+     * abrufbar.
+     *
+     * Performance (Fund aus PVMonitor/Dashboard-Sitzung, 20.08.2026): liest
+     * bevorzugt den von Rebuild() bereits berechneten und in LFC_Today/
+     * Tomorrow/DayAfter zwischengespeicherten Stand, statt bei JEDEM externen
+     * Aufruf die komplette k-NN-Suche (bis zu LFC_LookbackDays=365 Kandidaten-
+     * tage, je ein Archivzugriff) neu zu rechnen — das war bei jedem Konsumenten
+     * (PVMonitor, EMS, …) unnötig teuer, weil Rebuild() denselben Wert für
+     * denselben Kalendertag ohnehin schon periodisch vorhält. Der Cache ist nur
+     * gültig, solange sein 'date'-Feld noch zum angefragten Offset passt (fällt
+     * nach Mitternacht automatisch auf eine frische Berechnung zurück). Rebuild()
+     * selbst nutzt computeForecast() direkt, damit es nie den eigenen alten
+     * Stand zurückbekommt statt neu zu rechnen.
      */
     public function GetForecast(int $offset)
+    {
+        $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'];
+        if (isset($idents[$offset])) {
+            $cached = json_decode($this->GetValue($idents[$offset]), true);
+            $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+            if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
+                return $cached;
+            }
+        }
+        return $this->computeForecast($offset);
+    }
+
+    /** Die eigentliche, teure k-NN-Berechnung — siehe GetForecast() für den Cache davor. */
+    private function computeForecast(int $offset)
     {
         $targetTs = strtotime('today +' . $offset . ' days');
         $tf       = $this->dayFeatures($targetTs, true);
