@@ -427,7 +427,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Wichtig bei Open-Meteo und Forecast.Solar: Diese Quellen liefern nur EINE Linie (P10 = P50 = P90), also gar kein Unsicherheitsband. Aus den gemessenen Abweichungen der letzten Tage (Snapshot gegen Ist) entsteht erstmals ein echtes Band — P90 heißt dann „in 90 % der Fälle darunter\". Modus „nur Band\" lässt Prognosewert und kWh unverändert; „Band + Pegelkorrektur\" zieht zusätzlich einen systematischen Fehler nach. Greift erst ab 3 auswertbaren Tagen und benötigt die PowerVar je Generator; vorher bleibt der Standard aktiv. Bei Solcast gibt es bereits ein natives Band."
+                    "caption": "Wichtig bei Open-Meteo und Forecast.Solar: Diese Quellen liefern nur EINE Linie (P10 = P50 = P90), also gar kein Unsicherheitsband. Aus den gemessenen Abweichungen der letzten Tage (Snapshot gegen Ist) entsteht erstmals ein echtes Band — P90 heißt dann „in 90 % der Fälle darunter\". Modus „nur Band\" lässt Prognosewert und kWh unverändert; „Band + Pegelkorrektur\" zieht zusätzlich einen systematischen Fehler nach. Greift erst ab 3 auswertbaren Tagen und benötigt die PowerVar je Generator; vorher bleibt der Standard aktiv. Bei Solcast gibt es bereits ein natives Band. Bei Forecast.Solar/Solcast als Quelle wichtig: Die Selbstkalibrierung oben funktioniert NUR mit Open-Meteo — „Band + Pegelkorrektur\" ist hier der einzige automatische Weg, eine systematisch zu niedrige oder zu hohe Prognose (z. B. Forecast.Solars bekannt konservative Schätzung) nachträglich zu korrigieren."
                 }
             ]
         }

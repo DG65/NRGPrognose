@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Doku-Klarstellung (PV-Prognose, Forum-Feedback von hfichtinger/Bricoleur): Selbstkalibrierung
+  wirkt nur bei Open-Meteo.** Beobachtung eines Beta-Testers: Forecast.Solar schätzt spürbar
+  konservativer (niedriger) als Open-Meteo. Das ist kein Bug — verschiedene Quellen haben
+  unterschiedliche systematische Tendenzen —, aber die Selbstkalibrierung (`PVF_Calibrate`)
+  greift technisch nur bei Open-Meteo (ihre Vergangenheits-Basis nutzt dessen Reanalyse-API;
+  Forecast.Solar bietet keine vergleichbare Historie). Der bereits vorhandene, quellen-
+  unabhängige Ausweg — Residuen-Modus „Band + Pegelkorrektur" (vergleicht Snapshot gegen Ist,
+  unabhängig von der Quelle) — war dafür nicht klar genug dokumentiert. Hinweistext ergänzt.
 - **Fix (Performance): `LFC_GetForecast()`/`PVF_GetForecast()` rechneten bei JEDEM externen
   Aufruf komplett neu, statt den von `Rebuild()` bereits berechneten Stand zu nutzen.**
   Fund aus der PVMonitor/Dashboard-Sitzung (langsamer Tagesplan-Reiter): Last-Prognose
