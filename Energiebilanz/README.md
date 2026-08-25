@@ -65,6 +65,18 @@ Wird eine Hintergrundfarbe gesetzt, gilt sie für die gesamte Kachel, und die Te
 nach deren Helligkeit. Ohne gesetzte Farbe (transparent) folgt die Kachel dem Hell-/Dunkelmodus des
 Anzeigegeräts bzw. dem IPS-Theme.
 
+## Öffentliche Funktionen
+
+```php
+// Style-freier Datenzugriff für eine eigene Visualisierung (z. B. NRGDashboard) — liefert
+// dasselbe days[]-Format wie die eigene Kachel intern nutzt, aber IMMER vollständig (voller
+// 5-Tage-Horizont, "Gestern", Ist-Überlagerung), unabhängig von den Anzeige-Einstellungen
+// dieser Instanz. Der Konsument entscheidet selbst, was er zeigt.
+$data = EFTILE_GetDaysData(int $InstanzID);
+// => ['contractVersion'=>'1.0', 'hasData'=>.., 'message'=>.., 'actualPV'=>.., 'actualLoad'=>..,
+//     'days'=>[{label, pv:{p10,p50,p90,kwh}|null, load:{...}|null, pvMeas, loMeas, pvKwhIst, loKwhIst}, ...]]
+```
+
 Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)**.
 
 > **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

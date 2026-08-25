@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: `EFTILE_GetDaysData($id)` — style-freier Datenzugriff für NRGDashboard.** Dietmar hat
+  entschieden, dass die Visualisierung der Energiebilanz-Kachel künftig als eigenständiges
+  Dashboard-Modul entsteht, statt mit dem Tagesplan zu verschmelzen — Prognoseberechnung bleibt
+  bei uns, Darstellung wandert (Verbund-Muster wie HeishaMon/EMS). `GetFullUpdateMessage()` in
+  `buildDaysData()` (reine Daten) + Style-Merge (nur für die eigene Kachel) aufgeteilt. Der neue
+  öffentliche Aufruf liefert dasselbe `days[]`-Format wie die eigene Kachel intern nutzt, aber
+  IMMER vollständig — vollen 5-Tage-Horizont, „Gestern", Ist-Überlagerung — unabhängig von den
+  Anzeige-Einstellungen dieser Instanz; der Konsument entscheidet selbst, was er zeigt.
+  `contractVersion` 1.0, eigenständig versioniert.
 - **Prognose-Horizont von 3 auf 5 Tage erweitert (Forum-Wunsch, mit EMS und Dashboard
   abgestimmt).** `LFC_/PVF_GetForecast($id, $offset)` akzeptieren jetzt Offset 0..4 statt 0..2,
   `LFC_/PVF_GetEnergyWindow()` deckt entsprechend bis zu 5 Tage ab. Technisch geprüft statt
