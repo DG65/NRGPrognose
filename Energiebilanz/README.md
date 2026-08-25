@@ -8,7 +8,7 @@
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
 Kombinierte **Visualisierungskachel**, die PV-Erzeugung und Verbrauch gemeinsam (oder einzeln) über
-bis zu 3 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
+bis zu 5 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
 Netzbezug/Einspeisung. Prefix: `EFTILE`.
 
 ## Funktionsweise

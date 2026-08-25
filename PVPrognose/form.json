@@ -7,7 +7,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Was macht das Modul: physikbasierte PV-Erzeugungsprognose für 1–3 Tage. Pro Generator (Dachfläche/MPP-Tracker) wird aus Neigung, Azimut und kWp mit einer Wetter-/Solar-API die erwartete Leistung berechnet; alle Generatoren werden zur Gesamt-PV summiert."
+                    "caption": "Was macht das Modul: physikbasierte PV-Erzeugungsprognose für 1–5 Tage. Pro Generator (Dachfläche/MPP-Tracker) wird aus Neigung, Azimut und kWp mit einer Wetter-/Solar-API die erwartete Leistung berechnet; alle Generatoren werden zur Gesamt-PV summiert."
                 },
                 {
                     "type": "Label",
@@ -31,7 +31,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: PVF_GetForecast($id, 0..2). Bei Open-Meteo/Forecast.Solar ist P10=P50=P90 (Linie); ein echtes Band liefert nur Solcast."
+                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: PVF_GetForecast($id, 0..4). Bei Open-Meteo/Forecast.Solar ist P10=P50=P90 (Linie); ein echtes Band liefert nur Solcast."
                 },
                 {
                     "type": "Label",

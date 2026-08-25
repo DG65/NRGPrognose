@@ -101,14 +101,14 @@ class Energiebilanz extends IPSModule
         $found = false;
         $pv = $this->ResolveSource(self::SOURCE_PV, 'PVSource');
         if ($pv > 0) {
-            foreach (['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'] as $ident) {
+            foreach (['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'] as $ident) {
                 $vid = @IPS_GetObjectIDByIdent($ident, $pv);
                 if ($vid !== false && $vid > 0) { $this->RegisterReference($vid); $this->RegisterMessage($vid, VM_UPDATE); $found = true; }
             }
         }
         $load = $this->ResolveSource(self::SOURCE_LOAD, 'LoadSource');
         if ($load > 0) {
-            foreach (['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'] as $ident) {
+            foreach (['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'] as $ident) {
                 $vid = @IPS_GetObjectIDByIdent($ident, $load);
                 if ($vid !== false && $vid > 0) { $this->RegisterReference($vid); $this->RegisterMessage($vid, VM_UPDATE); $found = true; }
             }
@@ -232,8 +232,8 @@ class Energiebilanz extends IPSModule
             'engine'    => ($this->ReadPropertyString('ChartEngine') === 'highcharts') ? 'highcharts' : 'echarts',
         ];
 
-        $limit = max(1, min(3, $this->ReadPropertyInteger('Days')));
-        $labels = ['heute', 'morgen', 'übermorgen'];
+        $limit = max(1, min(5, $this->ReadPropertyInteger('Days')));
+        $labels = ['heute', 'morgen', 'übermorgen', 'Tag 4', 'Tag 5'];
 
         $showPV   = $this->ReadPropertyBoolean('ShowPV');
         $showLoad = $this->ReadPropertyBoolean('ShowLoad');
@@ -241,8 +241,10 @@ class Energiebilanz extends IPSModule
         $pvSrc   = $showPV   ? $this->ResolveSource(self::SOURCE_PV, 'PVSource')   : 0;
         $loadSrc = $showLoad ? $this->ResolveSource(self::SOURCE_LOAD, 'LoadSource') : 0;
 
-        $pvDays   = $this->ReadSeries($pvSrc,   ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'], $limit);
-        $loadDays = $this->ReadSeries($loadSrc, ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'], $limit);
+        $pvIdents   = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+        $loadIdents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
+        $pvDays   = $this->ReadSeries($pvSrc,   $pvIdents,   $limit);
+        $loadDays = $this->ReadSeries($loadSrc, $loadIdents, $limit);
 
         // Momentane Ist-Leistung (W) für „jetzt"-Punkt/Legende.
         $actualPV   = $showPV   ? $this->readActual('ActualPV')   : null;

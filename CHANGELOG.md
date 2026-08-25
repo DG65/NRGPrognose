@@ -6,6 +6,21 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Prognose-Horizont von 3 auf 5 Tage erweitert (Forum-Wunsch, mit EMS und Dashboard
+  abgestimmt).** `LFC_/PVF_GetForecast($id, $offset)` akzeptieren jetzt Offset 0..4 statt 0..2,
+  `LFC_/PVF_GetEnergyWindow()` deckt entsprechend bis zu 5 Tage ab. Technisch geprüft statt
+  angenommen: Open-Meteo (bis 16 Tage), Forecast.Solar (bis 8 Tage über den bisher ungenutzten
+  `limit`-Parameter), Solcast (bis 14 Tage) tragen das alle. Bei Last-Prognose ist 5 Tage exakt
+  die Grenze der kostenlosen OpenWeatherMap-Anbindung im Auto-Modus (3h-Raster, hart limitiert) —
+  kein Wunschwert, sondern die von der kostenlosen Quelle vorgegebene Decke; darüber hinaus greift
+  ohnehin die schon vorhandene Klimatologie-Rückfallebene. Neue Statusvariablen `LFC_/PVF_Day3`,
+  `LFC_/PVF_Day4` (+ kWh-Varianten, + `LFC_WPkWhDay3/4`) — bestehende Today/Tomorrow/DayAfter-Idents
+  bewusst unverändert (Archivhistorie bleibt erhalten). Manueller Tagesmittel-Modus (Last-Prognose)
+  bekam zwei weitere Temperatur-Eingabefelder. Energiebilanz-Kachel kann jetzt bis zu 5 Tage
+  anzeigen (Default bleibt 3 — mehr Tage in fester Breite überladen sonst die Darstellung; die
+  Dashboard-Sitzung übernimmt die Visualisierung mittelfristig mit scrollbarer Zeitachse).
+  `contractVersion` beider Module 1.0→1.1 (additiv, mit EMS abgestimmt, kein Major-Bruch —
+  bestehende Aufrufe mit Offset 0-2 liefern unverändert dieselben Werte).
 - **Doku-Klarstellung (PV-Prognose, Forum-Feedback von hfichtinger/Bricoleur): Selbstkalibrierung
   wirkt nur bei Open-Meteo.** Beobachtung eines Beta-Testers: Forecast.Solar schätzt spürbar
   konservativer (niedriger) als Open-Meteo. Das ist kein Bug — verschiedene Quellen haben

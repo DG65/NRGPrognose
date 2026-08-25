@@ -8,7 +8,7 @@
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
 Energieprognose-Suite mit drei Bausteinen, die dem EMS beide Seiten der Energiebilanz
-1–3 Tage voraus liefern:
+1–5 Tage voraus liefern:
 
 - **Lastprognose** (Prefix `LFC`) — Verbrauchsprognose über ein Ähnliche-Tage-Verfahren (k-NN).
 - **PV-Prognose** (Prefix `PVF`) — physikbasierte PV-Erzeugungsprognose je Generator über eine

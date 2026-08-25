@@ -84,7 +84,7 @@ Residuen-Quantile ein — sie würden sonst eine gute Prognose fälschlich als F
 ## Öffentliche Funktionen
 
 ```php
-// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen
+// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen, 3/4=Tag 4/5
 $fc = LFC_GetForecast(int $InstanzID, int $offset); // array mit p10/p50/p90/mean/kwh …
 
 // Gespeicherte Prognose (Soll) eines vergangenen Tages ('Y-m-d')
@@ -95,7 +95,7 @@ LFC_Rebuild(int $InstanzID);
 
 // Erwarteter Verbrauch (kWh) in einem beliebigen Zeitfenster, z.B. "von jetzt
 // bis morgen früh, wenn die PV wieder produziert" — für ein dynamisches
-// Batterie-Ziel-SoC statt eines festen Prozentwerts. Deckt bis zu 3 Tage ab
+// Batterie-Ziel-SoC statt eines festen Prozentwerts. Deckt bis zu 5 Tage ab
 // (unser Horizont); 'coverage' (0..1) zeigt an, welcher Anteil des Fensters
 // tatsächlich mit Prognosedaten abgedeckt ist (Fenster ohne Bezug zur PV —
 // den PV-Startzeitpunkt bestimmt der Aufrufer selbst, z.B. aus PVF).

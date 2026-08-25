@@ -20,8 +20,16 @@ define('LFC_ARCHIVE_GUID', '{43192F0B-135B-4CE7-A0A7-1475603F3060}');
 
 // Vertragsversion (Verbund-Konvention, additiv). Major.Minor; Major nur bei
 // Bruch, Kompatibilität nur innerhalb derselben Major. Fehlend = '1.0'.
-define('LFC_CONTRACT_FORECAST', '1.0'); // GetForecast / GetSnapshot
-define('LFC_CONTRACT_ENERGYWINDOW', '1.0'); // GetEnergyWindow
+// Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
+// Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
+// (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
+define('LFC_CONTRACT_FORECAST', '1.1'); // GetForecast / GetSnapshot
+define('LFC_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+
+// Horizont: gültige Offsets für GetForecast() sind 0..LFC_MAX_OFFSET (0=heute).
+// Deckungsgleich mit PVF_MAX_OFFSET. Grenze kommt vom Auto-Temperaturvorhersage-
+// Modus: OpenWeatherData (kostenlose OWM-Anbindung) liefert maximal 5 Tage.
+define('LFC_MAX_OFFSET', 4);
 
 // EMS — für EMS_GetSpecialEvents (Sondereffekt-Ausschluss). GUID stabil über
 // alle Installationen; Instanz wird zur Laufzeit gesucht (optional, kein Fehler
@@ -113,6 +121,9 @@ class Lastprognose extends IPSModule
         $this->RegisterPropertyInteger('VAR_TempFc_D0',      0);
         $this->RegisterPropertyInteger('VAR_TempFc_D1',      0);
         $this->RegisterPropertyInteger('VAR_TempFc_D2',      0);
+        // Horizont-Erweiterung 3→5 Tage (20.08.2026).
+        $this->RegisterPropertyInteger('VAR_TempFc_D3',      0);
+        $this->RegisterPropertyInteger('VAR_TempFc_D4',      0);
 
         // Modus 1: Eltern-Objekt + Ident-Muster der Slot-Variablen.
         // Platzhalter %d / %02d wird durch den Slot-Index ersetzt.
@@ -151,9 +162,17 @@ class Lastprognose extends IPSModule
         $this->RegisterVariableFloat( 'LFC_kWhToday',     'Erwartung heute (kWh)',    '~Electricity', 40);
         $this->RegisterVariableFloat( 'LFC_kWhTomorrow',  'Erwartung morgen (kWh)',   '~Electricity', 50);
         $this->RegisterVariableFloat( 'LFC_kWhDayAfter',  'Erwartung übermorgen (kWh)','~Electricity', 60);
+        // Horizont-Erweiterung 3→5 Tage (20.08.2026): neue Idents für Tag 3/4,
+        // bestehende Today/Tomorrow/DayAfter bewusst unverändert (Archivhistorie).
+        $this->RegisterVariableString('LFC_Day3',      'Prognose in 3 Tagen (JSON)', '', 65);
+        $this->RegisterVariableString('LFC_Day4',      'Prognose in 4 Tagen (JSON)', '', 68);
+        $this->RegisterVariableFloat( 'LFC_kWhDay3',      'Erwartung in 3 Tagen (kWh)', '~Electricity', 63);
+        $this->RegisterVariableFloat( 'LFC_kWhDay4',      'Erwartung in 4 Tagen (kWh)', '~Electricity', 66);
         $this->RegisterVariableFloat( 'LFC_WPkWhToday',   'Erwartung WP/Klima heute (kWh)',     '~Electricity', 70);
         $this->RegisterVariableFloat( 'LFC_WPkWhTomorrow','Erwartung WP/Klima morgen (kWh)',    '~Electricity', 71);
         $this->RegisterVariableFloat( 'LFC_WPkWhDayAfter','Erwartung WP/Klima übermorgen (kWh)','~Electricity', 72);
+        $this->RegisterVariableFloat( 'LFC_WPkWhDay3',    'Erwartung WP/Klima in 3 Tagen (kWh)','~Electricity', 73);
+        $this->RegisterVariableFloat( 'LFC_WPkWhDay4',    'Erwartung WP/Klima in 4 Tagen (kWh)','~Electricity', 74);
         $this->RegisterVariableString('LFC_Status',    'Status',                    '', 80);
         $this->RegisterVariableInteger('LFC_LastUpdate','Letzte Berechnung',        '~UnixTimestamp', 90);
         $this->RegisterVariableFloat( 'LFC_ErrorMAPE', 'Prognosefehler |Ø| (%)',    'NRG.Percent', 92);
@@ -218,11 +237,11 @@ class Lastprognose extends IPSModule
         }
 
         try {
-            $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'];
-            $kwhIds = ['LFC_kWhToday', 'LFC_kWhTomorrow', 'LFC_kWhDayAfter'];
+            $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
+            $kwhIds = ['LFC_kWhToday', 'LFC_kWhTomorrow', 'LFC_kWhDayAfter', 'LFC_kWhDay3', 'LFC_kWhDay4'];
 
             $fcs = [];
-            for ($offset = 0; $offset <= 2; $offset++) {
+            for ($offset = 0; $offset <= LFC_MAX_OFFSET; $offset++) {
                 $fc = $this->computeForecast($offset);
                 $fcs[$offset] = $fc;
                 $this->SetValue($idents[$offset], json_encode($fc));
@@ -231,9 +250,9 @@ class Lastprognose extends IPSModule
             $this->saveSnapshot($fcs);
             $this->evaluateAccuracy();
 
-            // Optional: separate WP-/Klima-Prognose für heute/morgen/übermorgen
-            $wpIds = ['LFC_WPkWhToday', 'LFC_WPkWhTomorrow', 'LFC_WPkWhDayAfter'];
-            for ($offset = 0; $offset <= 2; $offset++) {
+            // Optional: separate WP-/Klima-Prognose über den vollen Horizont
+            $wpIds = ['LFC_WPkWhToday', 'LFC_WPkWhTomorrow', 'LFC_WPkWhDayAfter', 'LFC_WPkWhDay3', 'LFC_WPkWhDay4'];
+            for ($offset = 0; $offset <= LFC_MAX_OFFSET; $offset++) {
                 $wp = $this->wpForecast($offset);
                 if ($wp !== null) {
                     $this->SetValue($wpIds[$offset], round($wp, 2));
@@ -242,10 +261,12 @@ class Lastprognose extends IPSModule
 
             $this->SetValue('LFC_LastUpdate', time());
             $status = sprintf(
-                '✅ heute %.1f / morgen %.1f / übermorgen %.1f kWh',
+                '✅ heute %.1f / morgen %.1f / übermorgen %.1f / Tag 4 %.1f / Tag 5 %.1f kWh',
                 $this->GetValue('LFC_kWhToday'),
                 $this->GetValue('LFC_kWhTomorrow'),
-                $this->GetValue('LFC_kWhDayAfter')
+                $this->GetValue('LFC_kWhDayAfter'),
+                $this->GetValue('LFC_kWhDay3'),
+                $this->GetValue('LFC_kWhDay4')
             );
             // Nicht archivierte Variablen melden (werden ignoriert / nicht abgezogen).
             $missing = $this->unloggedVars();
@@ -289,7 +310,7 @@ class Lastprognose extends IPSModule
      */
     public function GetForecast(int $offset)
     {
-        $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'];
+        $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
         if (isset($idents[$offset])) {
             $cached = json_decode($this->GetValue($idents[$offset]), true);
             $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
@@ -390,8 +411,8 @@ class Lastprognose extends IPSModule
      * wieder produziert". Bewusst ohne PV-Bezug: DIESES Modul beantwortet
      * nur "wie viel Verbrauch im Fenster", die Wahl des Fensters (z.B. der
      * PV-Startzeitpunkt) obliegt dem Aufrufer — keine Abhängigkeit zu PVF.
-     * Deckt bis zu 3 Tage ab (heute/morgen/übermorgen, unser Horizont);
-     * darüber hinaus fehlende Anteile werden nicht ergänzt. 'coverage' zeigt
+     * Deckt bis zu LFC_MAX_OFFSET+1 Tage ab (unser Horizont); darüber hinaus
+     * fehlende Anteile werden nicht ergänzt. 'coverage' zeigt
      * an, welcher Anteil des Fensters tatsächlich mit einer ECHTEN Prognose
      * abgedeckt ist — Tage ohne Nachbarn (z.B. unkonfigurierte Instanz, siehe
      * emptyForecast()) zählen NICHT als abgedeckt, auch wenn ihr Nullprofil
@@ -416,7 +437,7 @@ class Lastprognose extends IPSModule
         $kwh = 0.0;
         $coveredSec = 0;
 
-        for ($offset = 0; $offset <= 2; $offset++) {
+        for ($offset = 0; $offset <= LFC_MAX_OFFSET; $offset++) {
             $dayStart = strtotime('today +' . $offset . ' days');
             $fc = $this->GetForecast($offset);
             $mean = $fc['mean'] ?? null;
@@ -1154,21 +1175,32 @@ class Lastprognose extends IPSModule
                         $owm, LFC_OWM_IDENT_TIME, LFC_OWM_IDENT_MIN, LFC_OWM_IDENT_MAX,
                         0, LFC_OWM_MAX_SLOTS
                     );
-                    if ($res[0] !== null || $res[1] !== null || $res[2] !== null) {
+                    if (array_filter($res, function ($v) { return $v !== null; }) !== []) {
                         return $res;
                     }
                     $this->log(LFC_LOG_VERBOSE, 'OWM gefunden, aber keine Stundenvorhersage (aktiviert?)');
                 }
                 // Sonst leer lassen → Klimatologie übernimmt in forecastTemp.
-                return [0 => null, 1 => null, 2 => null];
+                return $this->emptyTempForecast();
         }
     }
 
-    /** Modus DAILY: drei direkte Tagesmittel-Variablen. */
+    /** [0=>null, 1=>null, ...] über den vollen Horizont — Fallback-Gerüst. */
+    private function emptyTempForecast(): array
+    {
+        $out = [];
+        for ($o = 0; $o <= LFC_MAX_OFFSET; $o++) { $out[$o] = null; }
+        return $out;
+    }
+
+    /** Modus DAILY: direkte Tagesmittel-Variablen über den vollen Horizont. */
     private function forecastFromDailyVars()
     {
-        $out = [0 => null, 1 => null, 2 => null];
-        $map = [0 => 'VAR_TempFc_D0', 1 => 'VAR_TempFc_D1', 2 => 'VAR_TempFc_D2'];
+        $out = $this->emptyTempForecast();
+        $map = [
+            0 => 'VAR_TempFc_D0', 1 => 'VAR_TempFc_D1', 2 => 'VAR_TempFc_D2',
+            3 => 'VAR_TempFc_D3', 4 => 'VAR_TempFc_D4',
+        ];
         foreach ($map as $off => $prop) {
             $vid = $this->ReadPropertyInteger($prop);
             if ($vid > 0 && IPS_VariableExists($vid)) {
@@ -1190,7 +1222,7 @@ class Lastprognose extends IPSModule
 
         if ($parent <= 0 || !IPS_ObjectExists($parent) || $patLow === '' || $patTime === '') {
             $this->log(LFC_LOG_VERBOSE, 'Temp-Vorhersage Ident-Modus unvollständig konfiguriert');
-            return [0 => null, 1 => null, 2 => null];
+            return $this->emptyTempForecast();
         }
         return $this->aggregateForecastSlots($parent, $patTime, $patLow, $patHigh, $start, $count);
     }
@@ -1203,8 +1235,8 @@ class Lastprognose extends IPSModule
     private function aggregateForecastSlots(int $parent, string $patTime, string $patLow, string $patHigh, int $start, int $count)
     {
         $today = strtotime('today');
-        $sum   = [0 => 0.0, 1 => 0.0, 2 => 0.0];
-        $cnt   = [0 => 0,   1 => 0,   2 => 0];
+        $sum = []; $cnt = [];
+        for ($o = 0; $o <= LFC_MAX_OFFSET; $o++) { $sum[$o] = 0.0; $cnt[$o] = 0; }
 
         for ($i = $start; $i < $start + $count; $i++) {
             $tId = $this->identToVar($parent, $patTime, $i);
@@ -1214,7 +1246,7 @@ class Lastprognose extends IPSModule
             $slotTs = (int)GetValue($tId);
             if ($slotTs <= 0) { continue; }
             $off = (int)floor(($slotTs - $today) / 86400);
-            if ($off < 0 || $off > 2) { continue; } // nur heute..übermorgen
+            if ($off < 0 || $off > LFC_MAX_OFFSET) { continue; } // nur heute..Horizontende
 
             $val = (float)GetValue($lId);
             if ($patHigh !== '') {
@@ -1225,9 +1257,9 @@ class Lastprognose extends IPSModule
             $cnt[$off]++;
         }
 
-        $out = [0 => null, 1 => null, 2 => null];
-        foreach ([0, 1, 2] as $off) {
-            if ($cnt[$off] > 0) { $out[$off] = $sum[$off] / $cnt[$off]; }
+        $out = [];
+        for ($o = 0; $o <= LFC_MAX_OFFSET; $o++) {
+            $out[$o] = ($cnt[$o] > 0) ? $sum[$o] / $cnt[$o] : null;
         }
         return $out;
     }

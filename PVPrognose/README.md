@@ -7,7 +7,7 @@
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-**Physikbasierte PV-Erzeugungsprognose** für 1–3 Tage, je Generator (Dachfläche/MPP-Tracker), über
+**Physikbasierte PV-Erzeugungsprognose** für 1–5 Tage, je Generator (Dachfläche/MPP-Tracker), über
 eine Wetter-/Solar-API. Liefert JSON-Profile zur direkten Nutzung durch ein EMS. Prefix: `PVF`.
 
 ## Funktionsweise
@@ -86,7 +86,7 @@ Residuen-Quantile ein. Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten 
 ## Öffentliche Funktionen
 
 ```php
-// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen
+// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen, 3/4=Tag 4/5
 $fc = PVF_GetForecast(int $InstanzID, int $offset);
 
 // Gespeicherte Prognose (Soll) eines vergangenen Tages ('Y-m-d')
@@ -103,7 +103,7 @@ $m2 = PVF_GetModuleArea(int $InstanzID);
 $perGen = PVF_GetModuleAreas(int $InstanzID);
 
 // Erwartete PV-Erzeugung (kWh) in einem beliebigen Zeitfenster — symmetrisch zu
-// LFC_GetEnergyWindow, eigenständig (keine Kopplung zu LFC). Deckt bis zu 3 Tage ab;
+// LFC_GetEnergyWindow, eigenständig (keine Kopplung zu LFC). Deckt bis zu 5 Tage ab;
 // 'coverage' (0..1) zeigt an, welcher Anteil tatsächlich mit einem echten Modell
 // abgedeckt ist (0 bei API-/Netzwerkfehler oder fehlenden Generatoren).
 $w = PVF_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
