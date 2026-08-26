@@ -49,8 +49,17 @@
         // Plotbereich-Ränder — für BEIDE Engines identisch erzwungen (statt deren
         // Auto-Layout), damit die feststehende Y-Achsen-Überlagerung (buildYAxisOverlay)
         // unabhängig von der Engine an derselben Pixel-Position sitzt wie die echten
-        // Gitterlinien, und damit der Tagesstreifen (padding 46px/14px) weiter fluchtet.
-        var PLOT_LEFT = 46, PLOT_RIGHT = 14, PLOT_TOP = 8, PLOT_BOTTOM = 22;
+        // Gitterlinien, und damit der Tagesstreifen (padding-Werte) weiter fluchtet.
+        // Mit der Kachel-Schriftgröße (D.scale) skaliert — sonst passen bei größer
+        // skalierten Kacheln weder die X-Achsen-Beschriftung (unten) noch die
+        // „kW"-Einheit (oben) mehr in den fest reservierten Rand und werden
+        // abgeschnitten (live bei Dietmar mit skalierter Kachel aufgetreten).
+        function plotMetrics(scale) {
+            return {
+                left: Math.round(46 * scale), right: Math.round(14 * scale),
+                top: Math.round(18 * scale), bottom: Math.round(22 * scale)
+            };
+        }
 
         function handleMessage(payload) {
             var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
@@ -65,6 +74,18 @@
         function pad(x) { return (x < 10 ? '0' : '') + x; }
         function kw(w) { return (w / 1000).toFixed(2); }
         function cap(s) { return s ? s.charAt(0).toUpperCase() + s.slice(1) : s; }
+
+        /** Nächstliegenden Unsicherheitsband-Punkt ([x,p10,p90] in kW) zu x suchen —
+         *  für die P10/P90-Anzeige im Tooltip (beide Engines, siehe buildEC/buildHC). */
+        function nearestBand(bandArr, x) {
+            if (!bandArr || !bandArr.length) { return null; }
+            var best = bandArr[0], bd = Math.abs(bandArr[0][0] - x);
+            for (var i = 1; i < bandArr.length; i++) {
+                var d = Math.abs(bandArr[i][0] - x);
+                if (d < bd) { bd = d; best = bandArr[i]; }
+            }
+            return best;
+        }
 
         /** Textfarben nach Helligkeit des konfigurierten Hintergrunds wählen. */
         function isDarkColor(hex) {
@@ -132,6 +153,7 @@
             var baseW = (wrapEl && wrapEl.clientWidth) ? wrapEl.clientWidth : (document.body.clientWidth || 600);
             var BASELINE_DAYS = 3;
             var renderW = Math.round(Math.max(baseW, baseW * data.days.length / BASELINE_DAYS));
+            var scale = data.scale || 1, pm = plotMetrics(scale);
             var D = {
                 data: data,
                 renderW: renderW,
@@ -141,7 +163,8 @@
                 SEP: dark ? 'rgba(159,176,192,.34)' : 'rgba(92,107,122,.30)',
                 days: data.days, nDays: data.days.length,
                 pvC: data.pvColor || '#e0a020', loC: data.loadColor || '#2bb3c0',
-                scale: data.scale || 1, lw: data.lineWidth || 2, smooth: (data.smooth !== false),
+                plotLeft: pm.left, plotRight: pm.right, plotTop: pm.top, plotBottom: pm.bottom,
+                scale: scale, lw: data.lineWidth || 2, smooth: (data.smooth !== false),
                 showBand: (data.showBand !== false), bandOp: (data.bandOp != null ? data.bandOp : 0.16),
                 actualPV: data.actualPV, actualLoad: data.actualLoad,
                 yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), font: data.font || 'sans-serif',
@@ -227,11 +250,12 @@
             if (D.nowX != null) { plotLines.push({ value: D.nowX, color: MUTED, width: 1, dashStyle: 'Dash', zIndex: 4 }); }
 
             var options = {
-                // Ränder erzwungen (PLOT_*, identisch zu ECharts' grid) statt Highcharts'
-                // Auto-Layout — nötig, damit #yAxisOverlay pixelgenau auf den Gitterlinien
-                // sitzt, unabhängig davon, welche Engine gerade rendert.
+                // Ränder erzwungen (D.plot*, identisch zu ECharts' grid, skaliert mit
+                // D.scale) statt Highcharts' Auto-Layout — nötig, damit #yAxisOverlay
+                // pixelgenau auf den Gitterlinien sitzt, unabhängig davon, welche Engine
+                // gerade rendert.
                 chart: { backgroundColor: 'transparent', width: D.renderW, height: canvasH,
-                    marginTop: PLOT_TOP, marginBottom: PLOT_BOTTOM, marginLeft: PLOT_LEFT, marginRight: PLOT_RIGHT,
+                    marginTop: D.plotTop, marginBottom: D.plotBottom, marginLeft: D.plotLeft, marginRight: D.plotRight,
                     spacingTop: 0, spacingBottom: 0, spacingLeft: 0, spacingRight: 0,
                     style: { fontFamily: D.font }, animation: false },
                 title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
@@ -248,8 +272,14 @@
                     var head = cap((days[di] || days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
                     var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
                     this.points.forEach(function (p) {
-                        if (p.series.userOptions.id === 'pv') { pvV = p.y; html += '<div><span style="color:' + pvC + '">●</span> PV: <b>' + p.y.toFixed(2) + ' kW</b></div>'; }
-                        if (p.series.userOptions.id === 'load') { loV = p.y; html += '<div><span style="color:' + loC + '">●</span> Verbrauch: <b>' + p.y.toFixed(2) + ' kW</b></div>'; }
+                        if (p.series.userOptions.id === 'pv') {
+                            pvV = p.y; var pb = nearestBand(D.pvBand, p.x);
+                            html += '<div><span style="color:' + pvC + '">●</span> PV: <b>' + p.y.toFixed(2) + ' kW</b>' + (pb ? ' <span style="color:' + MUTED + '">(P10–P90 ' + pb[1].toFixed(2) + '–' + pb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                        }
+                        if (p.series.userOptions.id === 'load') {
+                            loV = p.y; var lb = nearestBand(D.loBand, p.x);
+                            html += '<div><span style="color:' + loC + '">●</span> Verbrauch: <b>' + p.y.toFixed(2) + ' kW</b>' + (lb ? ' <span style="color:' + MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                        }
                     });
                     if (pvV != null && loV != null) { var s = pvV - loV; html += '<div style="color:' + MUTED + ';margin-top:2px">Saldo ' + (s >= 0 ? '+' : '') + s.toFixed(2) + ' kW</div>'; }
                     return html;
@@ -290,7 +320,7 @@
                 var pre = prefix ? ('<span style="color:' + D.MUTED + '">' + prefix + ' </span>') : '';
                 return '<div style="color:' + D.MUTED + ';font-size:0.86em">' + pre + k + '<span style="color:' + D.MUTED + '"> kWh</span></div>';
             }
-            var h = '<div style="display:flex;padding:0 ' + PLOT_RIGHT + 'px 0 ' + PLOT_LEFT + 'px">';
+            var h = '<div style="display:flex;padding:0 ' + D.plotRight + 'px 0 ' + D.plotLeft + 'px">';
             D.days.forEach(function (day, di) {
                 var pv = userHide.pv ? null : day.pv, lo = userHide.load ? null : day.load;
                 var soll = kwhRow(hasIst ? 'Soll' : '', pv ? pv.kwh : null, lo ? lo.kwh : null);
@@ -306,20 +336,24 @@
         /**
          * Y-Achse (0..D.yMax, 5 gleich verteilte Marken inkl. „kW"-Einheit) als eigene,
          * feststehende Überlagerung — beide Engines blenden dafür ihre eingebaute
-         * Achsenbeschriftung aus (Gitterlinien bleiben, siehe PLOT_TOP/PLOT_BOTTOM).
+         * Achsenbeschriftung aus (Gitterlinien bleiben, siehe D.plotTop/D.plotBottom).
          * Positionierung rein rechnerisch (nicht aus der Engine ausgelesen), daher
-         * erzwingen beide Engines exakt denselben Plotbereich (PLOT_*-Konstanten).
+         * erzwingen beide Engines exakt denselben, skalierten Plotbereich (plotMetrics()).
+         * Die „kW"-Beschriftung sitzt in der Mitte des oberen Rands (D.plotTop/2) statt
+         * an einem festen Negativ-Offset — sonst ragt sie bei größerer Kachel-Skalierung
+         * über den oberen Rand von #scrollWrap hinaus und wird von dessen
+         * overflow-y:hidden abgeschnitten (live bei Dietmar so aufgetreten).
          */
         function buildYAxisOverlay(D, canvasH) {
             var el = document.getElementById('yAxisOverlay');
-            var plotH = Math.max(1, canvasH - PLOT_TOP - PLOT_BOTTOM);
+            var plotH = Math.max(1, canvasH - D.plotTop - D.plotBottom);
             var steps = 4, h = '';
             for (var i = 0; i <= steps; i++) {
                 var v = D.yMax * i / steps;
-                var y = PLOT_TOP + plotH * (1 - i / steps);
+                var y = D.plotTop + plotH * (1 - i / steps);
                 h += '<span class="yl" style="top:' + y + 'px;color:' + D.MUTED + ';font-size:' + (10 * D.scale) + 'px;font-family:' + D.font + '">' + v.toFixed(v < 10 ? 1 : 0) + '</span>';
             }
-            h += '<span class="yl" style="top:' + (PLOT_TOP - 12) + 'px;color:' + D.MUTED + ';font-size:' + (10 * D.scale) + 'px;font-family:' + D.font + '">kW</span>';
+            h += '<span class="yl" style="top:' + (D.plotTop / 2) + 'px;color:' + D.MUTED + ';font-size:' + (10 * D.scale) + 'px;font-family:' + D.font + '">kW</span>';
             el.innerHTML = h;
         }
         function toggleSeries(w) { userHide[w] = !userHide[w]; render(); }
@@ -374,7 +408,7 @@
             var option = {
                 backgroundColor: 'transparent',
                 textStyle: { fontFamily: D.font, color: D.TEXT },
-                grid: { left: PLOT_LEFT, right: PLOT_RIGHT, top: PLOT_TOP, bottom: PLOT_BOTTOM, containLabel: false },
+                grid: { left: D.plotLeft, right: D.plotRight, top: D.plotTop, bottom: D.plotBottom, containLabel: false },
                 animation: false,
                 xAxis: { type: 'value', min: 0, max: D.nDays * 24, interval: 3, axisLabel: { show: true, color: D.MUTED, fontSize: fs(9), hideOverlap: true, formatter: function (v) { return pad(v % 24); } }, axisTick: { show: false }, axisLine: { lineStyle: { color: D.GRID } }, splitLine: { show: D.showGrid, lineStyle: { color: D.GRID } } },
                 // Achsenbeschriftung/-titel aus (zeigt stattdessen #yAxisOverlay, das beim
@@ -387,8 +421,14 @@
                         var head = cap((D.days[di] || D.days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
                         var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
                         ps.forEach(function (p) {
-                            if (p.seriesName === 'PV') { pvV = p.value[1]; html += '<div><span style="color:' + D.pvC + '">●</span> PV: <b>' + p.value[1].toFixed(2) + ' kW</b></div>'; }
-                            if (p.seriesName === 'Verbrauch') { loV = p.value[1]; html += '<div><span style="color:' + D.loC + '">●</span> Verbrauch: <b>' + p.value[1].toFixed(2) + ' kW</b></div>'; }
+                            if (p.seriesName === 'PV') {
+                                pvV = p.value[1]; var pb = nearestBand(D.pvBand, p.value[0]);
+                                html += '<div><span style="color:' + D.pvC + '">●</span> PV: <b>' + p.value[1].toFixed(2) + ' kW</b>' + (pb ? ' <span style="color:' + D.MUTED + '">(P10–P90 ' + pb[1].toFixed(2) + '–' + pb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                            }
+                            if (p.seriesName === 'Verbrauch') {
+                                loV = p.value[1]; var lb = nearestBand(D.loBand, p.value[0]);
+                                html += '<div><span style="color:' + D.loC + '">●</span> Verbrauch: <b>' + p.value[1].toFixed(2) + ' kW</b>' + (lb ? ' <span style="color:' + D.MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                            }
                         });
                         if (pvV != null && loV != null) { var s = pvV - loV; html += '<div style="color:' + D.MUTED + ';margin-top:2px">Saldo ' + (s >= 0 ? '+' : '') + s.toFixed(2) + ' kW</div>'; }
                         return html;

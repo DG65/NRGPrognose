@@ -6,6 +6,18 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Y-Achse/X-Achse bei skalierter Kachel nicht mehr abgeschnitten + P10/P90 im
+  Tooltip (Dietmars Folge-Feedback zur eben gefixten Y-Achsen-Überlagerung).** Die neue
+  `#yAxisOverlay` und die vereinheitlichten Plotbereich-Ränder waren als feste, unskalierte
+  Pixelwerte hinterlegt (`PLOT_TOP=8`/`PLOT_BOTTOM=22` usw.) — bei einer über `scale` größer
+  eingestellten Kachel wuchs die Schrift mit, der reservierte Rand aber nicht: Die
+  „kW"-Beschriftung wurde von `#scrollWrap`s `overflow-y:hidden` abgeschnitten (negativer
+  Top-Offset), die X-Achsen-Zeitbeschriftung unten zu eng zum sauberen Rendern. Jetzt
+  skalieren alle vier Ränder mit `D.scale` (`plotMetrics()`), die „kW"-Beschriftung sitzt
+  mittig im oberen Rand statt an einem festen Negativ-Offset. Zusätzlich zeigt der Tooltip
+  jetzt neben PV/Verbrauch (P50) auch die Unsicherheitsspanne P10–P90 in kW an (auf Wunsch,
+  unabhängig vom sichtbaren Unsicherheitsband). Live mit beiden Engines bei `scale:1.4`
+  verifiziert (keine Abschneidung mehr, Tooltip zeigt „PV: 4.50 kW (P10–P90 3.15–5.85 kW)").
 - **Fix: Y-Achse (kW) bleibt beim Horizontalscrollen der Energiebilanz-Kachel sichtbar
   (Dietmars Folge-Feedback zur Legende/zum Scrollbalken).** Bisher zeichneten beide Engines
   ihre Achsenbeschriftung als Teil des breiten, scrollenden Chart-Canvas — sie lief beim
