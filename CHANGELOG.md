@@ -6,6 +6,16 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Verbessert: Scroll-Hinweis deutlich sichtbarer, jetzt auch links; „jetzt"-Linie
+  rot (Dietmars Feedback zum eben gebauten Pfeil).** Der reine Text+Schatten-Pfeil
+  war auf dunklem Kachel-Hintergrund kaum zu erkennen — jetzt eine kleine runde
+  Chip-Fläche (Hintergrund/Textfarbe dynamisch aus den Theme-Farben der Kachel),
+  deutlich höhere Deckkraft. Zusätzlich ein zweiter Pfeil links, der erscheint,
+  sobald man nach rechts gescrollt hat (vorher gab es nur rechts einen Hinweis
+  auf weiteren Inhalt, keinen zurück). Die gestrichelte „jetzt"-Linie (heutiger
+  Zeitpunkt) ist jetzt fest rot statt neutralem Grau, für beide Engines. Live mit
+  beiden Engines verifiziert (Chip erscheint/verschwindet korrekt an beiden
+  Rändern, rote Linie sichtbar in ECharts und Highcharts).
 - **Neu: „(heute +N)" hinter dem Datum im Tagesstreifen (Dietmar, 26.08.2026).**
   Ergänzt die Datumsanzeige der letzten Änderung, z. B. „Do 27.08. (heute +1)" —
   macht den Abstand zu heute auf einen Blick klar, ohne Wochentage im Kopf zählen
