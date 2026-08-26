@@ -246,7 +246,7 @@
                 scale: scale, lw: data.lineWidth || 2, smooth: (data.smooth !== false),
                 showBand: (data.showBand !== false), bandOp: (data.bandOp != null ? data.bandOp : 0.16),
                 actualPV: data.actualPV, actualLoad: data.actualLoad,
-                yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), font: data.font || 'sans-serif',
+                yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false), font: data.font || 'sans-serif',
                 pvPresent: false, loPresent: false, pvLine: [], pvBand: [], loLine: [], loBand: []
             };
             data.days.forEach(function (d, di) {
@@ -311,8 +311,14 @@
             var wrapCS = wrapEl ? getComputedStyle(wrapEl) : null;
             var padTop = wrapCS ? (parseFloat(wrapCS.paddingTop) || 0) : 56;
             var padBottom = wrapCS ? (parseFloat(wrapCS.paddingBottom) || 0) : 10;
+            // Ausgeblendete Legende (ShowLegend=false) beansprucht keinen Platz —
+            // display:none-Elemente melden zwar offsetHeight=0, ihre CSS-Margins
+            // aber weiterhin per getComputedStyle, deshalb hier explizit geprüft
+            // statt sich darauf zu verlassen (der frei gewordene Platz geht so
+            // vollständig ans Diagramm, Forum-Wunsch hfichtinger 26.08.2026).
             var legCS = getComputedStyle(legEl), daysCS = getComputedStyle(daysEl);
-            var legH = legEl.offsetHeight + (parseFloat(legCS.marginTop) || 0) + (parseFloat(legCS.marginBottom) || 0);
+            var legH = (legEl.style.display === 'none') ? 0
+                : legEl.offsetHeight + (parseFloat(legCS.marginTop) || 0) + (parseFloat(legCS.marginBottom) || 0);
             var daysH = daysEl.offsetHeight + (parseFloat(daysCS.marginTop) || 0) + (parseFloat(daysCS.marginBottom) || 0);
             return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH));
         }
@@ -320,7 +326,8 @@
         // ---- Highcharts (privat) ----------------------------------------
         function buildHC() {
             var D = prepData(), el = document.getElementById('chart');
-            var legEl = document.getElementById('legend'); legEl.style.display = 'block'; renderLegend(legEl, D);
+            var legEl = document.getElementById('legend');
+            if (D.showLegend) { legEl.style.display = 'block'; renderLegend(legEl, D); } else { legEl.style.display = 'none'; legEl.innerHTML = ''; }
             var daysEl = document.getElementById('days'); daysEl.style.display = 'block'; dayStrip(daysEl, D);
             var canvasH = computeCanvasHeight(legEl, daysEl);
             buildYAxisOverlay(D, canvasH);
@@ -477,8 +484,8 @@
         function buildEC() {
             var D = prepData(), el = document.getElementById('chart');
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
-            legEl.style.display = 'block'; daysEl.style.display = 'block';
-            renderLegend(legEl, D); dayStrip(daysEl, D);
+            if (D.showLegend) { legEl.style.display = 'block'; renderLegend(legEl, D); } else { legEl.style.display = 'none'; legEl.innerHTML = ''; }
+            daysEl.style.display = 'block'; dayStrip(daysEl, D);
             var canvasH = computeCanvasHeight(legEl, daysEl);
             buildYAxisOverlay(D, canvasH);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';

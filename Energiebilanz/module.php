@@ -107,6 +107,12 @@ class Energiebilanz extends IPSModule
             'Smooth'             => ['Kurven glätten (gegen kantige Linien)', 49, self::DEF_SMOOTH],
             'ShowBand'           => ['Unsicherheitsband (P10–P90) anzeigen', 50, self::DEF_BAND],
             'ShowGrid'           => ['Gitter & Achsenbeschriftung anzeigen', 52, self::DEF_GRID],
+            // Forum-Wunsch (hfichtinger, 26.08.2026): Legende ausblenden für
+            // mehr Diagrammfläche. Dietmar wollte das nicht als neuen Standard
+            // — stattdessen ein Schalter, jeder entscheidet selbst. Wirkt sich
+            // über computeCanvasHeight() (module.html) auch auf die verfügbare
+            // Diagrammhöhe aus: ausgeblendet = der Platz geht ans Diagramm.
+            'ShowLegend'         => ['Legende anzeigen', 55, true],
             'ColorBackgroundAuto' => ['Hintergrund automatisch (IPS-Theme/transparent)', 43, true],
         ];
         foreach ($bool as $ident => $spec) {
@@ -326,7 +332,7 @@ class Energiebilanz extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
-                       'Smooth', 'ShowBand', 'ShowGrid', 'ColorBackgroundAuto'];
+                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ColorBackgroundAuto'];
         $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartEngine',
                        'ColorPV', 'ColorLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
@@ -497,6 +503,7 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ShowBand', self::DEF_BAND);
         $this->SetValue('BandOpacity', self::DEF_BANDOP);
         $this->SetValue('ShowGrid', self::DEF_GRID);
+        $this->SetValue('ShowLegend', true);
         $this->SetValue('YMaxManual', self::DEF_YMAX);
         $this->Render();
     }
@@ -522,6 +529,7 @@ class Energiebilanz extends IPSModule
             'showBand'  => (bool) $this->GetValue('ShowBand'),
             'bandOp'    => max(0.0, min(0.6, (float) $this->GetValue('BandOpacity'))),
             'showGrid'  => (bool) $this->GetValue('ShowGrid'),
+            'showLegend'=> (bool) $this->GetValue('ShowLegend'),
             'yMaxManual'=> max(0.0, (float) $this->GetValue('YMaxManual')),
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
