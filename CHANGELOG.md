@@ -6,6 +6,9 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Symcon-Forum-Link im Energiebilanz-Formular eingetragen** (von Dietmar genannt):
+  https://community.symcon.de/t/beta-tester-gesucht-energieprognose-last-pv-prognose-fuers-ems/144125
+  — der vorbereitete, dismissible Forum-Hinweis-Baustein aus der letzten Änderung ist damit sichtbar.
 - **Neu: Energiebilanz-Konsolenformular folgt jetzt der verbundweiten Formular-Konvention
   (SUITE.md „Einheitliche Formular-Optik") — Dietmar, 26.08.2026.** Dismissibler „🆕 Neu in
   Version 0.20"-Banner ganz oben (fasst die letzten Änderungen zusammen: 5-Tage-Horizont +
