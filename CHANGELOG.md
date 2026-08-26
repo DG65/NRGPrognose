@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Energiebilanz-Konsolenformular folgt jetzt der verbundweiten Formular-Konvention
+  (SUITE.md „Einheitliche Formular-Optik") — Dietmar, 26.08.2026.** Dismissibler „🆕 Neu in
+  Version 0.20"-Banner ganz oben (fasst die letzten Änderungen zusammen: 5-Tage-Horizont +
+  Scroll, Doppelpfeil-Einstellungen, P10/P90 im Tooltip, automatische Diagrammhöhe), dauerhaft
+  sichtbare Versionszeile im „📖 Dokumentation & Hilfe"-Panel, Symcon-Forum-Hinweis-Baustein
+  vorbereitet (erscheint erst, sobald der Thread-Link eingetragen ist — kein geratener Link).
+  Bislang war dieser Umbau verbundweit erst angekündigt, nicht umgesetzt; Lastprognose/
+  PVPrognose folgen bei Gelegenheit nach demselben Muster.
 - **Vereinfacht: „Diagrammhöhe"-Einstellung entfernt — die Kachel füllt jetzt
   automatisch die tatsächlich verfügbare Höhe (Dietmar, 26.08.2026: "bräuchte
   es diese Einstellung überhaupt nicht, wenn man die Diagrammhöhe als den Rest
