@@ -46,7 +46,11 @@
            Inhalt folgt — kein dauerhaftes Element, keine erneute sichtbare
            Bildlaufleiste (die wollte Dietmar bewusst nicht mehr). */
         #scrollHintL, #scrollHintR { position: absolute; width: 0; height: 0; overflow: visible; z-index: 6; pointer-events: none; }
-        #scrollHintL { left: 6px; }
+        /* #scrollHintL.left wird per JS gesetzt (aus D.plotLeft, siehe
+           updateScrollHint) — ein fester Wert läge über der Y-Achsen-
+           Beschriftung (Dietmars Feedback: der linke Pfeil deckte die
+           mittlere Y-Achsen-Zahl ab). #scrollHintR.right bleibt fest, dort
+           gibt es keine Beschriftung im Weg. */
         #scrollHintR { right: 6px; }
         #scrollHintL span, #scrollHintR span {
             position: absolute; top: 0; transform: translateY(-50%);
@@ -183,6 +187,10 @@
             spanR.classList.toggle('show', scrollable && !atEnd);
             if (lastHintD) {
                 [spanL, spanR].forEach(function (s) { s.style.background = lastHintD.TIP; s.style.color = lastHintD.TEXT; });
+                // Links hinter die Y-Achsen-Beschriftung setzen (D.plotLeft) statt
+                // eines festen Werts — sonst deckt der Pfeil die mittlere
+                // Y-Achsen-Zahl ab (Dietmars Feedback).
+                hintL.style.left = (lastHintD.plotLeft + 6) + 'px';
             }
             var cRect = chartEl.getBoundingClientRect(), wRect = wrapEl.getBoundingClientRect();
             var top = Math.round(cRect.top - wRect.top + cRect.height / 2) + 'px';
@@ -229,7 +237,6 @@
             var D = {
                 data: data,
                 renderW: renderW,
-                height: (data.height && data.height >= 180) ? data.height : 360,
                 dark: dark, TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#9fb0c0' : '#5c6b7a',
                 GRID: dark ? 'rgba(127,135,145,.22)' : 'rgba(20,30,45,.14)', TIP: dark ? 'rgba(28,38,52,.97)' : 'rgba(255,255,255,.98)',
                 SEP: dark ? 'rgba(159,176,192,.34)' : 'rgba(92,107,122,.30)',
@@ -284,12 +291,38 @@
             return D;
         }
 
+        /**
+         * Diagrammhöhe = Rest zwischen dem oben fest reservierten Rand (den
+         * IPS selbst für den Instanznamen vorsieht, siehe .wrap padding-top)
+         * und dem unten fest bemessenen Tagesstreifen — misst dafür die
+         * TATSÄCHLICH verfügbare Kachelhöhe (WebFront: vom Nutzer per Ziehen
+         * bestimmt), statt eine eigene "Diagrammhöhe"-Einstellung zu
+         * brauchen (Dietmar, 26.08.2026: "bräuchte es diese Einstellung
+         * überhaupt nicht, wenn man die Diagrammhöhe als den Rest zwischen
+         * oben und unten definieren würde"). Legende/Tagesstreifen müssen
+         * VOR diesem Aufruf schon fertig befüllt sein (echte statt geschätzte
+         * Höhe); die Abstände (Legende↔Chart, Chart↔Tagesstreifen) bleiben
+         * dabei unverändert — es liest nur die vorhandenen CSS-Werte aus,
+         * ändert sie nicht.
+         */
+        function computeCanvasHeight(legEl, daysEl) {
+            var totalH = document.body.clientHeight || window.innerHeight || 400;
+            var wrapEl = document.querySelector('.wrap');
+            var wrapCS = wrapEl ? getComputedStyle(wrapEl) : null;
+            var padTop = wrapCS ? (parseFloat(wrapCS.paddingTop) || 0) : 56;
+            var padBottom = wrapCS ? (parseFloat(wrapCS.paddingBottom) || 0) : 10;
+            var legCS = getComputedStyle(legEl), daysCS = getComputedStyle(daysEl);
+            var legH = legEl.offsetHeight + (parseFloat(legCS.marginTop) || 0) + (parseFloat(legCS.marginBottom) || 0);
+            var daysH = daysEl.offsetHeight + (parseFloat(daysCS.marginTop) || 0) + (parseFloat(daysCS.marginBottom) || 0);
+            return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH));
+        }
+
         // ---- Highcharts (privat) ----------------------------------------
         function buildHC() {
             var D = prepData(), el = document.getElementById('chart');
-            var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             var legEl = document.getElementById('legend'); legEl.style.display = 'block'; renderLegend(legEl, D);
             var daysEl = document.getElementById('days'); daysEl.style.display = 'block'; dayStrip(daysEl, D);
+            var canvasH = computeCanvasHeight(legEl, daysEl);
             buildYAxisOverlay(D, canvasH);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
@@ -352,8 +385,11 @@
                     var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
                     this.points.forEach(function (p) {
                         if (p.series.userOptions.id === 'pv') {
-                            pvV = p.y; var pb = nearestBand(D.pvBand, p.x);
-                            html += '<div><span style="color:' + pvC + '">●</span> PV: <b>' + p.y.toFixed(2) + ' kW</b>' + (pb ? ' <span style="color:' + MUTED + '">(P10–P90 ' + pb[1].toFixed(2) + '–' + pb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                            // Kein P10/P90 bei PV (Dietmar, 26.08.2026): die PV-Prognose ist
+                            // physikbasiert statt k-NN-Quantile wie bei der Last — echte
+                            // Streuwerte gibt es dafür nicht, nur bei Verbrauch.
+                            pvV = p.y;
+                            html += '<div><span style="color:' + pvC + '">●</span> PV: <b>' + p.y.toFixed(2) + ' kW</b></div>';
                         }
                         if (p.series.userOptions.id === 'load') {
                             loV = p.y; var lb = nearestBand(D.loBand, p.x);
@@ -441,9 +477,10 @@
         function buildEC() {
             var D = prepData(), el = document.getElementById('chart');
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
-            var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             legEl.style.display = 'block'; daysEl.style.display = 'block';
-            renderLegend(legEl, D); dayStrip(daysEl, D); buildYAxisOverlay(D, canvasH);
+            renderLegend(legEl, D); dayStrip(daysEl, D);
+            var canvasH = computeCanvasHeight(legEl, daysEl);
+            buildYAxisOverlay(D, canvasH);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
             var pvVis = D.pvVis, loVis = D.loVis;
@@ -502,8 +539,11 @@
                         var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
                         ps.forEach(function (p) {
                             if (p.seriesName === 'PV') {
-                                pvV = p.value[1]; var pb = nearestBand(D.pvBand, p.value[0]);
-                                html += '<div><span style="color:' + D.pvC + '">●</span> PV: <b>' + p.value[1].toFixed(2) + ' kW</b>' + (pb ? ' <span style="color:' + D.MUTED + '">(P10–P90 ' + pb[1].toFixed(2) + '–' + pb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                                // Kein P10/P90 bei PV (Dietmar, 26.08.2026): die PV-Prognose ist
+                                // physikbasiert statt k-NN-Quantile wie bei der Last — echte
+                                // Streuwerte gibt es dafür nicht, nur bei Verbrauch.
+                                pvV = p.value[1];
+                                html += '<div><span style="color:' + D.pvC + '">●</span> PV: <b>' + p.value[1].toFixed(2) + ' kW</b></div>';
                             }
                             if (p.seriesName === 'Verbrauch') {
                                 loV = p.value[1]; var lb = nearestBand(D.loBand, p.value[0]);
