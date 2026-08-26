@@ -6,6 +6,21 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Datum statt „Morgen"/„Übermorgen"/„Tag 4"/„Tag 5" im Tagesstreifen der
+  Energiebilanz-Kachel, dezenter Scroll-Hinweis (Forum-Feedback hfichtinger,
+  26.08.2026).** „Heute" bleibt als Ankerpunkt ein Wort, ab „Morgen" steht jetzt
+  Wochentag+Datum (z. B. „Do 27.08."), damit der Bruch zu den bisher generischen
+  „Tag 4"/„Tag 5" wegfällt. Zusätzlich: ein dezenter „›"-Pfeil rechts im Diagramm
+  zeigt jetzt an, wenn noch mehr Tage außerhalb des sichtbaren Bereichs folgen
+  (hfichtinger: „war etwas tricky das scrollen herauszufinden") — blendet sich
+  aus, sobald man ganz durchgescrollt hat, kein dauerhaftes Element und keine
+  erneute sichtbare Bildlaufleiste. Technische Notiz: `position:sticky` für den
+  Pfeil (analog zur Y-Achsen-Überlagerung) funktioniert hier NICHT symmetrisch
+  (die statische Ausgangsposition eines `width:0`-Blocks liegt immer links) —
+  stattdessen sitzt der Hinweis außerhalb des Scroll-Rahmens direkt in der
+  Kachel, vertikale Position wird aus der tatsächlichen Chart-Höhe berechnet.
+  Live mit beiden Engines verifiziert (erscheint bei mehr Inhalt, verschwindet
+  am Scroll-Ende, bleibt aus bei genau 3 Tagen ohne Scroll-Notwendigkeit).
 - **Fix: X-Achsen-Zeitbeschriftung in Highcharts weiterhin abgeschnitten
   (Dietmars Feedback — der vorige Fix hatte nur die ECharts-Seite bzw. den
   Abstand zum Tagesstreifen behoben, nicht die eigentliche Ursache in

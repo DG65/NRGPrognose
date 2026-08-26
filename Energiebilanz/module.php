@@ -466,7 +466,14 @@ class Energiebilanz extends IPSModule
         $limit = $full
             ? self::MAX_OFFSET + 1
             : max(1, min(self::MAX_OFFSET + 1, (int) $this->GetValue('Days')));
-        $labels = ['heute', 'morgen', 'übermorgen', 'Tag 4', 'Tag 5'];
+        // Nur „heute" bleibt relatives Wort (Ankerpunkt); ab „morgen" echtes
+        // Datum statt „morgen"/„übermorgen"/„Tag 4"/„Tag 5" — Forum-Feedback
+        // hfichtinger (26.08.2026): der Bruch von den vertrauten Wörtern zu
+        // generischem „Tag 4"/„Tag 5" wirkte willkürlich. Jetzt durchgehend
+        // Wochentag+Datum ab Tag 1, „gestern" (separat, siehe unten) bleibt
+        // ebenfalls Wortform, da nicht bemängelt.
+        $labels = ['heute'];
+        for ($i = 1; $i <= self::MAX_OFFSET; $i++) { $labels[] = $this->dayLabel($i); }
 
         $showPV   = (bool) $this->GetValue('ShowPV');
         $showLoad = (bool) $this->GetValue('ShowLoad');
@@ -771,6 +778,14 @@ class Energiebilanz extends IPSModule
         $vid = @IPS_GetObjectIDByIdent($ident, $instanceID);
         if ($vid === false || $vid <= 0) { return $default; }
         return GetValue($vid);
+    }
+
+    /** Wochentag (deutsches Kürzel) + Datum für einen Tages-Offset ab heute (0=heute). */
+    private function dayLabel(int $offsetDays): string
+    {
+        $ts = strtotime($offsetDays . ' days');
+        $wd = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'][((int) date('N', $ts)) - 1];
+        return $wd . ' ' . date('d.m.', $ts);
     }
 
     private function FontScaleValue(): float
