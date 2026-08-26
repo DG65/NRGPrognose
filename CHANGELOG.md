@@ -6,6 +6,13 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: horizontales Scrollen in der Energiebilanz-Kachel bei mehr als 3 Tagen.** Bis 3 Tage
+  passen wie bisher unverändert in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen
+  proportional breiter (`renderW`, an `#scrollWrap` mit `overflow-x:auto`) statt sich
+  zusammenzuquetschen — beide bekommen exakt dieselbe berechnete Breite, damit Tagesgrenzen
+  pixelgenau fluchten. Funktioniert für beide Diagramm-Engines (ECharts `resize()`, Highcharts
+  `chart.width` in `update()`). Auslöser: mit 5 Tagen Horizont (Prognose-Erweiterung von eben)
+  quetschten sich zuvor alle 6 Tage (inkl. Gestern) unlesbar in dieselbe feste Breite.
 - **Neu: `EFTILE_GetDaysData($id)` — style-freier Datenzugriff für NRGDashboard.** Dietmar hat
   entschieden, dass die Visualisierung der Energiebilanz-Kachel künftig als eigenständiges
   Dashboard-Modul entsteht, statt mit dem Tagesplan zu verschmelzen — Prognoseberechnung bleibt
