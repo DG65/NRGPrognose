@@ -6,6 +6,22 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Vereinfacht: „Diagrammhöhe"-Einstellung entfernt — die Kachel füllt jetzt
+  automatisch die tatsächlich verfügbare Höhe (Dietmar, 26.08.2026: "bräuchte
+  es diese Einstellung überhaupt nicht, wenn man die Diagrammhöhe als den Rest
+  zwischen oben und unten definieren würde").** Statt einer manuell zu
+  pflegenden Pixelzahl misst `module.html` jetzt clientseitig die tatsächlich
+  verfügbare Kachelhöhe (WebFront: vom Nutzer per Ziehen bestimmt) und zieht
+  den fest reservierten oberen Rand (IPS-Instanzname) sowie Legende und
+  Tagesstreifen (deren tatsächlich gerenderte, nicht geschätzte Höhe) ab — die
+  bestehenden Abstände zwischen den Elementen bleiben dabei unverändert.
+  Variable+Profil einer laufenden Installation werden beim nächsten Neustart
+  automatisch aufgeräumt. Zwei kleine Tooltip-/Anzeige-Korrekturen dabei
+  mitgenommen: kein P10–P90 mehr bei PV im Tooltip (die PV-Prognose ist
+  physikbasiert, keine k-NN-Quantile wie bei der Last — dort bleibt es), und
+  der linke Scroll-Pfeil sitzt jetzt hinter der Y-Achsen-Beschriftung statt
+  sie zu überdecken. Live bei mehreren Kachel-Höhen (420px/700px Viewport)
+  verifiziert — Diagramm füllt exakt den verfügbaren Platz.
 - **Verbessert: Scroll-Hinweis deutlich sichtbarer, jetzt auch links; „jetzt"-Linie
   rot (Dietmars Feedback zum eben gebauten Pfeil).** Der reine Text+Schatten-Pfeil
   war auf dunklem Kachel-Hintergrund kaum zu erkennen — jetzt eine kleine runde

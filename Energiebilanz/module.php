@@ -40,7 +40,6 @@ class Energiebilanz extends IPSModule
     private const DEF_BANDOP = 0.16;
     private const DEF_GRID   = true;
     private const DEF_YMAX   = 0.0; // 0 = automatisch
-    private const DEF_HEIGHT = 360;
 
     public function Create()
     {
@@ -110,7 +109,6 @@ class Energiebilanz extends IPSModule
             'ColorLoad'        => ['Farbe Verbrauch', '~HexColor', 42, self::DEF_LOAD],
             'ColorBackground'  => ['Hintergrundfarbe (falls nicht automatisch)', '~HexColor', 44, 0xFFFFFF],
             'FontFamily'       => ['Schriftart', 'EFTILE.Font', 45, 0],
-            'ChartHeight'      => ['Diagrammhöhe', 'EFTILE.Height', 47, self::DEF_HEIGHT],
         ];
         foreach ($int as $ident => $spec) {
             [$caption, $profile, $pos, $default] = $spec;
@@ -120,6 +118,15 @@ class Energiebilanz extends IPSModule
             if ($isNew) {
                 $this->SetValue($ident, $this->legacyIntValue($ident, $default));
             }
+        }
+        // „Diagrammhöhe" (Build 77–82) entfernt (Dietmar, 26.08.2026: "bräuchte es
+        // diese Einstellung überhaupt nicht, wenn man die Diagrammhöhe als den
+        // Rest zwischen oben und unten definieren würde") — die Kachel misst
+        // jetzt clientseitig die tatsächlich verfügbare Höhe (module.html,
+        // computeCanvasHeight()) statt eine manuell zu pflegende Pixelzahl zu
+        // brauchen. Variable+Profil einer bestehenden Installation aufräumen.
+        if (@IPS_GetObjectIDByIdent('ChartHeight', $this->InstanceID) !== false) {
+            $this->UnregisterVariable('ChartHeight');
         }
 
         $float = [
@@ -172,10 +179,6 @@ class Energiebilanz extends IPSModule
         if (!IPS_VariableProfileExists('EFTILE.CacheSec')) { IPS_CreateVariableProfile('EFTILE.CacheSec', VARIABLETYPE_INTEGER); }
         IPS_SetVariableProfileValues('EFTILE.CacheSec', 15, 900, 5);
         IPS_SetVariableProfileText('EFTILE.CacheSec', '', ' s');
-
-        if (!IPS_VariableProfileExists('EFTILE.Height')) { IPS_CreateVariableProfile('EFTILE.Height', VARIABLETYPE_INTEGER); }
-        IPS_SetVariableProfileValues('EFTILE.Height', 180, 800, 10);
-        IPS_SetVariableProfileText('EFTILE.Height', '', ' px');
 
         if (!IPS_VariableProfileExists('EFTILE.Scale')) { IPS_CreateVariableProfile('EFTILE.Scale', VARIABLETYPE_FLOAT); }
         IPS_SetVariableProfileValues('EFTILE.Scale', 0.5, 2.5, 0.1);
@@ -303,7 +306,7 @@ class Energiebilanz extends IPSModule
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
                        'Smooth', 'ShowBand', 'ShowGrid', 'ColorBackgroundAuto'];
         $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartEngine',
-                       'ColorPV', 'ColorLoad', 'ColorBackground', 'FontFamily', 'ChartHeight'];
+                       'ColorPV', 'ColorLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
 
         if (in_array($Ident, $boolIdents, true)) {
@@ -398,7 +401,6 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ColorBackground', 0xFFFFFF);
         $this->SetValue('FontFamily', 0);
         $this->SetValue('FontScale', self::DEF_SCALE);
-        $this->SetValue('ChartHeight', self::DEF_HEIGHT);
         $this->SetValue('LineWidth', self::DEF_LW);
         $this->SetValue('Smooth', self::DEF_SMOOTH);
         $this->SetValue('ShowBand', self::DEF_BAND);
@@ -431,7 +433,6 @@ class Energiebilanz extends IPSModule
             'showGrid'  => (bool) $this->GetValue('ShowGrid'),
             'yMaxManual'=> max(0.0, (float) $this->GetValue('YMaxManual')),
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
-            'height'    => max(180, (int) $this->GetValue('ChartHeight')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
         ];
 
