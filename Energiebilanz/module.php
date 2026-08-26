@@ -44,10 +44,7 @@ class Energiebilanz extends IPSModule
     // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
     // VersionLabel() im Doku-Panel.
     private const LIBRARY_GUID = '{2D15AFF6-7CD5-4147-B438-B4288BD598AE}';
-    // Absichtlich leer, bis Dietmar den echten Thread-Link nennt (siehe
-    // Rückfrage) — Forum-Hinweis wird unten nur gebaut, wenn dieser String
-    // nicht leer ist, damit niemals ein geratener/falscher Link ausgeliefert wird.
-    private const FORUM_THREAD_URL = '';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-energieprognose-last-pv-prognose-fuers-ems/144125';
     private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
 
     // „Was ist neu"-Banner (Verbund-Konvention, SUITE.md „Einheitliche
