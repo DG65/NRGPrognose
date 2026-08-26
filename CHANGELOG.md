@@ -6,6 +6,63 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: X-Achsen-Zeitbeschriftung in Highcharts weiterhin abgeschnitten
+  (Dietmars Feedback — der vorige Fix hatte nur die ECharts-Seite bzw. den
+  Abstand zum Tagesstreifen behoben, nicht die eigentliche Ursache in
+  Highcharts).** Live vermessen (`labelGroup.getBBox()`): Highcharts platziert
+  die Zeitbeschriftung trotz `tickLength:0` mit einem eigenen, nicht direkt
+  einstellbaren Innenabstand — der ragte bei uns ca. 5px über die per
+  `marginBottom` reservierte Höhe hinaus und wurde vom Kachel-Rand
+  abgeschnitten. Jetzt `xAxis.labels.y` explizit gesetzt (statt Highcharts'
+  Auto-Platzierung zu vertrauen) plus etwas mehr Rand allgemein (unterer
+  Plotbereich-Rand 22→28px, wirkt auf beide Engines). Live mit Highcharts bei
+  scale 1 und 1.4 verifiziert (Zeiten „00 03 06 …" vollständig lesbar).
+- **Fix: Tagesstreifen (Gestern/Heute/…) rückte 5px näher an die X-Achsen-
+  Zeitbeschriftung, weil die zu eng beieinander lagen und dadurch schlecht
+  auseinanderzuhalten waren (Dietmars Feedback).** `#days`-Abstand zum Chart
+  von 6px auf 11px erhöht.
+- **Neu: alle Einstellungen der Energiebilanz-Kachel jetzt hinter dem Doppelpfeil
+  (WebFront), nicht mehr nur in der Konsole (Dietmar, 26.08.2026: "Bau alles um").**
+  22 bisherige Konsolen-Properties (Tage, Ist-Anzeige, Farben, Schriftart/-größe,
+  Diagramm-Engine, Glättung, Band, Gitter, Y-Achse fest, Archiv-Cache …) sind jetzt
+  echte Instanz-Variablen mit `EnableAction()` — Fund aus Dashboards Hydraulikschema-
+  Muster (SUITE.md Punkt 10): eine aufgezogene Kachel zeigt nie das eigene Kachel-HTML,
+  aber automatisch die Standardansicht der Instanz-Variablen als Schalter/Dropdown/
+  Zahlenfeld. Neue `EFTILE.*`-Variablenprofile für die Auswahlfelder, `~HexColor` für
+  die drei Farben. Nur die vier Quell-/Variablenauswahl-Properties (PV-/Lastprognose-
+  Instanz, Ist-Leistungsvariablen) bleiben Konsolen-Properties — SelectInstance/
+  SelectVariable gibt es nicht als Doppelpfeil-Variable. Bestehende Einstellungen
+  (z. B. Days=5) werden beim ersten Start nach dem Update automatisch aus der alten
+  Konfiguration übernommen (`legacyValue()`/`legacyIntValue()`, liest die rohe
+  Instanz-Konfiguration statt der nicht mehr registrierten Property), nicht auf den
+  Modul-Default zurückgesetzt. `ResetStyle()` (Konsolen-Button) setzt jetzt per
+  `SetValue()` auf die Variablen zurück statt per `UpdateFormField()` auf Formularfelder.
+  form.json entsprechend gekürzt (nur noch Quellen/Ist-Variablen + Dokumentation).
+- **Fix: Y-Achse/X-Achse bei skalierter Kachel nicht mehr abgeschnitten + P10/P90 im
+  Tooltip (Dietmars Folge-Feedback zur eben gefixten Y-Achsen-Überlagerung).** Die neue
+  `#yAxisOverlay` und die vereinheitlichten Plotbereich-Ränder waren als feste, unskalierte
+  Pixelwerte hinterlegt (`PLOT_TOP=8`/`PLOT_BOTTOM=22` usw.) — bei einer über `scale` größer
+  eingestellten Kachel wuchs die Schrift mit, der reservierte Rand aber nicht: Die
+  „kW"-Beschriftung wurde von `#scrollWrap`s `overflow-y:hidden` abgeschnitten (negativer
+  Top-Offset), die X-Achsen-Zeitbeschriftung unten zu eng zum sauberen Rendern. Jetzt
+  skalieren alle vier Ränder mit `D.scale` (`plotMetrics()`), die „kW"-Beschriftung sitzt
+  mittig im oberen Rand statt an einem festen Negativ-Offset. Zusätzlich zeigt der Tooltip
+  jetzt neben PV/Verbrauch (P50) auch die Unsicherheitsspanne P10–P90 in kW an (auf Wunsch,
+  unabhängig vom sichtbaren Unsicherheitsband). Live mit beiden Engines bei `scale:1.4`
+  verifiziert (keine Abschneidung mehr, Tooltip zeigt „PV: 4.50 kW (P10–P90 3.15–5.85 kW)").
+- **Fix: Y-Achse (kW) bleibt beim Horizontalscrollen der Energiebilanz-Kachel sichtbar
+  (Dietmars Folge-Feedback zur Legende/zum Scrollbalken).** Bisher zeichneten beide Engines
+  ihre Achsenbeschriftung als Teil des breiten, scrollenden Chart-Canvas — sie lief beim
+  Scrollen mit weg, genau wie zuvor die Legende. Fix: eigene, schmale `#yAxisOverlay` mit
+  `position:sticky` links im Scroll-Rahmen (analog zur externen `#legend`), berechnet 5
+  gleich verteilte Marken (0..`yMax`) + „kW"-Beschriftung rein aus den Daten. Damit das
+  pixelgenau auf den echten Gitterlinien sitzt, erzwingen jetzt beide Engines identische
+  Plotbereich-Ränder (`PLOT_LEFT/RIGHT/TOP/BOTTOM`, vorher hatte Highcharts eigene
+  `spacingTop/Bottom` statt ECharts' `grid`-Maße) und teilen sich `yMax`/Sichtbarkeit
+  (`D.pvVis`/`D.loVis`) aus derselben `prepData()` statt sie je Engine separat zu berechnen —
+  eigene Achsenbeschriftung/-titel beider Engines dafür ausgeblendet (Gitterlinien bleiben).
+  Live im Browser mit beiden Engines verifiziert (Mock-Daten, 6 Tage, Y-Achse bleibt links
+  stehen und fluchtet mit den Gitterlinien über die gesamte Scroll-Breite).
 - **Fix: Legende überdeckte sich nicht mehr selbst beim Scrollen, Scrollbalken versteckt
   (Dietmars Feedback zum Scroll-Feature von eben).** Highcharts zeichnete seine Legende bisher
   INNERHALB des Chart-Canvas (`legend.align:'right'`) — der wurde beim Horizontalscrollen jetzt
