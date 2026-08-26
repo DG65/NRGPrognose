@@ -41,6 +41,29 @@ class Energiebilanz extends IPSModule
     private const DEF_GRID   = true;
     private const DEF_YMAX   = 0.0; // 0 = automatisch
 
+    // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
+    // VersionLabel() im Doku-Panel.
+    private const LIBRARY_GUID = '{2D15AFF6-7CD5-4147-B438-B4288BD598AE}';
+    // Absichtlich leer, bis Dietmar den echten Thread-Link nennt (siehe
+    // Rückfrage) — Forum-Hinweis wird unten nur gebaut, wenn dieser String
+    // nicht leer ist, damit niemals ein geratener/falscher Link ausgeliefert wird.
+    private const FORUM_THREAD_URL = '';
+    private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+
+    // „Was ist neu"-Banner (Verbund-Konvention, SUITE.md „Einheitliche
+    // Formular-Optik" Punkt 1) — Vergleich läuft gegen den STRING
+    // NEWS_VERSION, jede Erhöhung zeigt den Banner erneut, bis bestätigt.
+    // Nur bei nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem
+    // Patch (25.08./26.08.2026-Runde: 5-Tage-Horizont, Scroll, Doppelpfeil-
+    // Einstellungen, div. Kachel-Feinschliff).
+    private const NEWS_VERSION = '0.20';
+    private const NEWS_ITEMS = [
+        'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage) — bei mehr als 3 Tagen lässt sich das Diagramm horizontal scrollen, Legende und Y-Achse bleiben dabei sichtbar.',
+        'Alle Darstellungseinstellungen (Farben, Schriftart, Diagramm-Engine, Tage, Ist-Anzeige, Gitter, Y-Achse fest …) sind jetzt direkt im WebFront einstellbar — Kachel über den Doppelpfeil aufziehen, statt in der Konsole zu suchen.',
+        'Tooltip zeigt beim Verbrauch zusätzlich die Unsicherheitsspanne (P10–P90).',
+        'Diagrammhöhe passt sich automatisch der Kachelgröße an — keine eigene Einstellung mehr nötig.',
+    ];
+
     public function Create()
     {
         parent::Create();
@@ -53,6 +76,8 @@ class Energiebilanz extends IPSModule
         $this->RegisterPropertyInteger('ActualPV',   0);
         $this->RegisterPropertyInteger('ActualLoad', 0);
         $this->RegisterAttributeString('MeasuredCache', '');
+        $this->RegisterAttributeString('SeenNews', '');
+        $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
 
         // Alle übrigen Einstellungen (Dietmar, 26.08.2026: "Bau alles um" —
         // Auftrag, die kompletten bisher konsolenpflichtigen Einstell-
@@ -372,11 +397,80 @@ class Energiebilanz extends IPSModule
         IPS_ApplyChanges($ids[0]);
     }
 
+    /**
+     * Baut das Formular aus form.json und ergänzt die drei dynamischen,
+     * verbundweit einheitlichen Elemente (SUITE.md „Einheitliche Formular-
+     * Optik"): Versionszeile im Doku-Panel, dismissibler Forum-Hinweis,
+     * versionsscharf dismissibler „Was ist neu"-Banner ganz oben.
+     */
     public function GetConfigurationForm()
     {
-        $form = file_get_contents(__DIR__ . '/form.json');
-        $form = str_replace('%%HOOK%%', '/hook/energiebilanz' . $this->InstanceID, $form);
-        return json_encode(json_decode($form, true));
+        $raw = file_get_contents(__DIR__ . '/form.json');
+        $raw = str_replace('%%HOOK%%', '/hook/energiebilanz' . $this->InstanceID, $raw);
+        $form = json_decode($raw, true);
+
+        foreach ($form['elements'] as &$el) {
+            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['caption'] ?? '') === '📖 Dokumentation & Hilfe') {
+                array_unshift($el['items'], $this->VersionLabel());
+                break;
+            }
+        }
+        unset($el);
+
+        if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $form['elements'][] = [
+                'type' => 'RowLayout',
+                'name' => 'ForumHint',
+                'items' => [
+                    ['type' => 'Label', 'caption' => '💬 Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
+                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'EFTILE_DismissForumHint($id);'],
+                ],
+            ];
+        }
+
+        $banner = $this->newsBanner();
+        if ($banner !== null) {
+            array_unshift($form['elements'], $banner);
+        }
+
+        return json_encode($form);
+    }
+
+    /** Versionszeile im Doku-Panel — dauerhaft sichtbar, anders als der dismissible „Neu"-Banner. */
+    private function VersionLabel(): array
+    {
+        $lib = @IPS_GetLibrary(self::LIBRARY_GUID);
+        $txt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ Energiebilanz — Teil der NRG-Stack Prognose-Suite, Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ Energiebilanz';
+        return ['type' => 'Label', 'caption' => $txt];
+    }
+
+    /** „Was ist neu"-Banner: erscheint nach einem Update, bis „Verstanden" geklickt wird. */
+    private function newsBanner()
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        $items = [['type' => 'Label', 'caption' => '🆕 Neu — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        foreach (self::NEWS_ITEMS as $line) {
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+        }
+        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'EFTILE_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+    }
+
+    public function AckNews(): void
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
+
+    public function DismissForumHint(): void
+    {
+        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+        $this->UpdateFormField('ForumHint', 'visible', false);
     }
 
     /**
