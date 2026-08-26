@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Legende überdeckte sich nicht mehr selbst beim Scrollen, Scrollbalken versteckt
+  (Dietmars Feedback zum Scroll-Feature von eben).** Highcharts zeichnete seine Legende bisher
+  INNERHALB des Chart-Canvas (`legend.align:'right'`) — der wurde beim Horizontalscrollen jetzt
+  breiter als der Rahmen und die Legende scrollte mit weg. Beide Engines nutzen jetzt dieselbe
+  externe `#legend` (außerhalb von `#scrollWrap`, bleibt beim Scrollen sichtbar/klickbar) —
+  ECharts nutzte die ohnehin schon, Highcharts' eingebaute Legende ist jetzt `enabled:false`.
+  Zusätzlich der horizontale Scrollbalken per CSS versteckt (`scrollbar-width:none` /
+  `::-webkit-scrollbar{display:none}`) — überdeckte sonst die Ist-Werte-Zeile am unteren Rand;
+  Scrollen per Touch/Trackpad/Klick-Ziehen bleibt uneingeschränkt möglich. Live im Browser mit
+  beiden Engines verifiziert (Mock-Daten, 6 Tage, Legende bleibt beim Scrollen stehen,
+  Aus-/Einblenden per Legenden-Klick funktioniert weiterhin).
 - **Neu: horizontales Scrollen in der Energiebilanz-Kachel bei mehr als 3 Tagen.** Bis 3 Tage
   passen wie bisher unverändert in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen
   proportional breiter (`renderW`, an `#scrollWrap` mit `overflow-x:auto`) statt sich

@@ -13,8 +13,12 @@
         #legend .lg b { font-weight: 500; }
         /* Mehr als 3 Tage: Chart+Tagesstreifen werden breiter als der Rahmen und per
            nativem Browser-Scroll gezeigt (statt sich zusammenzuquetschen) — beide bleiben
-           dabei pixelgenau ausgerichtet, weil sie dieselbe berechnete Breite bekommen. */
-        #scrollWrap { overflow-x: auto; overflow-y: hidden; }
+           dabei pixelgenau ausgerichtet, weil sie dieselbe berechnete Breite bekommen.
+           Scrollbalken bewusst unsichtbar (Dietmars Wunsch — überdeckte sonst die
+           Ist-Werte-Zeile am unteren Rand); gescrollt wird trotzdem ganz normal per
+           Touch/Trackpad/Klick-Ziehen, nur ohne sichtbare Leiste. */
+        #scrollWrap { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+        #scrollWrap::-webkit-scrollbar { display: none; height: 0; }
         #chart { width: 100%; height: 360px; }
         #days { display: none; margin-top: 6px; line-height: 1.25; }
         .empty { color: #8a97a3; font-size: 13px; padding: 24px 10px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -148,23 +152,23 @@
             });
             D.hasIst = data.days.some(function (d) { return d.pvKwhIst != null || d.loKwhIst != null; });
 
-            // „jetzt"-Marker am Heute-Segment (mit Gestern verschiebt es sich um 24 h)
-            D.nowX = null; D.nowPts = [];
+            // „jetzt"-Marker am Heute-Segment (mit Gestern verschiebt es sich um 24 h).
+            // Die konkreten Punkte (Farbe/Sichtbarkeit) baut sich jede Engine selbst aus
+            // D.nowX/D.actualPV/D.actualLoad + der aktuellen userHide-Sichtbarkeit.
+            D.nowX = null;
             var heuteIdx = -1;
             data.days.forEach(function (d, di) { if (d.label === 'heute') { heuteIdx = di; } });
             if (heuteIdx >= 0) {
                 var now = new Date(); D.nowX = heuteIdx * 24 + now.getHours() + now.getMinutes() / 60;
-                if (D.pvPresent && data.actualPV != null) { D.nowPts.push({ x: D.nowX, y: data.actualPV / 1000, color: D.pvC }); }
-                if (D.loPresent && data.actualLoad != null) { D.nowPts.push({ x: D.nowX, y: data.actualLoad / 1000, color: D.loC }); }
             }
             return D;
         }
 
         // ---- Highcharts (privat) ----------------------------------------
         function buildHC() {
-            var D = prepData(), data = D.data, el = document.getElementById('chart');
+            var D = prepData(), el = document.getElementById('chart');
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
-            document.getElementById('legend').style.display = 'none';
+            var legEl = document.getElementById('legend'); legEl.style.display = 'block'; renderLegend(legEl, D);
             var daysEl = document.getElementById('days'); daysEl.style.display = 'block'; dayStrip(daysEl, D);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
@@ -172,19 +176,25 @@
             var pvC = D.pvC, loC = D.loC, scale = D.scale, lw = D.lw;
             var stype = D.smooth ? 'spline' : 'line', showBand = D.showBand, bandOp = D.bandOp;
             var fpx = function (n) { return (n * scale) + 'px'; };
+            var pvVis = D.pvPresent && !userHide.pv, loVis = D.loPresent && !userHide.load;
 
             var series = [];
-            if (D.pvPresent) {
+            if (pvVis) {
                 series.push({ id: 'pv', type: stype, name: 'PV', data: D.pvLine, color: pvC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'PV-Band', data: D.pvBand, color: pvC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'pv', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
                 if (D.pvMeas.length > 1) { series.push({ type: stype, name: 'PV gemessen', data: D.pvMeas, color: pvC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), linkedTo: 'pv', enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
             }
-            if (D.loPresent) {
+            if (loVis) {
                 series.push({ id: 'load', type: stype, name: 'Verbrauch', data: D.loLine, color: loC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'Verbrauch-Band', data: D.loBand, color: loC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'load', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
                 if (D.loMeas.length > 1) { series.push({ type: stype, name: 'Verbrauch gemessen', data: D.loMeas, color: loC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), linkedTo: 'load', enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
             }
-            if (D.nowPts.length) { series.push({ type: 'scatter', name: 'jetzt', data: D.nowPts, showInLegend: false, enableMouseTracking: false, zIndex: 6, marker: { enabled: true, radius: 5, symbol: 'circle', lineColor: TIP, lineWidth: 2 } }); }
+            var nowPts = [];
+            if (D.nowX != null) {
+                if (pvVis && D.actualPV != null) { nowPts.push({ x: D.nowX, y: D.actualPV / 1000, color: pvC }); }
+                if (loVis && D.actualLoad != null) { nowPts.push({ x: D.nowX, y: D.actualLoad / 1000, color: loC }); }
+            }
+            if (nowPts.length) { series.push({ type: 'scatter', name: 'jetzt', data: nowPts, showInLegend: false, enableMouseTracking: false, zIndex: 6, marker: { enabled: true, radius: 5, symbol: 'circle', lineColor: TIP, lineWidth: 2 } }); }
 
             var plotLines = [];
             for (var di = 1; di < nDays; di++) { plotLines.push({ value: di * 24, color: D.SEP, width: 1, zIndex: 2 }); }
@@ -193,12 +203,9 @@
             var options = {
                 chart: { backgroundColor: 'transparent', width: D.renderW, height: canvasH, spacingTop: 10, spacingBottom: 2, marginLeft: 46, marginRight: 14, style: { fontFamily: D.font }, animation: false },
                 title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
-                legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: false, margin: 16, padding: 0, x: -2, y: 0, useHTML: true, symbolRadius: 6, itemStyle: { color: TEXT, fontSize: fpx(11), fontWeight: '400' }, itemHoverStyle: { color: TEXT }, labelFormatter: function () {
-                    var ex = '';
-                    if (this.userOptions.id === 'pv' && data.actualPV != null) { ex = ' · jetzt <b>' + kw(data.actualPV) + ' kW</b>'; }
-                    if (this.userOptions.id === 'load' && data.actualLoad != null) { ex = ' · jetzt <b>' + kw(data.actualLoad) + ' kW</b>'; }
-                    return this.name + ex;
-                } },
+                // Eigene Legende (#legend, außerhalb #scrollWrap) statt der eingebauten —
+                // die läge innerhalb des Chart-Canvas und würde beim Scrollen mitlaufen.
+                legend: { enabled: false },
                 xAxis: { min: 0, max: nDays * 24, tickInterval: 3, gridLineWidth: (D.showGrid ? 1 : 0), gridLineColor: GRID, lineColor: GRID, tickLength: 0, plotLines: plotLines,
                     labels: { style: { color: MUTED, fontSize: fpx(9) }, formatter: function () { return pad(this.value % 24); } } },
                 yAxis: { min: 0, max: (D.yMaxManual > 0 ? D.yMaxManual : null), title: { text: 'kW', style: { color: MUTED, fontSize: fpx(10) } }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { style: { color: MUTED, fontSize: fpx(10) } } },
@@ -221,13 +228,17 @@
             if (!chart) { el.innerHTML = ''; chart = Highcharts.chart('chart', options); }
         }
 
-        // ---- Apache ECharts (open source / kommerziell) -----------------
-        function ecLegend(legEl, D) {
+        // ---- Legende (geteilt zwischen beiden Engines) -------------------
+        // Bewusst NICHT die eingebaute Highcharts-Legende (die liegt innerhalb des
+        // Chart-Canvas und würde beim Horizontalscrollen mit wegscrollen) — beide
+        // Engines nutzen dasselbe externe #legend-Element außerhalb von #scrollWrap,
+        // damit sie beim Scrollen sichtbar/klickbar stehen bleibt (Dietmars Wunsch).
+        function renderLegend(legEl, D) {
             var h = '';
             function item(id, name, color, present, actual, hidden) {
                 if (!present) { return; }
                 var v = actual != null ? (' · jetzt <b>' + kw(actual) + ' kW</b>') : '';
-                h += '<span class="lg" onclick="ecToggle(\'' + id + '\')" title="Klick: aus-/einblenden" style="opacity:' + (hidden ? 0.4 : 1) + '"><span class="sw" style="background:' + color + '"></span>' + name + v + '</span>';
+                h += '<span class="lg" onclick="toggleSeries(\'' + id + '\')" title="Klick: aus-/einblenden" style="opacity:' + (hidden ? 0.4 : 1) + '"><span class="sw" style="background:' + color + '"></span>' + name + v + '</span>';
             }
             item('pv', 'PV', D.pvC, D.pvPresent, D.actualPV, userHide.pv);
             item('load', 'Verbrauch', D.loC, D.loPresent, D.actualLoad, userHide.load);
@@ -257,14 +268,14 @@
             daysEl.style.fontSize = (11 * D.scale) + 'px'; daysEl.style.fontFamily = D.font;
             daysEl.style.width = D.renderW + 'px';
         }
-        function ecToggle(w) { userHide[w] = !userHide[w]; buildEC(); }
+        function toggleSeries(w) { userHide[w] = !userHide[w]; render(); }
 
         function buildEC() {
             var D = prepData(), el = document.getElementById('chart');
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             legEl.style.display = 'block'; daysEl.style.display = 'block';
-            ecLegend(legEl, D); dayStrip(daysEl, D);
+            renderLegend(legEl, D); dayStrip(daysEl, D);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
             var pvVis = D.pvPresent && !userHide.pv, loVis = D.loPresent && !userHide.load;
