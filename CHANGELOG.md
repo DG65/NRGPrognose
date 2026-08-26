@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Legende der Energiebilanz-Kachel ausblendbar (Forum-Wunsch hfichtinger, 26.08.2026:
+  wollte mehr Diagrammfläche).** Dietmar wollte das nicht als neuen Standard, deshalb ein
+  Schalter „Legende anzeigen" (Doppelpfeil, Default an) statt einer festen Verhaltensänderung —
+  jeder entscheidet selbst. Ausgeblendet gibt die Legende ihren Platz vollständig ans Diagramm
+  ab (`computeCanvasHeight()` berücksichtigt das explizit, nicht nur über die vom Browser bei
+  `display:none` ohnehin gemeldete Höhe 0 — deren CSS-Margins liefert `getComputedStyle()`
+  weiterhin, deshalb die explizite Prüfung). Live mit beiden Engines verifiziert (Diagrammhöhe
+  wuchs im Test von 243px auf 284px beim Ausblenden).
 - **Neu: Lastprognose- und PVPrognose-Formulare folgen jetzt ebenfalls der verbundweiten
   Formular-Konvention** (gleiches Muster wie eben bei Energiebilanz eingeführt). Dismissibler
   „🆕 Neu in Version 0.20"-Banner (Prognosehorizont 5 Tage, laufende Plausibilitätskontrolle,
