@@ -82,6 +82,22 @@ class Lastprognose extends IPSModule
     // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
     private $specialEventsVersionMismatch = null;
 
+    // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
+    // VersionLabel() im Doku-Panel (SUITE.md „Einheitliche Formular-Optik").
+    private const LIBRARY_GUID = '{2D15AFF6-7CD5-4147-B438-B4288BD598AE}';
+    private const FORUM_THREAD_URL = 'https://community.symcon.de/t/beta-tester-gesucht-energieprognose-last-pv-prognose-fuers-ems/144125';
+    private const ATTR_REVIEW_HINT_GONE = 'ReviewHintDismissed';
+
+    // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
+    // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
+    // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
+    private const NEWS_VERSION = '0.20';
+    private const NEWS_ITEMS = [
+        'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage statt bisher 2).',
+        'Laufende Plausibilitätskontrolle ergänzt — erkennt unplausible Prognosen automatisch.',
+        'Sondereffekte (z. B. §14a-Eingriffe) werden bei der Genauigkeitsauswertung automatisch ausgeschlossen, sofern ein EMS installiert ist.',
+    ];
+
     // ----------------------------------------------------------------
     //  Modul-Lebenszyklus
     // ----------------------------------------------------------------
@@ -89,6 +105,8 @@ class Lastprognose extends IPSModule
     public function Create()
     {
         parent::Create();
+        $this->RegisterAttributeString('SeenNews', '');
+        $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
 
         // ── Allgemein ───────────────────────────────────────────────
         $this->RegisterPropertyBoolean('LFC_Active',         false);
@@ -193,6 +211,80 @@ class Lastprognose extends IPSModule
     public function Destroy()
     {
         parent::Destroy();
+    }
+
+    /**
+     * Baut das Formular aus form.json und ergänzt die drei dynamischen,
+     * verbundweit einheitlichen Elemente (SUITE.md „Einheitliche Formular-
+     * Optik"): Versionszeile im Doku-Panel, dismissibler Forum-Hinweis,
+     * versionsscharf dismissibler „Was ist neu"-Banner ganz oben.
+     */
+    public function GetConfigurationForm()
+    {
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+
+        foreach ($form['elements'] as &$el) {
+            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['caption'] ?? '') === '📖 Dokumentation & Hilfe') {
+                array_unshift($el['items'], $this->VersionLabel());
+                break;
+            }
+        }
+        unset($el);
+
+        if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
+            $form['elements'][] = [
+                'type' => 'RowLayout',
+                'name' => 'ForumHint',
+                'items' => [
+                    ['type' => 'Label', 'caption' => '💬 Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
+                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'LFC_DismissForumHint($id);'],
+                ],
+            ];
+        }
+
+        $banner = $this->newsBanner();
+        if ($banner !== null) {
+            array_unshift($form['elements'], $banner);
+        }
+
+        return json_encode($form);
+    }
+
+    /** Versionszeile im Doku-Panel — dauerhaft sichtbar, anders als der dismissible „Neu"-Banner. */
+    private function VersionLabel(): array
+    {
+        $lib = @IPS_GetLibrary(self::LIBRARY_GUID);
+        $txt = (is_array($lib) && isset($lib['Version']))
+            ? 'ℹ️ Lastprognose — Teil der NRG-Stack Prognose-Suite, Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
+            : 'ℹ️ Lastprognose';
+        return ['type' => 'Label', 'caption' => $txt];
+    }
+
+    /** „Was ist neu"-Banner: erscheint nach einem Update, bis „Verstanden" geklickt wird. */
+    private function newsBanner()
+    {
+        if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
+            return null;
+        }
+        $items = [['type' => 'Label', 'caption' => '🆕 Neu — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        foreach (self::NEWS_ITEMS as $line) {
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+        }
+        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'LFC_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+    }
+
+    public function AckNews(): void
+    {
+        $this->WriteAttributeString('SeenNews', self::NEWS_VERSION);
+        $this->UpdateFormField('NewsPanel', 'visible', false);
+    }
+
+    public function DismissForumHint(): void
+    {
+        $this->WriteAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, true);
+        $this->UpdateFormField('ForumHint', 'visible', false);
     }
 
     public function ApplyChanges()
