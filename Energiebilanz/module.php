@@ -113,6 +113,13 @@ class Energiebilanz extends IPSModule
             // über computeCanvasHeight() (module.html) auch auf die verfügbare
             // Diagrammhöhe aus: ausgeblendet = der Platz geht ans Diagramm.
             'ShowLegend'         => ['Legende anzeigen', 55, true],
+            // Dietmar, 26.08.2026: gleicher Gedanke wie bei ShowLegend — noch
+            // mehr Platz fürs Diagramm, indem die "Ist"-Zeile im Tagesstreifen
+            // (unter Gestern/Heute) bei Bedarf ganz entfällt statt fest da zu
+            // sein, sobald Ist-Werte vorliegen. Wirkt nur auf die Anzeige,
+            // nicht auf die zugrundeliegenden Ist-Werte selbst (ShowActualPV/
+            // ShowActualLoad steuern weiterhin die gestrichelte Linie im Chart).
+            'ShowIstRow'         => ['„Ist"-Zeile im Tagesstreifen anzeigen', 56, true],
             'ColorBackgroundAuto' => ['Hintergrund automatisch (IPS-Theme/transparent)', 43, true],
         ];
         foreach ($bool as $ident => $spec) {
@@ -332,7 +339,7 @@ class Energiebilanz extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
-                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ColorBackgroundAuto'];
+                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ColorBackgroundAuto'];
         $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartEngine',
                        'ColorPV', 'ColorLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
@@ -504,6 +511,7 @@ class Energiebilanz extends IPSModule
         $this->SetValue('BandOpacity', self::DEF_BANDOP);
         $this->SetValue('ShowGrid', self::DEF_GRID);
         $this->SetValue('ShowLegend', true);
+        $this->SetValue('ShowIstRow', true);
         $this->SetValue('YMaxManual', self::DEF_YMAX);
         $this->Render();
     }
@@ -530,6 +538,7 @@ class Energiebilanz extends IPSModule
             'bandOp'    => max(0.0, min(0.6, (float) $this->GetValue('BandOpacity'))),
             'showGrid'  => (bool) $this->GetValue('ShowGrid'),
             'showLegend'=> (bool) $this->GetValue('ShowLegend'),
+            'showIstRow'=> (bool) $this->GetValue('ShowIstRow'),
             'yMaxManual'=> max(0.0, (float) $this->GetValue('YMaxManual')),
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
