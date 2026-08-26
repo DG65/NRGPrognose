@@ -1,7 +1,14 @@
 # Energiebilanz (Kachel)
 
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 Kombinierte **Visualisierungskachel**, die PV-Erzeugung und Verbrauch gemeinsam (oder einzeln) über
-bis zu 3 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
+bis zu 5 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
 Netzbezug/Einspeisung. Prefix: `EFTILE`.
 
 ## Funktionsweise
@@ -30,6 +37,7 @@ Beim Überfahren/Antippen werden Werte und Saldo zur Uhrzeit angezeigt.
 | Bereich | Bedeutung |
 |---|---|
 | **Quellen** | Werden automatisch erkannt (je eine PV- und Lastprognose-Instanz); nur bei mehreren Instanzen manuell wählen. Jede Reihe per Schalter oder Legenden-Klick ausblendbar. |
+| **Anzuzeigende Tage** | 1–5 (+ optional Gestern = bis zu 6 insgesamt). Bis 3 Tage passen ohne Scrollen in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen proportional breiter und lassen sich horizontal scrollen (bei gleicher Kachelbreite), statt sich zusammenzuquetschen. |
 | **Ist-Werte** | Momentane Leistungsvariablen für PV und Verbrauch; optional der gemessene Tagesverlauf als Linie. |
 | **Gestern** | Vortag mit Ist-Kurve und (falls vorhanden) Snapshot-Soll. |
 | **Diagramm-Engine** | **ECharts** (quelloffen, auch kommerziell kostenlos) oder **Highcharts** (nur privat/nicht-kommerziell kostenlos). |
@@ -58,6 +66,18 @@ Wird eine Hintergrundfarbe gesetzt, gilt sie für die gesamte Kachel, und die Te
 nach deren Helligkeit. Ohne gesetzte Farbe (transparent) folgt die Kachel dem Hell-/Dunkelmodus des
 Anzeigegeräts bzw. dem IPS-Theme.
 
-Teil der **[EnergiePrognose-Suite](https://github.com/DG65/Prognose)**.
+## Öffentliche Funktionen
 
-> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/EMS/blob/main/SUITE.md).
+```php
+// Style-freier Datenzugriff für eine eigene Visualisierung (z. B. NRGDashboard) — liefert
+// dasselbe days[]-Format wie die eigene Kachel intern nutzt, aber IMMER vollständig (voller
+// 5-Tage-Horizont, "Gestern", Ist-Überlagerung), unabhängig von den Anzeige-Einstellungen
+// dieser Instanz. Der Konsument entscheidet selbst, was er zeigt.
+$data = EFTILE_GetDaysData(int $InstanzID);
+// => ['contractVersion'=>'1.0', 'hasData'=>.., 'message'=>.., 'actualPV'=>.., 'actualLoad'=>..,
+//     'days'=>[{label, pv:{p10,p50,p90,kwh}|null, load:{...}|null, pvMeas, loMeas, pvKwhIst, loKwhIst}, ...]]
+```
+
+Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)**.
+
+> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

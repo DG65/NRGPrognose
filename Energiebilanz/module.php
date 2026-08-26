@@ -18,6 +18,12 @@ class Energiebilanz extends IPSModule
     private const SOURCE_PV   = '{257DD4E8-9705-462E-89FC-56D0A1038353}'; // PVForecast
     private const SOURCE_LOAD = '{DC5AD508-507F-40EA-8630-0959AED83050}'; // LoadForecast
 
+    // Horizont, deckungsgleich mit PVF_MAX_OFFSET/LFC_MAX_OFFSET (5 Tage).
+    private const MAX_OFFSET = 4;
+    // Vertragsversion für GetDaysData() (20.08.2026, für NRGDashboard — Trennung
+    // Daten/Darstellung, analog HeishaMon/EMS). Additiv, Major nur bei Bruch.
+    private const CONTRACT_DAYS = '1.0';
+
     private const DEF_PV    = 0xE0A020; // Bernstein
     private const DEF_LOAD  = 0x2BB3C0; // Türkis
     private const DEF_BG     = -1;
@@ -101,14 +107,14 @@ class Energiebilanz extends IPSModule
         $found = false;
         $pv = $this->ResolveSource(self::SOURCE_PV, 'PVSource');
         if ($pv > 0) {
-            foreach (['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'] as $ident) {
+            foreach (['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'] as $ident) {
                 $vid = @IPS_GetObjectIDByIdent($ident, $pv);
                 if ($vid !== false && $vid > 0) { $this->RegisterReference($vid); $this->RegisterMessage($vid, VM_UPDATE); $found = true; }
             }
         }
         $load = $this->ResolveSource(self::SOURCE_LOAD, 'LoadSource');
         if ($load > 0) {
-            foreach (['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'] as $ident) {
+            foreach (['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'] as $ident) {
                 $vid = @IPS_GetObjectIDByIdent($ident, $load);
                 if ($vid !== false && $vid > 0) { $this->RegisterReference($vid); $this->RegisterMessage($vid, VM_UPDATE); $found = true; }
             }
@@ -232,8 +238,38 @@ class Energiebilanz extends IPSModule
             'engine'    => ($this->ReadPropertyString('ChartEngine') === 'highcharts') ? 'highcharts' : 'echarts',
         ];
 
-        $limit = max(1, min(3, $this->ReadPropertyInteger('Days')));
-        $labels = ['heute', 'morgen', 'übermorgen'];
+        return json_encode(array_merge($style, $this->buildDaysData(false)));
+    }
+
+    /**
+     * Öffentlicher, style-freier Datenzugriff auf dasselbe days[]-Format, das
+     * die eigene Kachel intern nutzt — für externe Konsumenten (NRGDashboard),
+     * die eine eigene Visualisierung bauen, statt unsere PHP-Datenlogik zu
+     * duplizieren (Verbund-Muster wie HeishaMon/EMS: Datenberechnung bleibt
+     * hier, Darstellung entsteht als eigenes Modul dort). Anders als die
+     * eigene Kachel IGNORIERT dieser Aufruf die Anzeige-Einstellungen dieser
+     * Instanz (Days/ShowYesterday/ShowActualPV/ShowActualLoad) und liefert
+     * immer den vollen Umfang — der Konsument entscheidet selbst, was er
+     * zeigt. Für das Dashboard per EFTILE_GetDaysData($id) abrufbar.
+     */
+    public function GetDaysData(): array
+    {
+        return array_merge(['contractVersion' => self::CONTRACT_DAYS], $this->buildDaysData(true));
+    }
+
+    /**
+     * Baut days[]/actualPV/actualLoad/hasData — den reinen Datenanteil, ohne
+     * Stil. $full=true (GetDaysData): immer voller Horizont + Gestern +
+     * Ist-Überlagerung, unabhängig von den Anzeige-Properties dieser Instanz.
+     * $full=false (eigene Kachel): respektiert Days/ShowYesterday/
+     * ShowActualPV/ShowActualLoad wie bisher.
+     */
+    private function buildDaysData(bool $full): array
+    {
+        $limit = $full
+            ? self::MAX_OFFSET + 1
+            : max(1, min(self::MAX_OFFSET + 1, $this->ReadPropertyInteger('Days')));
+        $labels = ['heute', 'morgen', 'übermorgen', 'Tag 4', 'Tag 5'];
 
         $showPV   = $this->ReadPropertyBoolean('ShowPV');
         $showLoad = $this->ReadPropertyBoolean('ShowLoad');
@@ -241,8 +277,10 @@ class Energiebilanz extends IPSModule
         $pvSrc   = $showPV   ? $this->ResolveSource(self::SOURCE_PV, 'PVSource')   : 0;
         $loadSrc = $showLoad ? $this->ResolveSource(self::SOURCE_LOAD, 'LoadSource') : 0;
 
-        $pvDays   = $this->ReadSeries($pvSrc,   ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'], $limit);
-        $loadDays = $this->ReadSeries($loadSrc, ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter'], $limit);
+        $pvIdents   = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+        $loadIdents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
+        $pvDays   = $this->ReadSeries($pvSrc,   $pvIdents,   $limit);
+        $loadDays = $this->ReadSeries($loadSrc, $loadIdents, $limit);
 
         // Momentane Ist-Leistung (W) für „jetzt"-Punkt/Legende.
         $actualPV   = $showPV   ? $this->readActual('ActualPV')   : null;
@@ -250,14 +288,15 @@ class Energiebilanz extends IPSModule
 
         $pvVar = $this->ReadPropertyInteger('ActualPV');
         $loVar = $this->ReadPropertyInteger('ActualLoad');
-        $showMeasPV   = $this->ReadPropertyBoolean('ShowActualPV');
-        $showMeasLoad = $this->ReadPropertyBoolean('ShowActualLoad');
+        $showMeasPV   = $full || $this->ReadPropertyBoolean('ShowActualPV');
+        $showMeasLoad = $full || $this->ReadPropertyBoolean('ShowActualLoad');
+        $wantYesterday = $full || $this->ReadPropertyBoolean('ShowYesterday');
         $today = strtotime('today');
 
         $days = [];
 
         // ── Gestern (optional): Soll aus Snapshot, Ist (voller Tag) aus Archiv
-        if ($this->ReadPropertyBoolean('ShowYesterday')) {
+        if ($wantYesterday) {
             $yDate  = date('Y-m-d', strtotime('yesterday'));
             $yStart = strtotime('yesterday');
             $gpv = $showPV   ? $this->snapshotToDay($pvSrc,   'PVF_GetSnapshot', $yDate) : null;
@@ -302,13 +341,13 @@ class Energiebilanz extends IPSModule
             $days[] = $d;
         }
 
-        return json_encode(array_merge($style, [
+        return [
             'hasData'    => $hasData,
             'message'    => $hasData ? '' : 'Keine Prognosedaten',
             'days'       => $days,
             'actualPV'   => $actualPV,
             'actualLoad' => $actualLoad,
-        ]));
+        ];
     }
 
     /** Liest die JSON-Prognosevariablen einer Quelle in [Tag => {p10,p50,p90,kwh}|null]. */

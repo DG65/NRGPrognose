@@ -1,4 +1,4 @@
-# Hinweise für Claude — Repo DG65/Prognose
+# Hinweise für Claude — Repo DG65/NRGPrognose (vorher DG65/Prognose)
 
 ## Was hier liegt
 
@@ -7,16 +7,45 @@ ist **NRG-Stack** (Dietmar, 23.07.2026); „DG65" bleibt Hersteller/Org. Unsere 
 Prognose-Schicht („Wissen") innerhalb des NRG-Stack. Nur Doku/Anzeige — Idents/Verträge/Klassennamen
 unberührt.
 
-| Ordner | Modul | Präfix | GUID |
+| Ordner | `module.json name` / PHP-Klasse | Präfix | GUID |
 |---|---|---|---|
-| `Lastprognose/` | Verbrauchsprognose (k-NN) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
-| `PVPrognose/` | PV-Erzeugungsprognose (physikbasiert) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
-| `Energiebilanz/` | Kombinierte Kachel (HTML-SDK) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
+| `Lastprognose/` | `Lastprognose` (unverändert; `NRGLastprognose` nur als Alias) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
+| `PVPrognose/` | `PVPrognose` (unverändert; `NRGPVPrognose` nur als Alias) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
+| `Energiebilanz/` | `Energiebilanz` (unverändert; `NRGEnergiebilanz` nur als Alias) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
+
+**Modul-Umbenennung auf NRG-Präfix (Verbund-Konvention, Dietmar 25.07.2026) — `library.json`
+umgesetzt, `module.json`/Klasse NICHT.** `library.json name` → `NRGPrognose` (sicher, reines
+Anzeigefeld ohne Klassenbezug). `module.json name` je Submodul dagegen **unverändert** gelassen
+(`Lastprognose`/`PVPrognose`/`Energiebilanz`), der neue NRG-Name nur zusätzlich in `aliases`.
+
+**Korrektur-Historie (25.07.2026, wichtig):** Ursprünglich hatten wir `module.json name` UND die
+PHP-Klasse konsistent auf `NRGLastprognose` usw. umgestellt (in der Annahme, das sei der sichere Weg,
+da ChargerHub `name` geändert hatte, ohne die Klasse anzupassen). Kurz danach live verifiziert: Beim
+tatsächlichen Neuverknüpfen (`MC_DeleteModule`+`MC_CreateModule`) brach die Instanz bei **mehreren**
+Verbund-Modulen (ChargerHub, MigrationsHub, InverterHub, InverterHubTile) mit „Class ... does not
+exist" — **unabhängig davon, ob Name und Klasse zueinander passten.** Für bereits registrierte
+Module gilt Regel 4 (`ips-module-pitfalls`) also uneingeschränkt bei JEDEM Neuladen, nicht nur bei
+der Allererstregistrierung. Deshalb umgehend zurückgerudert: `module.json name` und die PHP-Klasse
+wieder auf den Original-Zustand, NRG-Name bleibt nur als Alias. GUID, Präfix (`LFC`/`PVF`/`EFTILE`),
+Idents waren durchgehend unangetastet.
 
 ## Release-Workflow
 
-- Entwicklung läuft auf dem Branch **`beta`** (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
+- ⚠️ **TEMPORÄR (seit 25.07.2026, Dietmar):** Während der laufenden EMS-Integrationsphase geht
+  **ausschließlich auf `ems-integration`** — keine Ausnahme mehr für "sichere" Fixes auf `beta`,
+  bis anders angesagt. Arbeitsbranch also `ems-integration`, nicht `beta`, solange diese Zeile steht.
+- Normalerweise (außerhalb der Integrationsphase) läuft Entwicklung auf dem Branch **`beta`**
+  (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
 - **Stable gibt der Nutzer frei** — nicht ungefragt nach `main` mergen/pushen.
+- **Vor jedem beta→main-Wechsel: Neuinstallations-Simulation** (SUITE.md/EMS-Repo, Commits `875fe1d`+
+  `630e15a`, Grundregel "keine eigene Anlage als Norm annehmen"). Formular komplett durchgehen wie ein
+  Nutzer OHNE Dietmars Hardware/Region/Sonderkonfiguration: Fabrikat-Nennungen nur als „z. B.", klar
+  ob ein Feld automatisch (Discovery/Vertrag) oder manuell kommt, kein Default, der eine eigene
+  Sonderkonfiguration widerspiegelt, Volltextsuche nach eigenen Objekt-/Variablen-IDs/PLZ/Kampagnen-
+  namen. **Erstmals durchgeführt 28.07.2026** (build 59): keine Fabrikat-/Auto-Discovery-Verstöße
+  gefunden (unsere „(Pflicht)"-Panels sind herstellerneutral und ohne Discovery-Alternative; Lat/Long-
+  Default 49.0/9.0 ist generisch, keine eigene Adresse; keine eigenen IDs im Code). Einzige Baustelle
+  war Feld-Klarheit für Laien, siehe „Korrektur"-Spalte in PVPrognose weiter unten in der Historie.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "7.0"}`.
@@ -30,7 +59,7 @@ unberührt.
 
 ## Zusammenarbeit mit anderen Repos
 
-Dieses Repo wird von **[DG65/InverterHub](https://github.com/DG65/InverterHub)** konsumiert
+Dieses Repo wird von **[DG65/NRGInverterHub](https://github.com/DG65/NRGInverterHub)** konsumiert
 (`InverterHubMonitor` berechnet aus Einstrahlung × Generatorparametern Erwartungswerte und
 vergleicht sie mit dem gemessenen Ertrag → Verschmutzungs-/Defekterkennung).
 
@@ -56,6 +85,19 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
 - `GetModuleArea` liefert ein Skalar (float) und kann kein Feld tragen — Version dort über
   `GetGenerators`. `GetModuleAreas` liefert eine flache Liste (unverändert, additive Feld-Ergänzung
   bräche die Struktur) — Version ebenfalls über `GetGenerators`.
+- `LFC_CONTRACT_ENERGYWINDOW` (`GetEnergyWindow`) — Verbrauchsprognose in einem beliebigen
+  Zeitfenster (z. B. für EMS: dynamisches Batterie-Ziel-SoC statt fixem Prozentwert, „wie viel
+  Energie wird bis zum PV-Start morgen früh gebraucht"). Bewusst **ohne PV-Bezug**: Das Fenster
+  (`$fromTs`/`$toTs`) bestimmt der Aufrufer, keine Abhängigkeit von PVF in LFC. `coverage` (0..1)
+  zeigt an, welcher Anteil des Fensters innerhalb unseres 3-Tage-Horizonts liegt — UND nur, wenn
+  in dem Zeitraum echte Prognosedaten vorlagen (kein Nachbar gefunden ⇒ nicht als abgedeckt
+  gezählt, auch wenn das Nullprofil strukturell gültig ist).
+- `PVF_CONTRACT_ENERGYWINDOW` (`GetEnergyWindow`) — symmetrisches Gegenstück auf der
+  Erzeugungsseite, eigenständig (keine Kopplung zu LFC; Netto-Bilanz bildet der Aufrufer aus
+  beiden Fenstern selbst). `neighbors` ist bei PVF **kein** brauchbares Realdaten-Signal (auch
+  im Erfolgsfall immer 0, physikbasiert statt k-NN) — stattdessen prüft `GetEnergyWindow` den
+  internen `modelCache`-Zustand: schlägt `buildModel()` fehl (API/Netzwerk) oder fehlen
+  Generatoren, zählt nichts als `coverage`, statt `kwh=0, coverage=1.0` vorzutäuschen.
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.
@@ -144,7 +186,7 @@ Timer-Tick. Bestehende Installationen migrieren beim nächsten `ApplyChanges()` 
 
 Physikalische Grundgrößen bekommen EIN geteiltes Profil (`NRG.Watt`, `NRG.kWh`, `NRG.Ampere`,
 `NRG.Volt`, `NRG.Percent`, `NRG.Celsius`) statt je Modul ein eigenes — bewusst klein gehalten, siehe
-[SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md). **Kein Eigentümer-Modul:** jedes prüft
+[SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md). **Kein Eigentümer-Modul:** jedes prüft
 `IPS_VariableProfileExists(...)` und legt nur an, falls es fehlt (Muster aus GleitenderMittelwert).
 
 **Bei uns umgesetzt:** `ensureNrgPercentProfile()` (in LFC und PVF je einmal, idempotent) legt
@@ -181,7 +223,7 @@ eigenständige IPS-Variable vor (nur als `unit`-Feld in JSON-Nutzlasten) — kei
 ## Formular-Optik (Verbund-Standard, Dietmar 24.07.2026)
 
 Betrifft alle drei Formulare (Lastprognose/PVPrognose/Energiebilanz). Referenzimplementierung:
-InverterHub. Details/Wortlaut: [SUITE.md](https://github.com/DG65/EMS/blob/main/SUITE.md), Abschnitt
+InverterHub. Details/Wortlaut: [SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md), Abschnitt
 „Einheitliche Formular-Optik".
 
 **PFLICHT-CHECK bei JEDEM Fix/Update** (nicht nur bei großen Releases, Ergänzung 24.07.2026): Bei
@@ -205,3 +247,34 @@ Gruppierung zusammengehöriger Felder, Step-by-Step-Lesefluss ohne Scroll-Zickza
 zwischen entfernten Panels für zusammengehörige Einstellungen), Feldkanten/-breiten einer Spalte auf
 einer Linie statt kreuz und quer — bei jeder Formular-Änderung mitdenken, auch außerhalb des
 Zielumbaus oben.
+
+**Feld-Tooltips (Ergänzung 27.07.2026, präzisiert 28.07.2026):** IP-Symcon kennt kein natives
+Mouseover-Tooltip-Attribut (gegen offizielle Doku geprüft, weder `form.json` allgemein noch
+List-Spalten). Für erklärungsbedürftige Einzelfelder: `PopupButton` (Klick statt Hover) für die
+fokussierte Erklärung EINES Felds, mit `caption="?"` (reiner Buchstabe, kein Emoji) und
+`width="70px"` — InverterHub hat live getestet, dass `width` unter ~70px keinen sichtbaren Effekt
+hat (WebFront-Skin erzwingt eine Mindestbreite) und Icon-Größe/Hintergrund grundsätzlich nicht
+änderbar sind (globaler Skin); `"?"` + `70px` ergibt eine quadratisch wirkende Fläche
+(SUITE.md-Konvention, finale Fassung Commit `6bb6975` — ein Zwischenstand hatte kurzzeitig `"i"`
+vorgesehen, Dietmars Entscheidung: `"i"` wirkt bei 70px optisch verloren). Der Button steht
+typischerweise in einer `RowLayout` neben einem kurzen Kontext-`Label`, damit das bloße „?" nicht
+ohne Bezug dasteht. `Label` bleibt für kurze, immer sichtbare Erklärungen; das „Dokumentation &
+Hilfe"-Panel bleibt für den Gesamtzusammenhang.
+**Bei uns umgesetzt:** PV-Generatorliste, Spalte „Kalibrieren" — war bisher nur in zwei benachbarten
+Absätzen (Panel-Label davor, Kalibrierungs-Panel danach) erklärt, nicht direkt am Feld. Jetzt
+zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in allen drei Formularen geprüft:
+bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein weiterer Bedarf gefunden.
+
+
+## Verbund-Manifest SUITE.md — Bezugsquelle (19.08.2026)
+
+Primärquelle für alle Verbund-Konventionen ist `SUITE.md` im EMS-Repo
+(https://github.com/DG65/NRGEMS — während der EMS-Integrationsphase ist der
+Branch `ems-integration` der aktuellste Stand, nicht `main`). In diesem Repo
+liegt eine automatisch synchronisierte READ-ONLY-Kopie als `SUITE.md` im
+Repo-Root — dort lokal grep'en/lesen. NIEMALS die Kopie hier editieren:
+Änderungen gehören ins EMS-Repo; der Sync (GitHub Action `sync-suite` im
+EMS-Repo) überschreibt lokale Änderungen kommentarlos.
+
+Fallback, falls die Kopie (noch) fehlt oder veraltet wirkt:
+https://raw.githubusercontent.com/DG65/NRGEMS/ems-integration/SUITE.md

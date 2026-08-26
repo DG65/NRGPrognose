@@ -3,10 +3,12 @@
     "library": "{2D15AFF6-7CD5-4147-B438-B4288BD598AE}",
     "name": "Energiebilanz",
     "type": 3,
-    "vendor": "DG65",
+    "vendor": "",
     "aliases": [
         "Energieprognose",
-        "PV und Last Diagramm"
+        "PV und Last Diagramm",
+        "Energiebilanz",
+        "NRG-Stack Energiebilanz"
     ],
     "parentRequirements": [],
     "childRequirements": [],

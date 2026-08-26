@@ -1,6 +1,13 @@
 # PV-Prognose
 
-**Physikbasierte PV-Erzeugungsprognose** für 1–3 Tage, je Generator (Dachfläche/MPP-Tracker), über
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
+**Physikbasierte PV-Erzeugungsprognose** für 1–5 Tage, je Generator (Dachfläche/MPP-Tracker), über
 eine Wetter-/Solar-API. Liefert JSON-Profile zur direkten Nutzung durch ein EMS. Prefix: `PVF`.
 
 ## Funktionsweise
@@ -79,7 +86,7 @@ Residuen-Quantile ein. Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten 
 ## Öffentliche Funktionen
 
 ```php
-// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen
+// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen, 3/4=Tag 4/5
 $fc = PVF_GetForecast(int $InstanzID, int $offset);
 
 // Gespeicherte Prognose (Soll) eines vergangenen Tages ('Y-m-d')
@@ -94,6 +101,13 @@ $m2 = PVF_GetModuleArea(int $InstanzID);
 
 // Modulfläche je Generator: Liste [{name, modules, areaPerModule, area}]
 $perGen = PVF_GetModuleAreas(int $InstanzID);
+
+// Erwartete PV-Erzeugung (kWh) in einem beliebigen Zeitfenster — symmetrisch zu
+// LFC_GetEnergyWindow, eigenständig (keine Kopplung zu LFC). Deckt bis zu 5 Tage ab;
+// 'coverage' (0..1) zeigt an, welcher Anteil tatsächlich mit einem echten Modell
+// abgedeckt ist (0 bei API-/Netzwerkfehler oder fehlenden Generatoren).
+$w = PVF_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
+// => ['contractVersion'=>'1.0', 'from'=>.., 'to'=>.., 'kwh'=>.., 'coverage'=>..]
 ```
 
 ## Modul-Metadaten (für InverterHub)
@@ -105,7 +119,7 @@ Statusvariable `PVF_ModuleArea` sowie über `PVF_GetModuleArea()` bereitgestellt
 Generator** liefert `PVF_GetModuleAreas()` als Liste (`name`, `modules`, `lengthMM`, `widthMM`,
 `areaPerModule`, `area`) – gedacht zur Übernahme durch das Modul **InverterHub**.
 
-Teil der **[EnergiePrognose-Suite](https://github.com/DG65/Prognose)** – zusammen mit *Lastprognose*
+Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *Lastprognose*
 und der *Energiebilanz*-Kachel.
 
-> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/EMS/blob/main/SUITE.md).
+> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

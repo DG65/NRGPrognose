@@ -31,8 +31,22 @@ define('PVF_SRC_SOLCAST',       2);
 // Vertragsversionen (Verbund-Konvention, additiv). Major.Minor; Major nur bei
 // Bruch. Getrennt je Vertrags-Familie, damit ein Bruch der einen die Konsumenten
 // der anderen nicht fälschlich zur Deaktivierung zwingt.
-define('PVF_CONTRACT_FORECAST',   '1.0'); // GetForecast / GetSnapshot
+// Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
+// Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
+// (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
+define('PVF_CONTRACT_FORECAST',   '1.1'); // GetForecast / GetSnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
+define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+
+// Horizont: gültige Offsets für GetForecast() sind 0..PVF_MAX_OFFSET (0=heute).
+// Von der kostenlosen Open-Meteo-/Forecast.Solar-/Solcast-Anbindung her wären
+// deutlich mehr Tage möglich; 4 (= 5 Tage) ist mit EMS/Dashboard abgestimmt.
+define('PVF_MAX_OFFSET', 4);
+
+// EMS — für EMS_GetSpecialEvents (Sondereffekt-Ausschluss). GUID stabil über
+// alle Installationen; Instanz wird zur Laufzeit gesucht (optional, kein Fehler
+// wenn kein EMS installiert ist).
+define('PVF_EMS_GUID', '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}');
 
 class PVPrognose extends IPSModule
 {
@@ -42,6 +56,12 @@ class PVPrognose extends IPSModule
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
     private $loggedCache = [];
+    // Major der EMS_GetSpecialEvents-Vertragsversion, gegen die wir die Felder
+    // from/to/deviceId/source/reason deuten; bei Abweichung Kopplung deaktivieren.
+    private const EMS_EVENTS_MAJOR = 1;
+    // Wird gesetzt, wenn ein Aufruf einen unbekannten Vertrags-Major lieferte
+    // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
+    private $specialEventsVersionMismatch = null;
 
     // ----------------------------------------------------------------
     //  Lebenszyklus
@@ -85,6 +105,12 @@ class PVPrognose extends IPSModule
         $this->RegisterVariableFloat( 'PVF_kWhToday',    'Erwartete PV heute (kWh)',     '~Electricity', 40);
         $this->RegisterVariableFloat( 'PVF_kWhTomorrow', 'Erwartete PV morgen (kWh)',    '~Electricity', 50);
         $this->RegisterVariableFloat( 'PVF_kWhDayAfter', 'Erwartete PV übermorgen (kWh)','~Electricity', 60);
+        // Horizont-Erweiterung 3→5 Tage (20.08.2026): neue Idents für Tag 3/4,
+        // bestehende Today/Tomorrow/DayAfter bewusst unverändert (Archivhistorie).
+        $this->RegisterVariableString('PVF_Day3',      'PV-Prognose in 3 Tagen (JSON)', '', 65);
+        $this->RegisterVariableString('PVF_Day4',      'PV-Prognose in 4 Tagen (JSON)', '', 68);
+        $this->RegisterVariableFloat( 'PVF_kWhDay3',     'Erwartete PV in 3 Tagen (kWh)', '~Electricity', 70);
+        $this->RegisterVariableFloat( 'PVF_kWhDay4',     'Erwartete PV in 4 Tagen (kWh)', '~Electricity', 75);
         $this->RegisterVariableString('PVF_Status',    'Status',                    '', 70);
         $this->RegisterVariableInteger('PVF_LastUpdate','Letzte Berechnung',        '~UnixTimestamp', 80);
         $this->RegisterVariableFloat( 'PVF_ErrorMAPE', 'Prognosefehler |Ø| (%)',    'NRG.Percent', 82);
@@ -162,49 +188,127 @@ class PVPrognose extends IPSModule
     //  Öffentlich
     // ----------------------------------------------------------------
 
-    public function Rebuild()
+    /**
+     * Neuberechnung anstoßen. Gibt einen menschenlesbaren Ergebnistext zurück
+     * (✅/⚠️/⛔-Präfix) — der Formular-Button ruft das über
+     * "echo PVF_Rebuild($id);" auf, damit man ohne Formular-Neuöffnen sofort
+     * sieht, dass etwas passiert ist (Verbund-Konvention "Sichtbare
+     * Rückmeldung bei jeder Aktion", SUITE.md 20.08.2026). Der Intervall-
+     * Timer ruft dieselbe Methode auf und ignoriert den Rückgabewert.
+     */
+    public function Rebuild(): string
     {
         if (count($this->pvGenerators()) === 0) {
-            $this->SetValue('PVF_Status', 'Keine PV-Generatoren konfiguriert');
-            return;
+            $msg = '⛔ Keine PV-Generatoren konfiguriert.';
+            $this->SetValue('PVF_Status', $msg);
+            return $msg;
         }
 
-        $this->modelCache = null;
-        $model = $this->buildModel();
-        if ($model === null) {
-            $this->SetValue('PVF_Status', 'Vorhersage konnte nicht geladen werden (API/Netzwerk?)');
+        try {
+            $this->modelCache = null;
+            $model = $this->buildModel();
+            if ($model === null) {
+                $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?).';
+                $this->SetValue('PVF_Status', $msg);
+                $this->SetStatus(104);
+                return $msg;
+            }
+
+            $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+            $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter', 'PVF_kWhDay3', 'PVF_kWhDay4'];
+            $fcs = [];
+            for ($offset = 0; $offset <= PVF_MAX_OFFSET; $offset++) {
+                $fc = $this->computeForecast($offset);
+                $fcs[$offset] = $fc;
+                $this->SetValue($idents[$offset], json_encode($fc));
+                $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
+            }
+            $this->saveSnapshot($fcs);
+            $this->evaluateAccuracy();
+
+            $this->SetValue('PVF_LastUpdate', time());
+            $status = sprintf(
+                '✅ heute %.1f / morgen %.1f / übermorgen %.1f / Tag 4 %.1f / Tag 5 %.1f kWh',
+                $this->GetValue('PVF_kWhToday'),
+                $this->GetValue('PVF_kWhTomorrow'),
+                $this->GetValue('PVF_kWhDayAfter'),
+                $this->GetValue('PVF_kWhDay3'),
+                $this->GetValue('PVF_kWhDay4')
+            );
+            $stale = $this->checkDataPlausibility();
+            if (count($stale) > 0) {
+                $status .= ' | ⚠️ ' . implode(' · ', $stale);
+            }
+            $this->SetValue('PVF_Status', $status);
+            $this->SetStatus(102);
+            $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
+            return $status;
+
+        } catch (Exception $e) {
+            $msg = '⛔ Fehler: ' . $e->getMessage();
+            $this->SetValue('PVF_Status', $msg);
             $this->SetStatus(104);
-            return;
+            $this->log(PVF_LOG_BASIC, 'Fehler: ' . $e->getMessage());
+            return $msg;
         }
-
-        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter'];
-        $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter'];
-        $fcs = [];
-        for ($offset = 0; $offset <= 2; $offset++) {
-            $fc = $this->GetForecast($offset);
-            $fcs[$offset] = $fc;
-            $this->SetValue($idents[$offset], json_encode($fc));
-            $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
-        }
-        $this->saveSnapshot($fcs);
-        $this->evaluateAccuracy();
-
-        $this->SetValue('PVF_LastUpdate', time());
-        $this->SetValue('PVF_Status', sprintf(
-            'OK | heute %.1f / morgen %.1f / übermorgen %.1f kWh',
-            $this->GetValue('PVF_kWhToday'),
-            $this->GetValue('PVF_kWhTomorrow'),
-            $this->GetValue('PVF_kWhDayAfter')
-        ));
-        $this->SetStatus(102);
-        $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
     }
 
     /**
-     * PV-Prognose für einen Tag als Array. $offset 0/1/2.
-     * Für das EMS per PVF_GetForecast($id, $offset) abrufbar.
+     * Laufende Plausibilitätskontrolle: läuft bei JEDEM Rebuild() automatisch mit
+     * (kein separater Zeitplan nötig — nutzt den ohnehin vorhandenen Intervall-
+     * Timer des Moduls). Prüft, ob die für Selbstkalibrierung/Prognosegüte
+     * verwendeten PowerVar-Messwerte überhaupt noch aktuell hereinkommen. Genau
+     * diese Fehlerklasse (zwei Wochen unbemerkte Daten-Stille durch eine
+     * geschlossene Modbus-Verbindung, 09.08.2026) fiel bisher niemandem auf,
+     * bis der Vergleich Soll/Ist von Hand angestoßen wurde. 48h Schwelle, weil
+     * jeder normale Tag/Nacht-Zyklus mindestens einmal einen echten Wertewechsel
+     * zeigen muss (auch bei bewölktem Himmel) — kürzer würde jede Nacht falsch
+     * anschlagen, länger verschleppt eine echte Störung unnötig.
+     */
+    private function checkDataPlausibility(): array
+    {
+        $warnings = [];
+        $staleSec = 48 * 3600;
+        foreach ($this->pvGenerators() as $g) {
+            if ($g['powervar'] <= 0 || !IPS_VariableExists($g['powervar'])) { continue; }
+            $age = time() - IPS_GetVariable($g['powervar'])['VariableChanged'];
+            if ($age > $staleSec) {
+                $warnings[] = sprintf('%s: PowerVar seit %.1f Tagen ohne neuen Messwert', $g['name'], $age / 86400);
+            }
+        }
+        return $warnings;
+    }
+
+    /**
+     * PV-Prognose für einen Tag als Array. $offset 0/1/2. Für das EMS per
+     * PVF_GetForecast($id, $offset) abrufbar.
+     *
+     * Performance (Fund aus PVMonitor/Dashboard-Sitzung, 20.08.2026, analog
+     * zum LFC-Fund): $modelCache ist eine reine Request-lokale Instanzvariable
+     * und hilft NUR innerhalb EINER Ausführung (z. B. den 3 Offsets in
+     * Rebuild()) — ein externer Aufruf von außen (PVMonitor, EMS, …) ist immer
+     * eine frische Skriptausführung und löste bisher jedes Mal buildModel()
+     * neu aus (Live-API-Aufrufe an Open-Meteo/Forecast.Solar/Solcast, bei
+     * Forecast.Solar sogar ratenbegrenzt). Jetzt: bevorzugt der von Rebuild()
+     * bereits berechnete und in PVF_Today/Tomorrow/DayAfter zwischen-
+     * gespeicherte Stand, solange das 'date'-Feld noch zum Offset passt.
+     * Rebuild() selbst nutzt computeForecast() direkt.
      */
     public function GetForecast(int $offset)
+    {
+        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+        if (isset($idents[$offset])) {
+            $cached = json_decode($this->GetValue($idents[$offset]), true);
+            $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+            if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
+                return $cached;
+            }
+        }
+        return $this->computeForecast($offset);
+    }
+
+    /** Die eigentliche, teure Modellberechnung — siehe GetForecast() für den Cache davor. */
+    private function computeForecast(int $offset)
     {
         if ($this->modelCache === null) {
             $this->modelCache = $this->buildModel();
@@ -286,6 +390,63 @@ class PVPrognose extends IPSModule
     public function GetStatusText()
     {
         return (string) $this->GetValue('PVF_Status');
+    }
+
+    /**
+     * Erwartete PV-Erzeugung (kWh) in einem beliebigen Zeitfenster [$fromTs,
+     * $toTs) — symmetrisch zu LFC_GetEnergyWindow, eigenständig (keine
+     * Kopplung zu LFC; die Netto-Bilanz aus Verbrauch minus Erzeugung bildet
+     * der Aufrufer selbst aus beiden Fenster-Funktionen). Deckt bis zu
+     * PVF_MAX_OFFSET+1 Tage ab (unser Horizont); 'coverage' (0..1) zeigt an,
+     * welcher Anteil des
+     * Fensters tatsächlich mit einem ECHTEN Modell abgedeckt ist — anders als
+     * bei LFC trägt 'neighbors' bei PVF (physikbasiert, kein k-NN) auch im
+     * Erfolgsfall immer 0 und taugt nicht als Signal. Stattdessen wird geprüft,
+     * ob buildModel() (API/Netzwerk) tatsächlich ein Modell geliefert hat —
+     * bei Fehlschlag bzw. fehlenden Generatoren zählt nichts als abgedeckt,
+     * statt "kwh=0, coverage=1.0" vorzutäuschen.
+     * Für das EMS per PVF_GetEnergyWindow($id, $fromTs, $toTs) abrufbar.
+     */
+    public function GetEnergyWindow(int $fromTs, int $toTs): array
+    {
+        $result = [
+            'contractVersion' => PVF_CONTRACT_ENERGYWINDOW,
+            'from' => $fromTs,
+            'to'   => $toTs,
+            'kwh'  => 0.0,
+            'coverage' => 0.0,
+        ];
+        if ($toTs <= $fromTs) { return $result; }
+        if (count($this->pvGenerators()) === 0) { return $result; }
+
+        $slotSec = $this->slotMinutes() * 60;
+        $kwh = 0.0;
+        $coveredSec = 0;
+
+        for ($offset = 0; $offset <= PVF_MAX_OFFSET; $offset++) {
+            $dayStart = strtotime('today +' . $offset . ' days');
+            $fc = $this->GetForecast($offset);
+            // buildModel() deckt alle Tage in einem Rutsch ab; modelCache
+            // bleibt null, wenn die Quelle (API/Netzwerk) fehlschlug.
+            $realData = ($this->modelCache !== null);
+            $mean = $fc['mean'] ?? null;
+            if (!is_array($mean)) { continue; }
+
+            foreach ($mean as $i => $w) {
+                $slotStart = $dayStart + $i * $slotSec;
+                $slotEnd   = $slotStart + $slotSec;
+                $ovStart = max($slotStart, $fromTs);
+                $ovEnd   = min($slotEnd, $toTs);
+                if ($ovEnd <= $ovStart) { continue; }
+                $ovSec = $ovEnd - $ovStart;
+                $kwh += ((float)$w) * ($ovSec / 3600.0) / 1000.0; // W * h / 1000 = kWh
+                if ($realData) { $coveredSec += $ovSec; }
+            }
+        }
+
+        $result['kwh'] = round($kwh, 3);
+        $result['coverage'] = round($coveredSec / ($toTs - $fromTs), 3);
+        return $result;
     }
 
     /**
@@ -448,6 +609,10 @@ class PVPrognose extends IPSModule
         if ($excluded > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
         }
+        if ($this->specialEventsVersionMismatch !== null) {
+            $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
+                $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
+        }
         $this->SetValue('PVF_Accuracy', $txt);
         $this->log(PVF_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
     }
@@ -552,7 +717,7 @@ class PVPrognose extends IPSModule
     // ----------------------------------------------------------------
 
     /**
-     * Baut das Tagesmodell für heute/morgen/übermorgen:
+     * Baut das Tagesmodell für heute bis Tag PVF_MAX_OFFSET:
      * [offset => [hour => ['p10','p50','p90']]] in W, Summe aller Generatoren.
      * Rückgabe null, wenn keine Quelle Daten liefert.
      */
@@ -563,7 +728,7 @@ class PVPrognose extends IPSModule
         $src = $this->ReadPropertyInteger('PVF_Source');
 
         $model = [];
-        for ($o = 0; $o <= 2; $o++) {
+        for ($o = 0; $o <= PVF_MAX_OFFSET; $o++) {
             $model[$o] = [];
             for ($h = 0; $h < 24; $h++) { $model[$o][$h] = ['p10' => 0.0, 'p50' => 0.0, 'p90' => 0.0]; }
         }
@@ -579,7 +744,7 @@ class PVPrognose extends IPSModule
             if ($perDay === null) { continue; }
 
             $factor = $this->generatorFactor($g, $src);
-            for ($o = 0; $o <= 2; $o++) {
+            for ($o = 0; $o <= PVF_MAX_OFFSET; $o++) {
                 if (!isset($perDay[$o])) { continue; }
                 for ($h = 0; $h < 24; $h++) {
                     $cell = $perDay[$o][$h];
@@ -660,9 +825,10 @@ class PVPrognose extends IPSModule
         $url = sprintf(
             'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s'
             . '&hourly=global_tilted_irradiance,temperature_2m&tilt=%s&azimuth=%s'
-            . '&forecast_days=3&past_days=%d&timezone=auto',
+            . '&forecast_days=%d&past_days=%d&timezone=auto',
             rawurlencode((string)$lat), rawurlencode((string)$lon),
-            rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']), $pastDays
+            rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']),
+            PVF_MAX_OFFSET + 1, $pastDays
         );
         $j = $this->httpGetJson($url);
         if ($j === null || !isset($j['hourly']['time'])) { return null; }
@@ -752,7 +918,9 @@ class PVPrognose extends IPSModule
 
         $time = $j['hourly']['time'];
         $gti  = $j['hourly']['global_tilted_irradiance'] ?? [];
+        $temp = $j['hourly']['temperature_2m'] ?? [];
         $pr   = $this->ReadPropertyFloat('PVF_PR');
+        $tc   = $this->ReadPropertyFloat('PVF_TempCoeff');
         $kwpW = $g['kwp'] * 1000.0;
         $today = date('Y-m-d');
 
@@ -761,7 +929,18 @@ class PVPrognose extends IPSModule
         for ($i = 0; $i < $n; $i++) {
             list($date, $hour) = $this->omSlot($time[$i]); // Stundenbeginn (siehe fetchOpenMeteo)
             if ($date >= $today) { continue; }             // nur abgeschlossene Tage
-            $w = $kwpW * ((float)($gti[$i] ?? 0) / 1000.0) * $pr;
+            $irr = (float)($gti[$i] ?? 0);
+            $ta  = (float)($temp[$i] ?? 20);
+            // Dieselbe Temperatur-Abminderung wie im eigentlichen Forecast (fetchOpenMeteo).
+            // Sonst faengt der Selbstkalibrierungs-Faktor (gemessen/hier-modelliert) den
+            // Temperatureffekt zusaetzlich ein und der spaeter im Forecast schon ange-
+            // wendete Temperaturabzug wird doppelt gerechnet -> Prognose zu niedrig.
+            $derate = 1.0;
+            if ($tc != 0.0 && $irr > 0) {
+                $tcell  = $ta + $irr / 800.0 * 20.0;
+                $derate = 1.0 + ($tc / 100.0) * ($tcell - 25.0);
+            }
+            $w = $kwpW * ($irr / 1000.0) * $pr * max(0.0, $derate);
             if (!isset($byDate[$date])) { $byDate[$date] = array_fill(0, 24, 0.0); }
             $byDate[$date][$hour] = $w;
         }
@@ -777,10 +956,10 @@ class PVPrognose extends IPSModule
         $lat = $this->ReadPropertyFloat('PVF_Latitude');
         $lon = $this->ReadPropertyFloat('PVF_Longitude');
         $url = sprintf(
-            'https://api.forecast.solar/estimate/%s/%s/%s/%s/%s',
+            'https://api.forecast.solar/estimate/%s/%s/%s/%s/%s?limit=%d',
             rawurlencode((string)$lat), rawurlencode((string)$lon),
             rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']),
-            rawurlencode((string)$g['kwp'])
+            rawurlencode((string)$g['kwp']), PVF_MAX_OFFSET + 1
         );
         $j = $this->httpGetJson($url);
         if ($j === null || !isset($j['result']['watts'])) {
@@ -822,8 +1001,8 @@ class PVPrognose extends IPSModule
             $this->log(PVF_LOG_VERBOSE, 'Solcast: API-Schlüssel oder Resource-ID fehlt');
             return null;
         }
-        $url = sprintf('https://api.solcast.com.au/rooftop_sites/%s/forecasts?format=json&hours=72',
-            rawurlencode($rid));
+        $url = sprintf('https://api.solcast.com.au/rooftop_sites/%s/forecasts?format=json&hours=%d',
+            rawurlencode($rid), (PVF_MAX_OFFSET + 1) * 24);
         $j = $this->httpGetJson($url, ['Authorization: Bearer ' . $key]);
         if ($j === null || !isset($j['forecasts'])) { return null; }
 
@@ -867,7 +1046,7 @@ class PVPrognose extends IPSModule
     private function mapOffsets(array $byDate, bool $hasBands = false): array
     {
         $out = [];
-        for ($o = 0; $o <= 2; $o++) {
+        for ($o = 0; $o <= PVF_MAX_OFFSET; $o++) {
             $date = date('Y-m-d', strtotime('today +' . $o . ' days'));
             $out[$o] = [];
             for ($h = 0; $h < 24; $h++) {
@@ -931,11 +1110,39 @@ class PVPrognose extends IPSModule
      */
     private function fetchSpecialEvents(int $lookbackDays): array
     {
+        $this->specialEventsVersionMismatch = null;
         if (!function_exists('EMS_GetSpecialEvents')) { return []; }
+        $emsId = $this->emsInstance();
+        if ($emsId <= 0) { return []; }
         $from = strtotime('today -' . $lookbackDays . ' days');
         $to   = time();
-        $events = @EMS_GetSpecialEvents(0, $from, $to);
-        return is_array($events) ? $events : [];
+        $events = @EMS_GetSpecialEvents($emsId, $from, $to);
+        if (!is_array($events)) { return []; }
+
+        // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle Kompatibilität
+        // gilt nur innerhalb derselben Major. Liefert das EMS eine uns unbekannte
+        // Major, deuten wir die Felder nicht blind — Kopplung deaktivieren statt
+        // mit falsch interpretierten Daten zu lernen, und sichtbar melden.
+        foreach ($events as $e) {
+            $verStr = (string)($e['contractVersion'] ?? '1.0');
+            $major  = (int)explode('.', $verStr)[0];
+            if ($major !== self::EMS_EVENTS_MAJOR) {
+                $this->specialEventsVersionMismatch = $verStr;
+                $this->log(PVF_LOG_BASIC, sprintf(
+                    'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+                    $verStr, self::EMS_EVENTS_MAJOR
+                ));
+                return [];
+            }
+        }
+        return $events;
+    }
+
+    /** EMS-Instanz für EMS_GetSpecialEvents. 0 = keine vorhanden. */
+    private function emsInstance(): int
+    {
+        $ids = @IPS_GetInstanceListByModuleID(PVF_EMS_GUID);
+        return (is_array($ids) && count($ids) > 0) ? (int)$ids[0] : 0;
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */

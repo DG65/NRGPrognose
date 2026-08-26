@@ -6,6 +6,170 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: horizontales Scrollen in der Energiebilanz-Kachel bei mehr als 3 Tagen.** Bis 3 Tage
+  passen wie bisher unverändert in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen
+  proportional breiter (`renderW`, an `#scrollWrap` mit `overflow-x:auto`) statt sich
+  zusammenzuquetschen — beide bekommen exakt dieselbe berechnete Breite, damit Tagesgrenzen
+  pixelgenau fluchten. Funktioniert für beide Diagramm-Engines (ECharts `resize()`, Highcharts
+  `chart.width` in `update()`). Auslöser: mit 5 Tagen Horizont (Prognose-Erweiterung von eben)
+  quetschten sich zuvor alle 6 Tage (inkl. Gestern) unlesbar in dieselbe feste Breite.
+- **Neu: `EFTILE_GetDaysData($id)` — style-freier Datenzugriff für NRGDashboard.** Dietmar hat
+  entschieden, dass die Visualisierung der Energiebilanz-Kachel künftig als eigenständiges
+  Dashboard-Modul entsteht, statt mit dem Tagesplan zu verschmelzen — Prognoseberechnung bleibt
+  bei uns, Darstellung wandert (Verbund-Muster wie HeishaMon/EMS). `GetFullUpdateMessage()` in
+  `buildDaysData()` (reine Daten) + Style-Merge (nur für die eigene Kachel) aufgeteilt. Der neue
+  öffentliche Aufruf liefert dasselbe `days[]`-Format wie die eigene Kachel intern nutzt, aber
+  IMMER vollständig — vollen 5-Tage-Horizont, „Gestern", Ist-Überlagerung — unabhängig von den
+  Anzeige-Einstellungen dieser Instanz; der Konsument entscheidet selbst, was er zeigt.
+  `contractVersion` 1.0, eigenständig versioniert.
+- **Prognose-Horizont von 3 auf 5 Tage erweitert (Forum-Wunsch, mit EMS und Dashboard
+  abgestimmt).** `LFC_/PVF_GetForecast($id, $offset)` akzeptieren jetzt Offset 0..4 statt 0..2,
+  `LFC_/PVF_GetEnergyWindow()` deckt entsprechend bis zu 5 Tage ab. Technisch geprüft statt
+  angenommen: Open-Meteo (bis 16 Tage), Forecast.Solar (bis 8 Tage über den bisher ungenutzten
+  `limit`-Parameter), Solcast (bis 14 Tage) tragen das alle. Bei Last-Prognose ist 5 Tage exakt
+  die Grenze der kostenlosen OpenWeatherMap-Anbindung im Auto-Modus (3h-Raster, hart limitiert) —
+  kein Wunschwert, sondern die von der kostenlosen Quelle vorgegebene Decke; darüber hinaus greift
+  ohnehin die schon vorhandene Klimatologie-Rückfallebene. Neue Statusvariablen `LFC_/PVF_Day3`,
+  `LFC_/PVF_Day4` (+ kWh-Varianten, + `LFC_WPkWhDay3/4`) — bestehende Today/Tomorrow/DayAfter-Idents
+  bewusst unverändert (Archivhistorie bleibt erhalten). Manueller Tagesmittel-Modus (Last-Prognose)
+  bekam zwei weitere Temperatur-Eingabefelder. Energiebilanz-Kachel kann jetzt bis zu 5 Tage
+  anzeigen (Default bleibt 3 — mehr Tage in fester Breite überladen sonst die Darstellung; die
+  Dashboard-Sitzung übernimmt die Visualisierung mittelfristig mit scrollbarer Zeitachse).
+  `contractVersion` beider Module 1.0→1.1 (additiv, mit EMS abgestimmt, kein Major-Bruch —
+  bestehende Aufrufe mit Offset 0-2 liefern unverändert dieselben Werte).
+- **Doku-Klarstellung (PV-Prognose, Forum-Feedback von hfichtinger/Bricoleur): Selbstkalibrierung
+  wirkt nur bei Open-Meteo.** Beobachtung eines Beta-Testers: Forecast.Solar schätzt spürbar
+  konservativer (niedriger) als Open-Meteo. Das ist kein Bug — verschiedene Quellen haben
+  unterschiedliche systematische Tendenzen —, aber die Selbstkalibrierung (`PVF_Calibrate`)
+  greift technisch nur bei Open-Meteo (ihre Vergangenheits-Basis nutzt dessen Reanalyse-API;
+  Forecast.Solar bietet keine vergleichbare Historie). Der bereits vorhandene, quellen-
+  unabhängige Ausweg — Residuen-Modus „Band + Pegelkorrektur" (vergleicht Snapshot gegen Ist,
+  unabhängig von der Quelle) — war dafür nicht klar genug dokumentiert. Hinweistext ergänzt.
+- **Fix (Performance): `LFC_GetForecast()`/`PVF_GetForecast()` rechneten bei JEDEM externen
+  Aufruf komplett neu, statt den von `Rebuild()` bereits berechneten Stand zu nutzen.**
+  Fund aus der PVMonitor/Dashboard-Sitzung (langsamer Tagesplan-Reiter): Last-Prognose
+  durchsuchte dabei bis zu `LFC_LookbackDays` (Default 365) Kandidatentage mit je einem
+  Archivzugriff, PV-Prognose löste bei jedem Aufruf frische Live-API-Calls aus (Open-Meteo/
+  Forecast.Solar/Solcast — Letzteres ratenbegrenzt) — `$modelCache` half nur innerhalb EINER
+  Skriptausführung, nicht über separate externe Aufrufe hinweg. Beide `GetForecast()` lesen
+  jetzt zuerst den bereits in `LFC_/PVF_Today/Tomorrow/DayAfter` zwischengespeicherten Stand
+  (gültig solange dessen `date`-Feld zum angefragten Offset passt), die teure Berechnung
+  (`computeForecast()`) läuft nur noch in `Rebuild()` selbst und beim allerersten,
+  noch ungecachten Aufruf.
+- **Neu: Button "🔄 Übernehmen erzwingen (ohne Formularänderung)" in allen drei Modulen**
+  (EMS-Angebot, optional). Ruft direkt `IPS_ApplyChanges($id)` auf — praktisch nach jedem
+  Modul-Update, ohne dass erst ein Formularfeld angefasst werden muss. Kein `SetProperty` im
+  `onClick`, daher kein Verstoß gegen die Store-Review-Regel „keine Selbstpersistenz in
+  Formular-Buttons" — persistiert nichts Ungespeichertes.
+- **Sichtbare Rückmeldung bei jeder Aktion (verbindliche Verbund-Konvention, 20.08.2026).**
+  Der "Prognose jetzt neu berechnen"-Button gab in beiden Modulen (LFC/PVF) bislang keine
+  sichtbare Rückmeldung — `Rebuild()` lief serverseitig korrekt, aber ohne `echo` im `onClick`
+  sah man ohne Formular-Neuöffnen nicht, dass etwas passiert war. `Rebuild()` gibt jetzt einen
+  Ergebnistext mit ✅/⚠️/⛔-Präfix zurück (identisch zu dem, was `LFC_/PVF_Status` speichert),
+  `onClick` ruft `echo LFC_Rebuild($id)`/`echo PVF_Rebuild($id)`. Der Intervall-Timer ruft
+  dieselbe Methode weiterhin auf und ignoriert den Rückgabewert, keine Verhaltensänderung dort.
+  Die anderen Buttons ("Status anzeigen", "…morgen (JSON) ausgeben") hatten bereits `echo` —
+  „Status anzeigen" war laut EMS sogar das Vorbild für die neue Konvention. Energiebilanz'
+  „Darstellung auf Standard zurücksetzen" bleibt unverändert: `ResetStyle()` schreibt per
+  `UpdateFormField()` direkt in die betroffenen Formularfelder zurück, die sichtbare Änderung
+  aller 14 Felder ist die Rückmeldung selbst.
+- **README-Badges (Verbund-Konvention, 18.08.2026).** Badge-Zeile direkt unter der
+  H1-Überschrift in allen vier READMEs (Suite + 3 Module): Symcon, Modul-Version,
+  Symcon-Mindestversion, Lizenz, PayPal — nach EMS' Referenzvorlage. Check-Style-CI-Badge
+  bewusst noch NICHT dabei: das GitHub-Token hat den `workflow`-Scope nicht, ein
+  `.github/workflows/`-Push wird von GitHub abgelehnt. SUITE.md-Regel befolgt (kein
+  vorgetäuschtes CI-Badge ohne echte CI) — Workflow + Badge folgen, sobald der Scope da ist.
+- **Fix: Plausibilitätskontrolle (Lastprognose) meldete optionale Lasten fälschlich als
+  "kaputt".** Die 48h-Schwelle passt für den Hausverbrauch (schwankt immer), aber nicht für
+  Abzugsliste/WP-Geräte (Wallbox, Wärmepumpe/Klima) — die dürfen legitim wochenlang inaktiv
+  sein (kein Ladevorgang, Saison ohne Heizen/Kühlen). Live gefunden: eine kaum genutzte
+  Wallbox stand seit 3 Wochen konstant bei 0 kW, wurde fälschlich als Ausfall gemeldet.
+  Hausverbrauch bleibt bei 48h, Abzugsliste/WP-Geräte jetzt 30 Tage.
+- **Neu: laufende Plausibilitätskontrolle in beiden Modulen (Dietmars Vorschlag, 09.08.2026).**
+  `checkDataPlausibility()` läuft bei jedem `Rebuild()` automatisch mit — kein separater
+  Zeitplan/Cron nötig, nutzt den ohnehin vorhandenen Intervall-Timer. Prüft, ob die für
+  Prognose/Kalibrierung genutzten Messwerte (PV: PowerVar je Generator; Last: Hausverbrauch,
+  Abzugsliste, WP-Geräte) innerhalb der letzten 48 Stunden mindestens einmal einen echten
+  Wertewechsel hatten. Anders als `unloggedVars()` (prüft nur die Konfiguration) erkennt das
+  auch eine zur Laufzeit ausgefallene Quelle, die weiter als archiviert gilt, aber keine
+  frischen Werte mehr liefert (z. B. eine abgebrochene Modbus-Verbindung) — genau die
+  Fehlerklasse, die am 09.08.2026 zwei Wochen unbemerkt blieb, bis der Vergleich Soll/Ist von
+  Hand angestoßen wurde. Auffälligkeiten erscheinen als ⚠️ direkt im Status, sichtbar ohne
+  eigene Statistik-Auswertung.
+- **Fix: PV-Prognose hatte kein try/catch um `Rebuild()`.** Lastprognose fängt Exceptions in
+  `Rebuild()` schon lange ab und schreibt sie lesbar in den Status; PV-Prognose nicht — jeder
+  unerwartete Fehler (Netzwerk, API-Format, o. ä.) riss den kompletten Lauf ohne Meldung ab,
+  genau wie beim `EMS_GetSpecialEvents`-Absturz. Jetzt symmetrisch zu Lastprognose.
+- **Fix: PV-Prognose unterschätzte die Erzeugung systematisch, wenn Selbstkalibrierung aktiv
+  war.** `fetchOpenMeteoPast()` (die Vergangenheits-Modellierung für die
+  Selbstkalibrierungs-Basis) rechnete OHNE die Temperatur-Abminderung, die der eigentliche
+  Forecast (`fetchOpenMeteo()`) aber anwendet. Dadurch fing der gelernte Kalibrierungsfaktor
+  (gemessen ÷ modelliert) den Temperatureffekt zusätzlich ein — der im fertigen Forecast
+  bereits separat abgezogene Temperaturverlust wurde effektiv doppelt gerechnet, die
+  Prognose fiel dadurch strukturell zu niedrig aus. `fetchOpenMeteoPast()` wendet jetzt
+  dieselbe NOCT-Näherung wie `fetchOpenMeteo()` an, sodass die Kalibrierung nur noch die
+  temperaturunabhängigen Restverluste (Verschmutzung, Verkabelung, reale PR-Abweichung)
+  lernt.
+- **Fix (kritisch): `EMS_GetSpecialEvents`-Aufruf stürzte `Rebuild()` fatal ab, sobald ein
+  EMS installiert war.** In beiden Modulen (Last- und PV-Prognose) wurde die EMS-Instanz-ID
+  hartkodiert als `0` übergeben statt die tatsächliche Instanz zu suchen — IP-Symcon wirft
+  dann "Instance does not implement this function", ein Fatal Error, den `@` nicht abfängt.
+  Betraf `evaluateAccuracy()` und damit den gesamten `Rebuild()`-Aufruf inkl. Prognoseberechnung.
+  Behoben durch `emsInstance()` (analog zum bestehenden `owmInstance()`-Muster,
+  `IPS_GetInstanceListByModuleID` auf die stabile EMS-GUID). PV-Prognose bekam dabei
+  zusätzlich die in Lastprognose bereits vorhandene `contractVersion`-Major-Prüfung
+  (Update-Meldepflicht) nachgezogen, die dort noch fehlte.
+- **NRG-Stack-Markenkonvention.** Bibliotheksname `NRGPrognose` → **„NRG-Stack Prognose"**,
+  Modul-Aliase `NRGLastprognose`/`NRGPVPrognose`/`NRGEnergiebilanz` → **„NRG-Stack
+  Lastprognose"/„NRG-Stack PVPrognose"/„NRG-Stack Energiebilanz"** (analog zu NRGDashboard,
+  Commit `3d1706f`). Nur Anzeigenamen (`library.json` „name", `module.json` „aliases")
+  geändert — GUIDs und `module.json` „name" (= PHP-Klasse) unverändert, bestehende Instanzen
+  und künftige Updates nicht betroffen. Dabei nebenbei behoben: `vendor` in allen drei
+  `module.json` stand fälschlich auf `"DG65"` (= Modulentwickler) statt leer — die
+  Store-Review-Checkliste verlangt hier den Hersteller des angebundenen Geräts, und diese
+  drei Module binden kein Fremdgerät an (reine Software/Wetter-API).
+- **PV-Prognose: Feld-Erklärung für „Korrektur" (Verbund-weite Usability-Prüfung).** Die Spalte
+  „Korrektur" in der Generatorliste zeigte nur eine nackte Zahl (Standard 1,00) ohne Erklärung, was
+  der Wert bedeutet oder wie er mit der Selbstkalibrierung zusammenwirkt — für Laien ohne
+  Hintergrundwissen unklar. Jetzt ein PopupButton direkt darunter: 1,00 = keine Korrektur,
+  kleinere/größere Werte skalieren die Prognose prozentual, wirkt multiplikativ zusätzlich zur
+  automatischen Kalibrierung (nicht anstelle davon).
+- **PV-Prognose: Feld-Erklärung für „Kalibrieren" (Verbund-Konvention Feld-Tooltips).** IP-Symcon
+  kennt kein natives Mouseover-Tooltip; die Spalte „Kalibrieren" in der Generatorliste war bisher
+  nur in benachbarten Absätzen erklärt, nicht direkt am Feld. Jetzt ein PopupButton direkt unter der
+  Liste mit der fokussierten Erklärung (wann für abgeregelte Generatoren ausschalten). Andere Felder
+  geprüft: bereits ausreichend durch vorhandene Label-Elemente abgedeckt.
+  Styling nach InverterHub-Live-Test präzisiert: `caption="?"` (reiner Buchstabe statt Emoji) mit
+  `width="70px"`, da eine geringere Breite im WebFront-Skin ohne sichtbaren Effekt bleibt.
+- **PV-Prognose: neue Funktion `PVF_GetEnergyWindow($id,$fromTs,$toTs)`.** Symmetrisches Gegenstück
+  zu `LFC_GetEnergyWindow` auf der Erzeugungsseite — erwartete PV-Erzeugung (kWh) in einem
+  beliebigen Zeitfenster, für die Netto-Energiebilanz (Bedarf minus Erzeugung) eines EMS. Bewusst
+  eigenständig: keine neue Kopplung zu LFC, der Aufrufer kombiniert beide Fenster selbst. Da
+  `neighbors` bei PVF (physikbasiert) auch im Erfolgsfall immer 0 ist und daher kein brauchbares
+  Realdaten-Signal wie bei LFC liefert, prüft die Funktion stattdessen den internen Modellstatus:
+  schlägt die Quelle (API/Netzwerk) fehl oder fehlen Generatoren, zählt `coverage` konsequent 0,
+  statt „kwh=0, coverage=1.0" vorzutäuschen. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
+- **Update-Meldepflicht für `EMS_GetSpecialEvents` erfüllt (Verbund-Konvention).** Bisher wurde die
+  Rückgabe blind konsumiert; jetzt wird `contractVersion` je Ereignis geprüft. Liefert das EMS eine
+  uns unbekannte Major, wird die Kopplung deaktiviert (kein Sondereffekt-Ausschluss mehr, statt
+  Felder falsch zu deuten) und **sichtbar** in der Variable *Prognosegüte* gemeldet
+  („⚠️ EMS-Vertrag X nicht unterstützt … Modul-Update prüfen"), zusätzlich geloggt. Proaktiv aus dem
+  Verbund-Zielbild „Zuverlässigkeit ohne KI-Krücke" abgeleitet, nicht explizit angefragt.
+- **Fix: `GetEnergyWindow`-`coverage` täuschte bei unkonfigurierter Instanz Sicherheit vor.** Tage
+  ohne echte Prognose (kein Nachbar gefunden, z. B. fehlende Konfiguration) lieferten intern ein
+  strukturell gültiges Nullprofil — `coverage` zeigte fälschlich „vollständig abgedeckt" statt
+  „keine Daten". Jetzt zählen solche Tage nicht mehr als abgedeckt. Noch am selben Tag proaktiv
+  gefunden und behoben, bevor ein Konsument sich auf die vorherige Semantik verlassen konnte.
+- **Lastprognose: neue Funktion `LFC_GetEnergyWindow($id,$fromTs,$toTs)`.** Erwarteter Verbrauch
+  (kWh) in einem beliebigen Zeitfenster, z. B. „von jetzt bis morgen früh, wenn die PV wieder
+  produziert" — Grundlage für ein dynamisches Batterie-Ziel-SoC (EMS) statt eines festen
+  Prozentwerts. Summiert slotgenau über bis zu 3 Tage (unser Horizont), mit anteiliger
+  Berücksichtigung an den Fensterrändern; `coverage` (0..1) zeigt, welcher Anteil des Fensters
+  tatsächlich mit einer ECHTEN Prognose abgedeckt ist — Tage ohne Nachbarn (z. B. unkonfigurierte
+  Instanz) zählen NICHT als abgedeckt, auch wenn ihr Nullprofil strukturell gültig ist. Sonst hätte
+  eine kaputte Konfiguration einem unbeaufsichtigten Aufrufer „kwh=0, coverage=1.0" statt ehrlich
+  „keine Daten" vorgetäuscht. Bewusst ohne PV-Bezug: das Zeitfenster bestimmt der Aufrufer, keine
+  neue Abhängigkeit zu PVF. Eigene, additive Vertragsfamilie (`contractVersion` 1.0).
 - **Sondereffekt-Ausschluss aus der Lernbasis (`EMS_GetSpecialEvents`, Verbund-Vertrag 1.0).**
   Beide Prognose-Module fragen jetzt — sofern ein NRG-Stack-EMS installiert ist — externe
   Regeleingriffe der letzten 14 Tage ab (§14a-Dimmung, Tibber-Regelenergie, Direktvermarktung,

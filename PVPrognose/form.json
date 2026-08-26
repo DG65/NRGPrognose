@@ -7,7 +7,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Was macht das Modul: physikbasierte PV-Erzeugungsprognose für 1–3 Tage. Pro Generator (Dachfläche/MPP-Tracker) wird aus Neigung, Azimut und kWp mit einer Wetter-/Solar-API die erwartete Leistung berechnet; alle Generatoren werden zur Gesamt-PV summiert."
+                    "caption": "Was macht das Modul: physikbasierte PV-Erzeugungsprognose für 1–5 Tage. Pro Generator (Dachfläche/MPP-Tracker) wird aus Neigung, Azimut und kWp mit einer Wetter-/Solar-API die erwartete Leistung berechnet; alle Generatoren werden zur Gesamt-PV summiert."
                 },
                 {
                     "type": "Label",
@@ -31,7 +31,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: PVF_GetForecast($id, 0..2). Bei Open-Meteo/Forecast.Solar ist P10=P50=P90 (Linie); ein echtes Band liefert nur Solcast."
+                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: PVF_GetForecast($id, 0..4). Bei Open-Meteo/Forecast.Solar ist P10=P50=P90 (Linie); ein echtes Band liefert nur Solcast."
                 },
                 {
                     "type": "Label",
@@ -312,6 +312,52 @@
                             }
                         }
                     ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Wann „Kalibrieren\" ausschalten?"
+                        },
+                        {
+                            "type": "PopupButton",
+                            "caption": "?",
+                            "width": "70px",
+                            "popup": {
+                                "caption": "Spalte „Kalibrieren\"",
+                                "items": [
+                                    {
+                                        "type": "Label",
+                                        "caption": "Ausschalten bei einem ABGEREGELTEN Generator — z. B. ein DC-MPPT-Laderegler mit Strom- oder Spannungslimit, oder ein Generator, der bei voller Batterie abgeregelt wird. Die gemessene Leistung ist dort künstlich gedrosselt und würde die Selbstkalibrierung dauerhaft zu klein lernen lassen (die Prognose zeigt dann weniger, als wetterbedingt möglich wäre). Für einen frei einspeisenden Generator (z. B. AC-gekoppelt ohne Limit) bleibt „Kalibrieren\" an — dort passt die Kalibrierung normal."
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "Label",
+                            "caption": "Was bedeutet „Korrektur\"?"
+                        },
+                        {
+                            "type": "PopupButton",
+                            "caption": "?",
+                            "width": "70px",
+                            "popup": {
+                                "caption": "Spalte „Korrektur\"",
+                                "items": [
+                                    {
+                                        "type": "Label",
+                                        "caption": "Manueller Korrekturfaktor je Generator — multipliziert die berechnete Erzeugung. 1,00 = keine Korrektur (Standard). Kleinere Werte (z. B. 0,90) senken die Prognose um 10 %, größere (z. B. 1,10) erhöhen sie um 10 % — z. B. für bekannte Verschattung oder eine abweichende reale Modulleistung. Optional: bei aktiver Selbstkalibrierung wirkt dieser Faktor zusätzlich zum automatisch gelernten Korrekturfaktor (multiplikativ kombiniert), nicht anstelle davon."
+                                    }
+                                ]
+                            }
+                        }
+                    ]
                 }
             ]
         },
@@ -381,7 +427,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Wichtig bei Open-Meteo und Forecast.Solar: Diese Quellen liefern nur EINE Linie (P10 = P50 = P90), also gar kein Unsicherheitsband. Aus den gemessenen Abweichungen der letzten Tage (Snapshot gegen Ist) entsteht erstmals ein echtes Band — P90 heißt dann „in 90 % der Fälle darunter\". Modus „nur Band\" lässt Prognosewert und kWh unverändert; „Band + Pegelkorrektur\" zieht zusätzlich einen systematischen Fehler nach. Greift erst ab 3 auswertbaren Tagen und benötigt die PowerVar je Generator; vorher bleibt der Standard aktiv. Bei Solcast gibt es bereits ein natives Band."
+                    "caption": "Wichtig bei Open-Meteo und Forecast.Solar: Diese Quellen liefern nur EINE Linie (P10 = P50 = P90), also gar kein Unsicherheitsband. Aus den gemessenen Abweichungen der letzten Tage (Snapshot gegen Ist) entsteht erstmals ein echtes Band — P90 heißt dann „in 90 % der Fälle darunter\". Modus „nur Band\" lässt Prognosewert und kWh unverändert; „Band + Pegelkorrektur\" zieht zusätzlich einen systematischen Fehler nach. Greift erst ab 3 auswertbaren Tagen und benötigt die PowerVar je Generator; vorher bleibt der Standard aktiv. Bei Solcast gibt es bereits ein natives Band. Bei Forecast.Solar/Solcast als Quelle wichtig: Die Selbstkalibrierung oben funktioniert NUR mit Open-Meteo — „Band + Pegelkorrektur\" ist hier der einzige automatische Weg, eine systematisch zu niedrige oder zu hohe Prognose (z. B. Forecast.Solars bekannt konservative Schätzung) nachträglich zu korrigieren."
                 }
             ]
         }
@@ -390,7 +436,7 @@
         {
             "type": "Button",
             "caption": "Prognose jetzt neu berechnen",
-            "onClick": "PVF_Rebuild($id);"
+            "onClick": "echo PVF_Rebuild($id);"
         },
         {
             "type": "Button",
@@ -401,6 +447,11 @@
             "type": "Button",
             "caption": "PV-Prognose morgen (JSON) ausgeben",
             "onClick": "echo print_r(PVF_GetForecast($id, 1), true);"
+        },
+        {
+            "type": "Button",
+            "caption": "🔄 Übernehmen erzwingen (ohne Formularänderung)",
+            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges() ausgeführt.';"
         }
     ],
     "status": [

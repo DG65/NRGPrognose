@@ -1,7 +1,14 @@
 # EnergiePrognose — Last- & PV-Prognose für IP-Symcon
 
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 Energieprognose-Suite mit drei Bausteinen, die dem EMS beide Seiten der Energiebilanz
-1–3 Tage voraus liefern:
+1–5 Tage voraus liefern:
 
 - **Lastprognose** (Prefix `LFC`) — Verbrauchsprognose über ein Ähnliche-Tage-Verfahren (k-NN).
 - **PV-Prognose** (Prefix `PVF`) — physikbasierte PV-Erzeugungsprognose je Generator über eine
@@ -196,7 +203,7 @@ Schriftgröße; Standard ist theme-konform.
 
 ## Verwandte Projekte
 
-**[DG65/InverterHub](https://github.com/DG65/InverterHub)** — Modbus-TCP-Anbindung für Wechselrichter.
+**[DG65/NRGInverterHub](https://github.com/DG65/NRGInverterHub)** — Modbus-TCP-Anbindung für Wechselrichter.
 Der dortige `InverterHubMonitor` berechnet aus einem Einstrahlungssensor und den hier hinterlegten
 Generatorparametern Erwartungswerte und stellt sie dem gemessenen Ertrag gegenüber
 (Verschmutzungs-/Defekterkennung).
@@ -211,4 +218,4 @@ Dafür nutzt er die öffentliche API der PV-Prognose:
 Diese `PVF_Get*`-Funktionen gelten als **stabiler Vertrag** zwischen beiden Repos: Änderungen an
 Signatur oder Rückgabestruktur werden vorher abgestimmt. Details siehe [CLAUDE.md](CLAUDE.md).
 
-> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/EMS/blob/main/SUITE.md).
+> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

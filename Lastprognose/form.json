@@ -7,7 +7,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Was macht das Modul: 1–3-Tage-Verbrauchsprognose aus dem IPS-Archiv über ein Ähnliche-Tage-Verfahren (k-NN). Für jeden Prognosetag werden die k ähnlichsten Vergangenheitstage gesucht (Tagtyp, Tageslänge, Heizgrad, Anwesenheit) und ihre Profile zu P10/P50/P90 verdichtet."
+                    "caption": "Was macht das Modul: 1–5-Tage-Verbrauchsprognose aus dem IPS-Archiv über ein Ähnliche-Tage-Verfahren (k-NN). Für jeden Prognosetag werden die k ähnlichsten Vergangenheitstage gesucht (Tagtyp, Tageslänge, Heizgrad, Anwesenheit) und ihre Profile zu P10/P50/P90 verdichtet."
                 },
                 {
                     "type": "Image",
@@ -35,7 +35,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: LFC_GetForecast($id, 0..2); P10/P90 = Unsicherheitsband für risikobewusste Entscheidungen."
+                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: LFC_GetForecast($id, 0..4); P10/P90 = Unsicherheitsband für risikobewusste Entscheidungen."
                 },
                 {
                     "type": "Label",
@@ -200,7 +200,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Auto: findet eine OpenWeatherData-Instanz (demel42) automatisch. Voraussetzung: dort die Stundenvorhersage aktivieren (hourly_forecast_count > 0, z.B. 40). Ohne OWM/ohne Vorhersage wird das saisonale Normal aus dem Temperatur-Archiv genutzt."
+                    "caption": "Auto: findet eine OpenWeatherData-Instanz (demel42) automatisch. Voraussetzung: dort die Stundenvorhersage aktivieren (hourly_forecast_count > 0, für den vollen 5-Tage-Horizont mind. 40 — die kostenlose OpenWeatherMap-Anbindung liefert ohnehin nicht mehr als 5 Tage). Ohne OWM/ohne Vorhersage wird das saisonale Normal aus dem Temperatur-Archiv genutzt."
                 },
                 {
                     "type": "SelectInstance",
@@ -229,6 +229,16 @@
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D2",
                     "caption": "Tagesmittel übermorgen (°C)"
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "VAR_TempFc_D3",
+                    "caption": "Tagesmittel Tag 4 (°C)"
+                },
+                {
+                    "type": "SelectVariable",
+                    "name": "VAR_TempFc_D4",
+                    "caption": "Tagesmittel Tag 5 (°C)"
                 },
                 {
                     "type": "Label",
@@ -507,7 +517,7 @@
         {
             "type": "Button",
             "caption": "Prognose jetzt neu berechnen",
-            "onClick": "LFC_Rebuild($id);"
+            "onClick": "echo LFC_Rebuild($id);"
         },
         {
             "type": "Button",
@@ -518,6 +528,11 @@
             "type": "Button",
             "caption": "Prognose morgen (JSON) ausgeben",
             "onClick": "echo print_r(LFC_GetForecast($id, 1), true);"
+        },
+        {
+            "type": "Button",
+            "caption": "🔄 Übernehmen erzwingen (ohne Formularänderung)",
+            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges() ausgeführt.';"
         }
     ],
     "status": [

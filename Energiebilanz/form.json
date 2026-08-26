@@ -7,7 +7,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Was zeigt die Kachel: PV-Erzeugung und Verbrauch als Prognose-Kurven (P50) mit Unsicherheitsband (P10–P90) über bis zu 3 Tage — der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist Netzbezug/Einspeisung. Hover/Touch zeigt Werte und Saldo zur Uhrzeit."
+                    "caption": "Was zeigt die Kachel: PV-Erzeugung und Verbrauch als Prognose-Kurven (P50) mit Unsicherheitsband (P10–P90) über bis zu 5 Tage — der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist Netzbezug/Einspeisung. Hover/Touch zeigt Werte und Saldo zur Uhrzeit."
                 },
                 {
                     "type": "Image",
@@ -157,6 +157,14 @@
                 {
                     "caption": "Heute + 2 Tage",
                     "value": 3
+                },
+                {
+                    "caption": "Heute + 3 Tage",
+                    "value": 4
+                },
+                {
+                    "caption": "Heute + 4 Tage (voller Horizont)",
+                    "value": 5
                 }
             ]
         },
@@ -300,6 +308,11 @@
             "type": "Button",
             "caption": "Darstellung auf Standard zurücksetzen",
             "onClick": "EFTILE_ResetStyle($id);"
+        },
+        {
+            "type": "Button",
+            "caption": "🔄 Übernehmen erzwingen (ohne Formularänderung)",
+            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges() ausgeführt.';"
         }
     ],
     "status": [

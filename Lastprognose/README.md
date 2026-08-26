@@ -1,5 +1,12 @@
 # Lastprognose
 
+![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
+[![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
+[![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
+
 Erstellt aus deinen IP-Symcon-Archivdaten eine **1–3-Tage-Verbrauchsprognose** und liefert sie als
 JSON-Profil (P10/P50/P90 je Zeitslot) zur direkten Nutzung durch ein EMS. Prefix der Funktionen: `LFC`.
 
@@ -77,7 +84,7 @@ Residuen-Quantile ein — sie würden sonst eine gute Prognose fälschlich als F
 ## Öffentliche Funktionen
 
 ```php
-// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen
+// Prognose eines Tages holen: $offset 0=heute, 1=morgen, 2=übermorgen, 3/4=Tag 4/5
 $fc = LFC_GetForecast(int $InstanzID, int $offset); // array mit p10/p50/p90/mean/kwh …
 
 // Gespeicherte Prognose (Soll) eines vergangenen Tages ('Y-m-d')
@@ -85,9 +92,18 @@ $snap = LFC_GetSnapshot(int $InstanzID, string $date); // [] wenn kein Snapshot
 
 // Sofortige Neuberechnung auslösen
 LFC_Rebuild(int $InstanzID);
+
+// Erwarteter Verbrauch (kWh) in einem beliebigen Zeitfenster, z.B. "von jetzt
+// bis morgen früh, wenn die PV wieder produziert" — für ein dynamisches
+// Batterie-Ziel-SoC statt eines festen Prozentwerts. Deckt bis zu 5 Tage ab
+// (unser Horizont); 'coverage' (0..1) zeigt an, welcher Anteil des Fensters
+// tatsächlich mit Prognosedaten abgedeckt ist (Fenster ohne Bezug zur PV —
+// den PV-Startzeitpunkt bestimmt der Aufrufer selbst, z.B. aus PVF).
+$w = LFC_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
+// => ['contractVersion'=>'1.0', 'from'=>.., 'to'=>.., 'kwh'=>.., 'coverage'=>..]
 ```
 
-Teil der **[EnergiePrognose-Suite](https://github.com/DG65/Prognose)** – zusammen mit *PV-Prognose*
+Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *PV-Prognose*
 und der *Energiebilanz*-Kachel.
 
-> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/EMS/blob/main/SUITE.md).
+> **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

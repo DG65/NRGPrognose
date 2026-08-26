@@ -11,6 +11,10 @@
         #legend .lg:first-child { margin-left: 0; }
         #legend .sw { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
         #legend .lg b { font-weight: 500; }
+        /* Mehr als 3 Tage: Chart+Tagesstreifen werden breiter als der Rahmen und per
+           nativem Browser-Scroll gezeigt (statt sich zusammenzuquetschen) — beide bleiben
+           dabei pixelgenau ausgerichtet, weil sie dieselbe berechnete Breite bekommen. */
+        #scrollWrap { overflow-x: auto; overflow-y: hidden; }
         #chart { width: 100%; height: 360px; }
         #days { display: none; margin-top: 6px; line-height: 1.25; }
         .empty { color: #8a97a3; font-size: 13px; padding: 24px 10px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -20,8 +24,10 @@
 <body>
     <div class="wrap">
         <div id="legend"></div>
-        <div id="chart"></div>
-        <div id="days"></div>
+        <div id="scrollWrap">
+            <div id="chart"></div>
+            <div id="days"></div>
+        </div>
     </div>
 
     <script>
@@ -101,8 +107,17 @@
             var bgDark = isDarkColor(data.bg);
             var dark = (bgDark !== null) ? bgDark
                      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            // Breite: bis zu BASELINE_DAYS passt wie bisher ohne Scroll in den Rahmen;
+            // darüber hinaus wird Chart+Tagesstreifen proportional breiter und der
+            // Rahmen (#scrollWrap, overflow-x:auto) macht daraus horizontales Scrollen —
+            // beide bekommen dieselbe Breite, damit Tagesgrenzen exakt fluchten.
+            var wrapEl = document.getElementById('scrollWrap');
+            var baseW = (wrapEl && wrapEl.clientWidth) ? wrapEl.clientWidth : (document.body.clientWidth || 600);
+            var BASELINE_DAYS = 3;
+            var renderW = Math.round(Math.max(baseW, baseW * data.days.length / BASELINE_DAYS));
             var D = {
                 data: data,
+                renderW: renderW,
                 height: (data.height && data.height >= 180) ? data.height : 360,
                 dark: dark, TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#9fb0c0' : '#5c6b7a',
                 GRID: dark ? 'rgba(127,135,145,.22)' : 'rgba(20,30,45,.14)', TIP: dark ? 'rgba(28,38,52,.97)' : 'rgba(255,255,255,.98)',
@@ -151,7 +166,7 @@
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             document.getElementById('legend').style.display = 'none';
             var daysEl = document.getElementById('days'); daysEl.style.display = 'block'; dayStrip(daysEl, D);
-            el.style.height = canvasH + 'px';
+            el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
             var TEXT = D.TEXT, MUTED = D.MUTED, GRID = D.GRID, TIP = D.TIP, days = D.days, nDays = D.nDays;
             var pvC = D.pvC, loC = D.loC, scale = D.scale, lw = D.lw;
@@ -176,7 +191,7 @@
             if (D.nowX != null) { plotLines.push({ value: D.nowX, color: MUTED, width: 1, dashStyle: 'Dash', zIndex: 4 }); }
 
             var options = {
-                chart: { backgroundColor: 'transparent', height: canvasH, spacingTop: 10, spacingBottom: 2, marginLeft: 46, marginRight: 14, style: { fontFamily: D.font }, animation: false },
+                chart: { backgroundColor: 'transparent', width: D.renderW, height: canvasH, spacingTop: 10, spacingBottom: 2, marginLeft: 46, marginRight: 14, style: { fontFamily: D.font }, animation: false },
                 title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
                 legend: { enabled: true, align: 'right', verticalAlign: 'top', floating: false, margin: 16, padding: 0, x: -2, y: 0, useHTML: true, symbolRadius: 6, itemStyle: { color: TEXT, fontSize: fpx(11), fontWeight: '400' }, itemHoverStyle: { color: TEXT }, labelFormatter: function () {
                     var ex = '';
@@ -240,6 +255,7 @@
             });
             daysEl.innerHTML = h + '</div>';
             daysEl.style.fontSize = (11 * D.scale) + 'px'; daysEl.style.fontFamily = D.font;
+            daysEl.style.width = D.renderW + 'px';
         }
         function ecToggle(w) { userHide[w] = !userHide[w]; buildEC(); }
 
@@ -249,7 +265,7 @@
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             legEl.style.display = 'block'; daysEl.style.display = 'block';
             ecLegend(legEl, D); dayStrip(daysEl, D);
-            el.style.height = canvasH + 'px';
+            el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
             var pvVis = D.pvPresent && !userHide.pv, loVis = D.loPresent && !userHide.load;
             var fs = function (n) { return n * D.scale; };
@@ -320,13 +336,16 @@
             };
 
             if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }
-            chart.resize({ height: canvasH });
+            chart.resize({ width: D.renderW, height: canvasH });
             chart.setOption(option, true);
         }
 
         window.addEventListener('resize', function () {
             if (!chart) { return; }
-            if (chartEngine === 'echarts') { chart.resize(); } else { chart.reflow(); }
+            // Volles render() statt nur resize()/reflow(): #scrollWrap-Breite hat sich
+            // ggf. geändert, renderW (und damit Chart- und Tagesstreifen-Breite) müssen
+            // neu berechnet werden, nicht nur der Inhalt in die alte Breite gezwängt.
+            render();
         });
     </script>
 </body>
