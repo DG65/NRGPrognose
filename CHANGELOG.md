@@ -6,6 +6,19 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Y-Achse (kW) bleibt beim Horizontalscrollen der Energiebilanz-Kachel sichtbar
+  (Dietmars Folge-Feedback zur Legende/zum Scrollbalken).** Bisher zeichneten beide Engines
+  ihre Achsenbeschriftung als Teil des breiten, scrollenden Chart-Canvas — sie lief beim
+  Scrollen mit weg, genau wie zuvor die Legende. Fix: eigene, schmale `#yAxisOverlay` mit
+  `position:sticky` links im Scroll-Rahmen (analog zur externen `#legend`), berechnet 5
+  gleich verteilte Marken (0..`yMax`) + „kW"-Beschriftung rein aus den Daten. Damit das
+  pixelgenau auf den echten Gitterlinien sitzt, erzwingen jetzt beide Engines identische
+  Plotbereich-Ränder (`PLOT_LEFT/RIGHT/TOP/BOTTOM`, vorher hatte Highcharts eigene
+  `spacingTop/Bottom` statt ECharts' `grid`-Maße) und teilen sich `yMax`/Sichtbarkeit
+  (`D.pvVis`/`D.loVis`) aus derselben `prepData()` statt sie je Engine separat zu berechnen —
+  eigene Achsenbeschriftung/-titel beider Engines dafür ausgeblendet (Gitterlinien bleiben).
+  Live im Browser mit beiden Engines verifiziert (Mock-Daten, 6 Tage, Y-Achse bleibt links
+  stehen und fluchtet mit den Gitterlinien über die gesamte Scroll-Breite).
 - **Fix: Legende überdeckte sich nicht mehr selbst beim Scrollen, Scrollbalken versteckt
   (Dietmars Feedback zum Scroll-Feature von eben).** Highcharts zeichnete seine Legende bisher
   INNERHALB des Chart-Canvas (`legend.align:'right'`) — der wurde beim Horizontalscrollen jetzt

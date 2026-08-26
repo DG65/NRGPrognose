@@ -17,8 +17,15 @@
            Scrollbalken bewusst unsichtbar (Dietmars Wunsch — überdeckte sonst die
            Ist-Werte-Zeile am unteren Rand); gescrollt wird trotzdem ganz normal per
            Touch/Trackpad/Klick-Ziehen, nur ohne sichtbare Leiste. */
-        #scrollWrap { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; }
+        #scrollWrap { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; position: relative; }
         #scrollWrap::-webkit-scrollbar { display: none; height: 0; }
+        /* Y-Achse (kW) bleibt beim Horizontalscrollen sichtbar: eigene, schmale
+           Überlagerung mit position:sticky links im Scroll-Rahmen — dafür blenden
+           beide Engines ihre EIGENE Achsenbeschriftung aus (Gitterlinien bleiben).
+           width/height:0 + overflow:visible, damit sie keinen Platz im Layout
+           beansprucht, ihre Kind-Elemente aber trotzdem absolut positionierbar sind. */
+        #yAxisOverlay { position: sticky; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 5; pointer-events: none; }
+        #yAxisOverlay .yl { position: absolute; left: 2px; transform: translateY(-50%); white-space: nowrap; }
         #chart { width: 100%; height: 360px; }
         #days { display: none; margin-top: 6px; line-height: 1.25; }
         .empty { color: #8a97a3; font-size: 13px; padding: 24px 10px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
@@ -29,6 +36,7 @@
     <div class="wrap">
         <div id="legend"></div>
         <div id="scrollWrap">
+            <div id="yAxisOverlay"></div>
             <div id="chart"></div>
             <div id="days"></div>
         </div>
@@ -38,6 +46,11 @@
         var lastData = null, chart = null, chartEngine = null;
         var userHide = { pv: false, load: false };
         var libs = { hc: 0, ec: 0 };
+        // Plotbereich-Ränder — für BEIDE Engines identisch erzwungen (statt deren
+        // Auto-Layout), damit die feststehende Y-Achsen-Überlagerung (buildYAxisOverlay)
+        // unabhängig von der Engine an derselben Pixel-Position sitzt wie die echten
+        // Gitterlinien, und damit der Tagesstreifen (padding 46px/14px) weiter fluchtet.
+        var PLOT_LEFT = 46, PLOT_RIGHT = 14, PLOT_TOP = 8, PLOT_BOTTOM = 22;
 
         function handleMessage(payload) {
             var data = (typeof payload === 'string') ? JSON.parse(payload) : payload;
@@ -152,6 +165,18 @@
             });
             D.hasIst = data.days.some(function (d) { return d.pvKwhIst != null || d.loKwhIst != null; });
 
+            // Sichtbarkeit je Reihe (Legenden-Klick) + Y-Achsen-Max — geteilt zwischen
+            // beiden Engines, damit die feststehende Y-Achsen-Überlagerung (siehe
+            // buildYAxisOverlay) exakt zu dem passt, was jede Engine tatsächlich zeichnet.
+            D.pvVis = D.pvPresent && !userHide.pv;
+            D.loVis = D.loPresent && !userHide.load;
+            (function () {
+                var maxV = 0, useBand = D.showBand && D.bandOp > 0;
+                if (D.pvVis) { (useBand ? D.pvBand : D.pvLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
+                if (D.loVis) { (useBand ? D.loBand : D.loLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
+                D.yMax = D.yMaxManual > 0 ? D.yMaxManual : Math.max(0.5, Math.ceil(maxV * 1.08 * 2) / 2);
+            })();
+
             // „jetzt"-Marker am Heute-Segment (mit Gestern verschiebt es sich um 24 h).
             // Die konkreten Punkte (Farbe/Sichtbarkeit) baut sich jede Engine selbst aus
             // D.nowX/D.actualPV/D.actualLoad + der aktuellen userHide-Sichtbarkeit.
@@ -170,13 +195,14 @@
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             var legEl = document.getElementById('legend'); legEl.style.display = 'block'; renderLegend(legEl, D);
             var daysEl = document.getElementById('days'); daysEl.style.display = 'block'; dayStrip(daysEl, D);
+            buildYAxisOverlay(D, canvasH);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
             var TEXT = D.TEXT, MUTED = D.MUTED, GRID = D.GRID, TIP = D.TIP, days = D.days, nDays = D.nDays;
             var pvC = D.pvC, loC = D.loC, scale = D.scale, lw = D.lw;
             var stype = D.smooth ? 'spline' : 'line', showBand = D.showBand, bandOp = D.bandOp;
             var fpx = function (n) { return (n * scale) + 'px'; };
-            var pvVis = D.pvPresent && !userHide.pv, loVis = D.loPresent && !userHide.load;
+            var pvVis = D.pvVis, loVis = D.loVis;
 
             var series = [];
             if (pvVis) {
@@ -201,14 +227,22 @@
             if (D.nowX != null) { plotLines.push({ value: D.nowX, color: MUTED, width: 1, dashStyle: 'Dash', zIndex: 4 }); }
 
             var options = {
-                chart: { backgroundColor: 'transparent', width: D.renderW, height: canvasH, spacingTop: 10, spacingBottom: 2, marginLeft: 46, marginRight: 14, style: { fontFamily: D.font }, animation: false },
+                // Ränder erzwungen (PLOT_*, identisch zu ECharts' grid) statt Highcharts'
+                // Auto-Layout — nötig, damit #yAxisOverlay pixelgenau auf den Gitterlinien
+                // sitzt, unabhängig davon, welche Engine gerade rendert.
+                chart: { backgroundColor: 'transparent', width: D.renderW, height: canvasH,
+                    marginTop: PLOT_TOP, marginBottom: PLOT_BOTTOM, marginLeft: PLOT_LEFT, marginRight: PLOT_RIGHT,
+                    spacingTop: 0, spacingBottom: 0, spacingLeft: 0, spacingRight: 0,
+                    style: { fontFamily: D.font }, animation: false },
                 title: { text: undefined }, credits: { enabled: false }, exporting: { enabled: false },
                 // Eigene Legende (#legend, außerhalb #scrollWrap) statt der eingebauten —
                 // die läge innerhalb des Chart-Canvas und würde beim Scrollen mitlaufen.
                 legend: { enabled: false },
                 xAxis: { min: 0, max: nDays * 24, tickInterval: 3, gridLineWidth: (D.showGrid ? 1 : 0), gridLineColor: GRID, lineColor: GRID, tickLength: 0, plotLines: plotLines,
                     labels: { style: { color: MUTED, fontSize: fpx(9) }, formatter: function () { return pad(this.value % 24); } } },
-                yAxis: { min: 0, max: (D.yMaxManual > 0 ? D.yMaxManual : null), title: { text: 'kW', style: { color: MUTED, fontSize: fpx(10) } }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { style: { color: MUTED, fontSize: fpx(10) } } },
+                // Achsenbeschriftung/-titel aus (zeigt stattdessen #yAxisOverlay, das beim
+                // Scrollen sichtbar bleibt) — Gitterlinien bleiben wie gehabt.
+                yAxis: { min: 0, max: D.yMax, title: { text: null }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { enabled: false } },
                 tooltip: { shared: true, useHTML: true, backgroundColor: TIP, borderColor: GRID, borderRadius: 6, style: { color: TEXT, fontSize: fpx(11) }, formatter: function () {
                     var x = this.x, di = Math.floor(x / 24 + 1e-6), hod = x - di * 24, hh = Math.floor(hod + 1e-6), mm = Math.round((hod - hh) * 60); if (mm >= 60) { hh++; mm -= 60; }
                     var head = cap((days[di] || days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
@@ -256,7 +290,7 @@
                 var pre = prefix ? ('<span style="color:' + D.MUTED + '">' + prefix + ' </span>') : '';
                 return '<div style="color:' + D.MUTED + ';font-size:0.86em">' + pre + k + '<span style="color:' + D.MUTED + '"> kWh</span></div>';
             }
-            var h = '<div style="display:flex;padding:0 14px 0 46px">';
+            var h = '<div style="display:flex;padding:0 ' + PLOT_RIGHT + 'px 0 ' + PLOT_LEFT + 'px">';
             D.days.forEach(function (day, di) {
                 var pv = userHide.pv ? null : day.pv, lo = userHide.load ? null : day.load;
                 var soll = kwhRow(hasIst ? 'Soll' : '', pv ? pv.kwh : null, lo ? lo.kwh : null);
@@ -268,6 +302,26 @@
             daysEl.style.fontSize = (11 * D.scale) + 'px'; daysEl.style.fontFamily = D.font;
             daysEl.style.width = D.renderW + 'px';
         }
+
+        /**
+         * Y-Achse (0..D.yMax, 5 gleich verteilte Marken inkl. „kW"-Einheit) als eigene,
+         * feststehende Überlagerung — beide Engines blenden dafür ihre eingebaute
+         * Achsenbeschriftung aus (Gitterlinien bleiben, siehe PLOT_TOP/PLOT_BOTTOM).
+         * Positionierung rein rechnerisch (nicht aus der Engine ausgelesen), daher
+         * erzwingen beide Engines exakt denselben Plotbereich (PLOT_*-Konstanten).
+         */
+        function buildYAxisOverlay(D, canvasH) {
+            var el = document.getElementById('yAxisOverlay');
+            var plotH = Math.max(1, canvasH - PLOT_TOP - PLOT_BOTTOM);
+            var steps = 4, h = '';
+            for (var i = 0; i <= steps; i++) {
+                var v = D.yMax * i / steps;
+                var y = PLOT_TOP + plotH * (1 - i / steps);
+                h += '<span class="yl" style="top:' + y + 'px;color:' + D.MUTED + ';font-size:' + (10 * D.scale) + 'px;font-family:' + D.font + '">' + v.toFixed(v < 10 ? 1 : 0) + '</span>';
+            }
+            h += '<span class="yl" style="top:' + (PLOT_TOP - 12) + 'px;color:' + D.MUTED + ';font-size:' + (10 * D.scale) + 'px;font-family:' + D.font + '">kW</span>';
+            el.innerHTML = h;
+        }
         function toggleSeries(w) { userHide[w] = !userHide[w]; render(); }
 
         function buildEC() {
@@ -275,10 +329,10 @@
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
             var stripH = Math.round((D.hasIst ? 46 : 30) * D.scale), canvasH = Math.max(140, D.height - stripH);
             legEl.style.display = 'block'; daysEl.style.display = 'block';
-            renderLegend(legEl, D); dayStrip(daysEl, D);
+            renderLegend(legEl, D); dayStrip(daysEl, D); buildYAxisOverlay(D, canvasH);
             el.style.height = canvasH + 'px'; el.style.width = D.renderW + 'px';
 
-            var pvVis = D.pvPresent && !userHide.pv, loVis = D.loPresent && !userHide.load;
+            var pvVis = D.pvVis, loVis = D.loVis;
             var fs = function (n) { return n * D.scale; };
             var series = [];
 
@@ -297,12 +351,6 @@
             }
             bandSeries(D.pvBand, D.pvC, pvVis);
             bandSeries(D.loBand, D.loC, loVis);
-
-            // yMax selbst bestimmen (Custom-Band zählt nicht in die Auto-Skalierung)
-            var maxV = 0, useBand = D.showBand && D.bandOp > 0;
-            if (pvVis) { (useBand ? D.pvBand : D.pvLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
-            if (loVis) { (useBand ? D.loBand : D.loLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
-            var yMax = D.yMaxManual > 0 ? D.yMaxManual : Math.max(0.5, Math.ceil(maxV * 1.08 * 2) / 2);
 
             if (pvVis && D.pvMeas.length > 1) { series.push({ type: 'line', data: D.pvMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
             if (loVis && D.loMeas.length > 1) { series.push({ type: 'line', data: D.loMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
@@ -326,10 +374,12 @@
             var option = {
                 backgroundColor: 'transparent',
                 textStyle: { fontFamily: D.font, color: D.TEXT },
-                grid: { left: 46, right: 14, top: 8, bottom: 22, containLabel: false },
+                grid: { left: PLOT_LEFT, right: PLOT_RIGHT, top: PLOT_TOP, bottom: PLOT_BOTTOM, containLabel: false },
                 animation: false,
                 xAxis: { type: 'value', min: 0, max: D.nDays * 24, interval: 3, axisLabel: { show: true, color: D.MUTED, fontSize: fs(9), hideOverlap: true, formatter: function (v) { return pad(v % 24); } }, axisTick: { show: false }, axisLine: { lineStyle: { color: D.GRID } }, splitLine: { show: D.showGrid, lineStyle: { color: D.GRID } } },
-                yAxis: { type: 'value', min: 0, max: yMax, name: 'kW', nameTextStyle: { color: D.MUTED, fontSize: fs(10), align: 'left' }, nameGap: 6, axisLabel: { color: D.MUTED, fontSize: fs(10) }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: D.showGrid, lineStyle: { color: D.GRID } } },
+                // Achsenbeschriftung/-titel aus (zeigt stattdessen #yAxisOverlay, das beim
+                // Scrollen sichtbar bleibt) — Gitterlinien (splitLine) bleiben wie gehabt.
+                yAxis: { type: 'value', min: 0, max: D.yMax, axisLabel: { show: false }, axisLine: { show: false }, axisTick: { show: false }, splitLine: { show: D.showGrid, lineStyle: { color: D.GRID } } },
                 tooltip: { trigger: 'axis', backgroundColor: D.TIP, borderColor: D.GRID, borderWidth: 1, textStyle: { color: D.TEXT, fontSize: fs(11) }, axisPointer: { type: 'line', lineStyle: { color: D.MUTED, type: 'dashed' } },
                     formatter: function (ps) {
                         if (!ps || !ps.length) { return ''; }
