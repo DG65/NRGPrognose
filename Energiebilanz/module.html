@@ -27,7 +27,10 @@
         #yAxisOverlay { position: sticky; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 5; pointer-events: none; }
         #yAxisOverlay .yl { position: absolute; left: 2px; transform: translateY(-50%); white-space: nowrap; }
         #chart { width: 100%; height: 360px; }
-        #days { display: none; margin-top: 6px; line-height: 1.25; }
+        /* +5px Abstand zur X-Achsen-Zeitbeschriftung des Charts direkt darüber
+           (Dietmars Feedback: zu eng, dadurch waren die Uhrzeiten schlecht
+           von "Gestern"/"Heute" usw. zu unterscheiden). */
+        #days { display: none; margin-top: 11px; line-height: 1.25; }
         .empty { color: #8a97a3; font-size: 13px; padding: 24px 10px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
     </style>
 </head>

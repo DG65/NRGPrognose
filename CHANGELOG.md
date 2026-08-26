@@ -6,6 +6,10 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Tagesstreifen (Gestern/Heute/…) rückte 5px näher an die X-Achsen-
+  Zeitbeschriftung, weil die zu eng beieinander lagen und dadurch schlecht
+  auseinanderzuhalten waren (Dietmars Feedback).** `#days`-Abstand zum Chart
+  von 6px auf 11px erhöht.
 - **Neu: alle Einstellungen der Energiebilanz-Kachel jetzt hinter dem Doppelpfeil
   (WebFront), nicht mehr nur in der Konsole (Dietmar, 26.08.2026: "Bau alles um").**
   22 bisherige Konsolen-Properties (Tage, Ist-Anzeige, Farben, Schriftart/-größe,
