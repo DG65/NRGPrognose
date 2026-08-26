@@ -27,8 +27,13 @@
         #yAxisOverlay { position: sticky; left: 0; top: 0; width: 0; height: 0; overflow: visible; z-index: 5; pointer-events: none; }
         #yAxisOverlay .yl { position: absolute; left: 2px; transform: translateY(-50%); white-space: nowrap; }
         /* Scroll-Hinweis (Forum-Feedback hfichtinger, 26.08.2026: "war etwas
-           tricky das scrollen herauszufinden") — dezenter Pfeil rechts. BEWUSST
-           außerhalb von #scrollWrap, als Geschwister-Element direkt in .wrap
+           tricky das scrollen herauszufinden") — je ein Pfeil links/rechts,
+           als kleine runde "Chip"-Fläche (Hintergrund/Textfarbe dynamisch aus
+           D.TIP/D.TEXT gesetzt, siehe updateScrollHint) statt reinem Zeichen,
+           damit er auf JEDEM Kachel-Hintergrund (hell/dunkel/transparent)
+           sicher lesbar ist — die erste Fassung (nur Text + Schatten) war auf
+           dunklem Grund kaum zu erkennen (Dietmars Feedback). BEWUSST
+           außerhalb von #scrollWrap, als Geschwister-Elemente direkt in .wrap
            (die selbst nicht scrollt): position:sticky innerhalb des Scroll-
            Rahmens (wie bei #yAxisOverlay) funktioniert hier NICHT symmetrisch —
            die statische Ausgangsposition eines Blocks mit width:0 liegt immer
@@ -36,13 +41,23 @@
            Andocken (live geprüft: Pfeil blieb bei x≈0 hängen statt rechts).
            Stattdessen: position:absolute relativ zu .wrap, vertikale Position
            wird in updateScrollHint() aus der tatsächlichen Chart-Höhe berechnet
-           (die variiert je nach Konfiguration). Nur eingeblendet, solange
-           tatsächlich noch mehr Inhalt rechts folgt — kein dauerhaftes Element,
-           keine erneute sichtbare Bildlaufleiste (die wollte Dietmar bewusst
-           nicht mehr). */
-        #scrollHint { position: absolute; right: 6px; width: 0; height: 0; overflow: visible; z-index: 6; pointer-events: none; }
-        #scrollHint span { position: absolute; right: 0; top: 0; transform: translateY(-50%); font-size: 22px; line-height: 1; opacity: 0; transition: opacity .2s; text-shadow: 0 0 4px rgba(0,0,0,.5); }
-        #scrollHint span.show { opacity: .55; }
+           (die variiert je nach Konfiguration). Links nur eingeblendet, wenn
+           bereits nach rechts gescrollt wurde, rechts nur, solange noch mehr
+           Inhalt folgt — kein dauerhaftes Element, keine erneute sichtbare
+           Bildlaufleiste (die wollte Dietmar bewusst nicht mehr). */
+        #scrollHintL, #scrollHintR { position: absolute; width: 0; height: 0; overflow: visible; z-index: 6; pointer-events: none; }
+        #scrollHintL { left: 6px; }
+        #scrollHintR { right: 6px; }
+        #scrollHintL span, #scrollHintR span {
+            position: absolute; top: 0; transform: translateY(-50%);
+            display: flex; align-items: center; justify-content: center;
+            width: 26px; height: 26px; border-radius: 50%;
+            font-size: 17px; line-height: 1; opacity: 0; transition: opacity .2s;
+            box-shadow: 0 1px 5px rgba(0,0,0,.3);
+        }
+        #scrollHintL span { left: 0; }
+        #scrollHintR span { right: 0; }
+        #scrollHintL span.show, #scrollHintR span.show { opacity: .92; }
         #chart { width: 100%; height: 360px; }
         /* +5px Abstand zur X-Achsen-Zeitbeschriftung des Charts direkt darüber
            (Dietmars Feedback: zu eng, dadurch waren die Uhrzeiten schlecht
@@ -60,13 +75,17 @@
             <div id="chart"></div>
             <div id="days"></div>
         </div>
-        <div id="scrollHint"><span>&rsaquo;</span></div>
+        <div id="scrollHintL"><span>&lsaquo;</span></div>
+        <div id="scrollHintR"><span>&rsaquo;</span></div>
     </div>
 
     <script>
         var lastData = null, chart = null, chartEngine = null;
         var userHide = { pv: false, load: false };
         var libs = { hc: 0, ec: 0 };
+        // Gestrichelte "jetzt"-Linie rot statt neutralem Grau (Dietmars Wunsch) —
+        // fest statt theme-abhängig, da Rot auf hellem wie dunklem Grund gut lesbar bleibt.
+        var NOW_LINE_COLOR = '#ef4444';
         // Plotbereich-Ränder — für BEIDE Engines identisch erzwungen (statt deren
         // Auto-Layout), damit die feststehende Y-Achsen-Überlagerung (buildYAxisOverlay)
         // unabhängig von der Engine an derselben Pixel-Position sitzt wie die echten
@@ -140,26 +159,35 @@
             var c = document.getElementById('chart'); if (c) { c.innerHTML = ''; }
         }
 
-        var scrollHintBound = false;
+        var scrollHintBound = false, lastHintD = null;
         /**
-         * Pfeil rechts nur zeigen, solange horizontal noch mehr Inhalt folgt.
-         * #scrollHint sitzt außerhalb von #scrollWrap (siehe CSS-Kommentar),
-         * deshalb wird seine vertikale Position hier aus der tatsächlichen
-         * Chart-Höhe berechnet (variiert je nach Konfiguration/Ist-Zeile).
+         * Pfeile links/rechts nur zeigen, solange in die jeweilige Richtung
+         * noch mehr Inhalt folgt. #scrollHintL/R sitzen außerhalb von
+         * #scrollWrap (siehe CSS-Kommentar), deshalb wird ihre vertikale
+         * Position hier aus der tatsächlichen Chart-Höhe berechnet (variiert
+         * je nach Konfiguration/Ist-Zeile). $D optional (fehlt beim reinen
+         * Scroll-Update) — Farben werden dann einfach nicht neu gesetzt.
          */
-        function updateScrollHint() {
+        function updateScrollHint(D) {
+            if (D) { lastHintD = D; }
             var w = document.getElementById('scrollWrap');
-            var hintEl = document.getElementById('scrollHint');
-            var span = hintEl ? hintEl.querySelector('span') : null;
+            var hintL = document.getElementById('scrollHintL'), hintR = document.getElementById('scrollHintR');
+            var spanL = hintL ? hintL.querySelector('span') : null, spanR = hintR ? hintR.querySelector('span') : null;
             var chartEl = document.getElementById('chart');
             var wrapEl = document.querySelector('.wrap');
-            if (!w || !hintEl || !span || !chartEl || !wrapEl) { return; }
+            if (!w || !hintL || !hintR || !spanL || !spanR || !chartEl || !wrapEl) { return; }
             var scrollable = w.scrollWidth > w.clientWidth + 1;
+            var atStart = w.scrollLeft <= 2;
             var atEnd = w.scrollLeft + w.clientWidth >= w.scrollWidth - 2;
-            span.classList.toggle('show', scrollable && !atEnd);
+            spanL.classList.toggle('show', scrollable && !atStart);
+            spanR.classList.toggle('show', scrollable && !atEnd);
+            if (lastHintD) {
+                [spanL, spanR].forEach(function (s) { s.style.background = lastHintD.TIP; s.style.color = lastHintD.TEXT; });
+            }
             var cRect = chartEl.getBoundingClientRect(), wRect = wrapEl.getBoundingClientRect();
-            hintEl.style.top = Math.round(cRect.top - wRect.top + cRect.height / 2) + 'px';
-            if (!scrollHintBound) { scrollHintBound = true; w.addEventListener('scroll', updateScrollHint); }
+            var top = Math.round(cRect.top - wRect.top + cRect.height / 2) + 'px';
+            hintL.style.top = top; hintR.style.top = top;
+            if (!scrollHintBound) { scrollHintBound = true; w.addEventListener('scroll', function () { updateScrollHint(); }); }
         }
 
         function render() {
@@ -291,7 +319,7 @@
 
             var plotLines = [];
             for (var di = 1; di < nDays; di++) { plotLines.push({ value: di * 24, color: D.SEP, width: 1, zIndex: 2 }); }
-            if (D.nowX != null) { plotLines.push({ value: D.nowX, color: MUTED, width: 1, dashStyle: 'Dash', zIndex: 4 }); }
+            if (D.nowX != null) { plotLines.push({ value: D.nowX, color: NOW_LINE_COLOR, width: 1, dashStyle: 'Dash', zIndex: 4 }); }
 
             var options = {
                 // Ränder erzwungen (D.plot*, identisch zu ECharts' grid, skaliert mit
@@ -341,7 +369,7 @@
 
             if (chart) { try { chart.update(options, true, true); } catch (e) { try { chart.destroy(); } catch (_) {} chart = null; } }
             if (!chart) { el.innerHTML = ''; chart = Highcharts.chart('chart', options); }
-            updateScrollHint();
+            updateScrollHint(D);
         }
 
         // ---- Legende (geteilt zwischen beiden Engines) -------------------
@@ -443,7 +471,7 @@
 
             var markData = [];
             for (var di = 1; di < D.nDays; di++) { markData.push({ xAxis: di * 24, lineStyle: { color: D.SEP, type: 'solid', width: 1 } }); }
-            if (D.nowX != null) { markData.push({ xAxis: D.nowX, lineStyle: { color: D.MUTED, type: 'dashed', width: 1 } }); }
+            if (D.nowX != null) { markData.push({ xAxis: D.nowX, lineStyle: { color: NOW_LINE_COLOR, type: 'dashed', width: 1 } }); }
             var markLine = { silent: true, symbol: 'none', label: { show: false }, data: markData, animation: false };
             var attached = false;
             if (pvVis) { var sp = { id: 'pv', name: 'PV', type: 'line', data: D.pvLine, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvC, width: D.lw }, itemStyle: { color: D.pvC }, z: 3, animation: false }; if (!attached) { sp.markLine = markLine; attached = true; } series.push(sp); }
@@ -491,7 +519,7 @@
             if (!chart) { el.innerHTML = ''; chart = echarts.init(el, null, { renderer: 'canvas' }); }
             chart.resize({ width: D.renderW, height: canvasH });
             chart.setOption(option, true);
-            updateScrollHint();
+            updateScrollHint(D);
         }
 
         window.addEventListener('resize', function () {
