@@ -6,6 +6,12 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Lastprognose- und PVPrognose-Formulare folgen jetzt ebenfalls der verbundweiten
+  Formular-Konvention** (gleiches Muster wie eben bei Energiebilanz eingeführt). Dismissibler
+  „🆕 Neu in Version 0.20"-Banner (Prognosehorizont 5 Tage, laufende Plausibilitätskontrolle,
+  je Modul ein weiterer Punkt: Sondereffekt-Ausschluss bei der Last, `GetEnergyWindow()` bei
+  PV), dauerhafte Versionszeile im Doku-Panel, Symcon-Forum-Hinweis (derselbe Thread wie bei
+  Energiebilanz) — alle drei Module der Suite sind damit einheitlich.
 - **Symcon-Forum-Link im Energiebilanz-Formular eingetragen** (von Dietmar genannt):
   https://community.symcon.de/t/beta-tester-gesucht-energieprognose-last-pv-prognose-fuers-ems/144125
   — der vorbereitete, dismissible Forum-Hinweis-Baustein aus der letzten Änderung ist damit sichtbar.
