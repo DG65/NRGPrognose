@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: „Ist"-Zeile im Tagesstreifen ausblendbar (Dietmar, 26.08.2026 — derselbe Gedanke
+  wie eben bei der Legende, noch mehr Platz fürs Diagramm).** Neuer Schalter „‚Ist'-Zeile im
+  Tagesstreifen anzeigen" (Doppelpfeil, Default an), direkt unter „Legende anzeigen". Wirkt nur
+  auf die Anzeige unter Gestern/Heute — `ShowActualPV`/`ShowActualLoad` (gestrichelte Ist-Linie
+  im Diagramm selbst) sind davon unberührt. Ausgeblendet fällt auch das „Soll"-Präfix weg (wie
+  im Fall ganz ohne konfigurierte Ist-Werte), der freiwerdende Platz geht automatisch ans
+  Diagramm (`computeCanvasHeight()` misst die tatsächliche Tagesstreifen-Höhe). Live verifiziert
+  (Tagesstreifen-Höhe 39px→27px, Diagrammhöhe entsprechend gewachsen).
 - **Neu: Legende der Energiebilanz-Kachel ausblendbar (Forum-Wunsch hfichtinger, 26.08.2026:
   wollte mehr Diagrammfläche).** Dietmar wollte das nicht als neuen Standard, deshalb ein
   Schalter „Legende anzeigen" (Doppelpfeil, Default an) statt einer festen Verhaltensänderung —

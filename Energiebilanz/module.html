@@ -246,7 +246,8 @@
                 scale: scale, lw: data.lineWidth || 2, smooth: (data.smooth !== false),
                 showBand: (data.showBand !== false), bandOp: (data.bandOp != null ? data.bandOp : 0.16),
                 actualPV: data.actualPV, actualLoad: data.actualLoad,
-                yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false), font: data.font || 'sans-serif',
+                yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false),
+                showIstRow: (data.showIstRow !== false), font: data.font || 'sans-serif',
                 pvPresent: false, loPresent: false, pvLine: [], pvBand: [], loLine: [], loBand: []
             };
             data.days.forEach(function (d, di) {
@@ -433,7 +434,12 @@
             legEl.style.fontSize = (11 * D.scale) + 'px'; legEl.style.fontFamily = D.font; legEl.style.color = D.TEXT;
         }
         function dayStrip(daysEl, D) {
-            var hasIst = D.hasIst;
+            // Dietmar, 26.08.2026 (nach ShowLegend derselbe Gedanke): "Ist"-
+            // Zeile per Schalter abschaltbar für mehr Platz — hasIst zählt
+            // dafür effektiv als "aus", damit auch das "Soll"-Präfix wieder
+            // wegfällt (bare "Soll" ohne Gegenstück wäre sonst inkonsistent,
+            // genau wie im Fall ganz ohne konfigurierte Ist-Werte).
+            var hasIst = D.hasIst && D.showIstRow;
             function kwhRow(prefix, pvVal, loVal) {
                 var k = '';
                 if (pvVal != null) { k += '<span style="color:' + D.pvC + '">' + pvVal.toFixed(2) + '</span>'; }
@@ -447,7 +453,7 @@
             D.days.forEach(function (day, di) {
                 var pv = userHide.pv ? null : day.pv, lo = userHide.load ? null : day.load;
                 var soll = kwhRow(hasIst ? 'Soll' : '', pv ? pv.kwh : null, lo ? lo.kwh : null);
-                var ipv = (!userHide.pv) ? day.pvKwhIst : null, ilo = (!userHide.load) ? day.loKwhIst : null;
+                var ipv = (!userHide.pv && D.showIstRow) ? day.pvKwhIst : null, ilo = (!userHide.load && D.showIstRow) ? day.loKwhIst : null;
                 var ist = (ipv != null || ilo != null) ? kwhRow('Ist', ipv, ilo) : '';
                 h += '<div style="flex:1;text-align:center;line-height:1.3"><div style="font-weight:500;color:' + D.TEXT + '">' + cap(day.label) + '</div>' + soll + ist + '</div>';
             });
