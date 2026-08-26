@@ -60,7 +60,7 @@
         function plotMetrics(scale) {
             return {
                 left: Math.round(46 * scale), right: Math.round(14 * scale),
-                top: Math.round(18 * scale), bottom: Math.round(22 * scale)
+                top: Math.round(18 * scale), bottom: Math.round(28 * scale)
             };
         }
 
@@ -265,8 +265,15 @@
                 // Eigene Legende (#legend, außerhalb #scrollWrap) statt der eingebauten —
                 // die läge innerhalb des Chart-Canvas und würde beim Scrollen mitlaufen.
                 legend: { enabled: false },
+                // labels.y fest vorgegeben statt Highcharts' Auto-Platzierung: die
+                // brauchte trotz tickLength:0 mehr Raum, als wir über marginBottom
+                // reserviert hatten — die Zeitbeschriftung wurde dadurch am unteren
+                // Kachelrand abgeschnitten (Dietmars Feedback, live mit
+                // labelGroup.getBBox() nachgemessen: Label ragte ~5px über die
+                // Canvas-Höhe hinaus). Mit explizitem y bleibt sie sicher innerhalb
+                // von D.plotBottom, unabhängig von Highcharts' interner Annahme.
                 xAxis: { min: 0, max: nDays * 24, tickInterval: 3, gridLineWidth: (D.showGrid ? 1 : 0), gridLineColor: GRID, lineColor: GRID, tickLength: 0, plotLines: plotLines,
-                    labels: { style: { color: MUTED, fontSize: fpx(9) }, formatter: function () { return pad(this.value % 24); } } },
+                    labels: { y: Math.round(9 * scale + 6), style: { color: MUTED, fontSize: fpx(9) }, formatter: function () { return pad(this.value % 24); } } },
                 // Achsenbeschriftung/-titel aus (zeigt stattdessen #yAxisOverlay, das beim
                 // Scrollen sichtbar bleibt) — Gitterlinien bleiben wie gehabt.
                 yAxis: { min: 0, max: D.yMax, title: { text: null }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { enabled: false } },

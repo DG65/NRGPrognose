@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: X-Achsen-Zeitbeschriftung in Highcharts weiterhin abgeschnitten
+  (Dietmars Feedback — der vorige Fix hatte nur die ECharts-Seite bzw. den
+  Abstand zum Tagesstreifen behoben, nicht die eigentliche Ursache in
+  Highcharts).** Live vermessen (`labelGroup.getBBox()`): Highcharts platziert
+  die Zeitbeschriftung trotz `tickLength:0` mit einem eigenen, nicht direkt
+  einstellbaren Innenabstand — der ragte bei uns ca. 5px über die per
+  `marginBottom` reservierte Höhe hinaus und wurde vom Kachel-Rand
+  abgeschnitten. Jetzt `xAxis.labels.y` explizit gesetzt (statt Highcharts'
+  Auto-Platzierung zu vertrauen) plus etwas mehr Rand allgemein (unterer
+  Plotbereich-Rand 22→28px, wirkt auf beide Engines). Live mit Highcharts bei
+  scale 1 und 1.4 verifiziert (Zeiten „00 03 06 …" vollständig lesbar).
 - **Fix: Tagesstreifen (Gestern/Heute/…) rückte 5px näher an die X-Achsen-
   Zeitbeschriftung, weil die zu eng beieinander lagen und dadurch schlecht
   auseinanderzuhalten waren (Dietmars Feedback).** `#days`-Abstand zum Chart
