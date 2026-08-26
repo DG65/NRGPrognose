@@ -27,11 +27,11 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Diagramm-Engine: ECharts (quelloffen, auch kommerziell kostenlos) oder Highcharts (nur privat/nicht-kommerziell kostenlos). Beide sehen praktisch gleich aus; die Library wird per CDN geladen (Internet im Anzeigegerät nötig)."
+                    "caption": "Diagramm-Engine: ECharts (quelloffen, auch kommerziell kostenlos) oder Highcharts (nur privat/nicht-kommerziell kostenlos). Beide sehen praktisch gleich aus; die Library wird per CDN geladen (Internet im Anzeigegerät nötig). Umschaltbar über die aufgezogene Kachelansicht (Doppelpfeil), nicht mehr hier im Formular."
                 },
                 {
                     "type": "Label",
-                    "caption": "Darstellung: Diagrammhöhe, Linienstärke, Glättung, Band-Transparenz, Gitter, Y-Achse, Farben, Schriftart/-größe — alles im Panel Darstellung. Der Archiv-Cache (Ist-Verlauf) reduziert die Last; Standard 120 s reicht."
+                    "caption": "Darstellung: Diagrammhöhe, Linienstärke, Glättung, Band-Transparenz, Gitter, Y-Achse, Farben, Schriftart/-größe, Tage, Ist-Anzeige, Cache — alles über die aufgezogene Kachelansicht (Doppelpfeil) einstellbar, nicht mehr hier im Formular. Der Archiv-Cache (Ist-Verlauf) reduziert die Last; Standard 120 s reicht."
                 },
                 {
                     "type": "Label",
@@ -58,25 +58,6 @@
             "caption": "Last-Prognose-Instanz (leer = automatisch, optional)"
         },
         {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "CheckBox",
-                    "name": "ShowPV",
-                    "caption": "PV-Erzeugung anzeigen"
-                },
-                {
-                    "type": "CheckBox",
-                    "name": "ShowLoad",
-                    "caption": "Verbrauch anzeigen"
-                }
-            ]
-        },
-        {
-            "type": "Label",
-            "caption": "Für eine reine Verbrauchs-Kachel „PV-Erzeugung anzeigen\" abschalten; für reine PV-Kachel „Verbrauch anzeigen\"."
-        },
-        {
             "type": "Label",
             "caption": "── Ist-Werte (optional): momentane Leistung für Prognose vs. Realität ──"
         },
@@ -89,224 +70,12 @@
             "type": "SelectVariable",
             "name": "ActualLoad",
             "caption": "Ist-Hausverbrauch (W)"
-        },
-        {
-            "type": "Select",
-            "name": "PowerUnit",
-            "caption": "Einheit der Ist-Leistungsvariablen",
-            "options": [
-                {
-                    "caption": "Automatisch erkennen (Profil/Größenordnung)",
-                    "value": 2
-                },
-                {
-                    "caption": "W (Watt)",
-                    "value": 0
-                },
-                {
-                    "caption": "kW (Kilowatt)",
-                    "value": 1
-                }
-            ]
-        },
-        {
-            "type": "RowLayout",
-            "items": [
-                {
-                    "type": "CheckBox",
-                    "name": "ShowActualPV",
-                    "caption": "Gemessenen PV-Tagesverlauf (heute) als Linie zeigen"
-                },
-                {
-                    "type": "CheckBox",
-                    "name": "ShowActualLoad",
-                    "caption": "Gemessenen Verbrauchs-Tagesverlauf (heute) als Linie zeigen"
-                }
-            ]
-        },
-        {
-            "type": "CheckBox",
-            "name": "ShowYesterday",
-            "caption": "Gestern mit anzeigen (Soll aus gespeicherter Prognose + Ist aus Archiv)"
-        },
-        {
-            "type": "Label",
-            "caption": "Gestern zeigt die gemessenen Kurven (ganzer Tag) und, sobald ein Prognose-Snapshot vom Vortag existiert, zusätzlich das damalige Soll. Braucht die Ist-Variablen oben."
-        },
-        {
-            "type": "NumberSpinner",
-            "name": "MeasuredCacheSec",
-            "caption": "Ist-Verlauf neu berechnen alle … s (Archiv-Cache)",
-            "minimum": 15,
-            "maximum": 900,
-            "suffix": " s"
-        },
-        {
-            "type": "Select",
-            "name": "Days",
-            "caption": "Anzuzeigende Tage",
-            "options": [
-                {
-                    "caption": "Heute",
-                    "value": 1
-                },
-                {
-                    "caption": "Heute + morgen",
-                    "value": 2
-                },
-                {
-                    "caption": "Heute + 2 Tage",
-                    "value": 3
-                },
-                {
-                    "caption": "Heute + 3 Tage",
-                    "value": 4
-                },
-                {
-                    "caption": "Heute + 4 Tage (voller Horizont)",
-                    "value": 5
-                }
-            ]
-        },
-        {
-            "type": "ExpansionPanel",
-            "caption": "🎨 Darstellung",
-            "expanded": false,
-            "items": [
-                {
-                    "type": "Select",
-                    "name": "ChartEngine",
-                    "caption": "Diagramm-Engine",
-                    "options": [
-                        {
-                            "caption": "ECharts (quelloffen, auch kommerziell)",
-                            "value": "echarts"
-                        },
-                        {
-                            "caption": "Highcharts (nur privat/nicht-kommerziell)",
-                            "value": "highcharts"
-                        }
-                    ]
-                },
-                {
-                    "type": "Label",
-                    "caption": "Highcharts ist nur für private, nicht-kommerzielle Nutzung kostenlos. Für kommerzielle Nutzung ECharts wählen (Apache-2.0)."
-                },
-                {
-                    "type": "SelectColor",
-                    "name": "ColorPV",
-                    "caption": "Farbe PV-Erzeugung"
-                },
-                {
-                    "type": "SelectColor",
-                    "name": "ColorLoad",
-                    "caption": "Farbe Verbrauch"
-                },
-                {
-                    "type": "SelectColor",
-                    "name": "ColorBackground",
-                    "caption": "Hintergrund (−1 = IPS-Theme/transparent)"
-                },
-                {
-                    "type": "Select",
-                    "name": "FontFamily",
-                    "caption": "Schriftart (auch heute/morgen/übermorgen)",
-                    "options": [
-                        {
-                            "caption": "System",
-                            "value": "system"
-                        },
-                        {
-                            "caption": "Arial",
-                            "value": "arial"
-                        },
-                        {
-                            "caption": "Verdana",
-                            "value": "verdana"
-                        },
-                        {
-                            "caption": "Tahoma",
-                            "value": "tahoma"
-                        },
-                        {
-                            "caption": "Trebuchet MS",
-                            "value": "trebuchet"
-                        },
-                        {
-                            "caption": "Georgia",
-                            "value": "georgia"
-                        },
-                        {
-                            "caption": "Courier New",
-                            "value": "courier"
-                        }
-                    ]
-                },
-                {
-                    "type": "NumberSpinner",
-                    "name": "FontScale",
-                    "caption": "Schriftgröße (Faktor, wirkt auf alle Beschriftungen)",
-                    "digits": 2,
-                    "minimum": 0.5,
-                    "maximum": 2.5,
-                    "suffix": " ×"
-                },
-                {
-                    "type": "NumberSpinner",
-                    "name": "ChartHeight",
-                    "caption": "Diagrammhöhe",
-                    "minimum": 180,
-                    "maximum": 800,
-                    "suffix": " px"
-                },
-                {
-                    "type": "NumberSpinner",
-                    "name": "LineWidth",
-                    "caption": "Linienstärke",
-                    "digits": 1,
-                    "minimum": 0.5,
-                    "maximum": 6,
-                    "suffix": " px"
-                },
-                {
-                    "type": "CheckBox",
-                    "name": "Smooth",
-                    "caption": "Kurven glätten (gegen kantige Linien)"
-                },
-                {
-                    "type": "CheckBox",
-                    "name": "ShowBand",
-                    "caption": "Unsicherheitsband (P10–P90) anzeigen"
-                },
-                {
-                    "type": "NumberSpinner",
-                    "name": "BandOpacity",
-                    "caption": "Band-Transparenz (0 = unsichtbar … 0.6)",
-                    "digits": 2,
-                    "minimum": 0,
-                    "maximum": 0.6
-                },
-                {
-                    "type": "CheckBox",
-                    "name": "ShowGrid",
-                    "caption": "Gitter & Achsenbeschriftung anzeigen"
-                },
-                {
-                    "type": "NumberSpinner",
-                    "name": "YMaxManual",
-                    "caption": "Y-Achse max. fest (kW, 0 = automatisch)",
-                    "digits": 1,
-                    "minimum": 0,
-                    "maximum": 100,
-                    "suffix": " kW"
-                }
-            ]
         }
     ],
     "actions": [
         {
             "type": "Button",
-            "caption": "Darstellung auf Standard zurücksetzen",
+            "caption": "Doppelpfeil-Einstellungen auf Standard zurücksetzen",
             "onClick": "EFTILE_ResetStyle($id);"
         },
         {

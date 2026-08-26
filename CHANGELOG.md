@@ -6,6 +6,23 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: alle Einstellungen der Energiebilanz-Kachel jetzt hinter dem Doppelpfeil
+  (WebFront), nicht mehr nur in der Konsole (Dietmar, 26.08.2026: "Bau alles um").**
+  22 bisherige Konsolen-Properties (Tage, Ist-Anzeige, Farben, Schriftart/-größe,
+  Diagramm-Engine, Glättung, Band, Gitter, Y-Achse fest, Archiv-Cache …) sind jetzt
+  echte Instanz-Variablen mit `EnableAction()` — Fund aus Dashboards Hydraulikschema-
+  Muster (SUITE.md Punkt 10): eine aufgezogene Kachel zeigt nie das eigene Kachel-HTML,
+  aber automatisch die Standardansicht der Instanz-Variablen als Schalter/Dropdown/
+  Zahlenfeld. Neue `EFTILE.*`-Variablenprofile für die Auswahlfelder, `~HexColor` für
+  die drei Farben. Nur die vier Quell-/Variablenauswahl-Properties (PV-/Lastprognose-
+  Instanz, Ist-Leistungsvariablen) bleiben Konsolen-Properties — SelectInstance/
+  SelectVariable gibt es nicht als Doppelpfeil-Variable. Bestehende Einstellungen
+  (z. B. Days=5) werden beim ersten Start nach dem Update automatisch aus der alten
+  Konfiguration übernommen (`legacyValue()`/`legacyIntValue()`, liest die rohe
+  Instanz-Konfiguration statt der nicht mehr registrierten Property), nicht auf den
+  Modul-Default zurückgesetzt. `ResetStyle()` (Konsolen-Button) setzt jetzt per
+  `SetValue()` auf die Variablen zurück statt per `UpdateFormField()` auf Formularfelder.
+  form.json entsprechend gekürzt (nur noch Quellen/Ist-Variablen + Dokumentation).
 - **Fix: Y-Achse/X-Achse bei skalierter Kachel nicht mehr abgeschnitten + P10/P90 im
   Tooltip (Dietmars Folge-Feedback zur eben gefixten Y-Achsen-Überlagerung).** Die neue
   `#yAxisOverlay` und die vereinheitlichten Plotbereich-Ränder waren als feste, unskalierte
