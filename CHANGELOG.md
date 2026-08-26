@@ -6,6 +6,10 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: „(heute +N)" hinter dem Datum im Tagesstreifen (Dietmar, 26.08.2026).**
+  Ergänzt die Datumsanzeige der letzten Änderung, z. B. „Do 27.08. (heute +1)" —
+  macht den Abstand zu heute auf einen Blick klar, ohne Wochentage im Kopf zählen
+  zu müssen.
 - **Neu: Datum statt „Morgen"/„Übermorgen"/„Tag 4"/„Tag 5" im Tagesstreifen der
   Energiebilanz-Kachel, dezenter Scroll-Hinweis (Forum-Feedback hfichtinger,
   26.08.2026).** „Heute" bleibt als Ankerpunkt ein Wort, ab „Morgen" steht jetzt

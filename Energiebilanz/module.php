@@ -472,8 +472,11 @@ class Energiebilanz extends IPSModule
         // generischem „Tag 4"/„Tag 5" wirkte willkürlich. Jetzt durchgehend
         // Wochentag+Datum ab Tag 1, „gestern" (separat, siehe unten) bleibt
         // ebenfalls Wortform, da nicht bemängelt.
+        // Zusätzlich „(heute +N)" hinter dem Datum (Dietmar, 26.08.2026) — macht
+        // den Abstand zu „heute" auf einen Blick klar, ohne dass man Wochentage
+        // im Kopf zählen muss.
         $labels = ['heute'];
-        for ($i = 1; $i <= self::MAX_OFFSET; $i++) { $labels[] = $this->dayLabel($i); }
+        for ($i = 1; $i <= self::MAX_OFFSET; $i++) { $labels[] = $this->dayLabel($i) . ' (heute +' . $i . ')'; }
 
         $showPV   = (bool) $this->GetValue('ShowPV');
         $showLoad = (bool) $this->GetValue('ShowLoad');
