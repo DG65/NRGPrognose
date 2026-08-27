@@ -790,6 +790,22 @@ class Energiebilanz extends IPSModule
         return $data;
     }
 
+    /**
+     * Exklusives Tagesende (nächste lokale Mitternacht) von $start —
+     * DST-sicher statt fixer 86400s-Arithmetik: liefert an Umstellungstagen
+     * korrekt 23h/25h statt immer 24h. `strtotime('tomorrow', …)` rechnet in
+     * Kalendertagen, nicht in Sekunden, und respektiert damit automatisch
+     * Zeitumstellungen (PHP-Verhalten, kein manuelles DST-Handling nötig).
+     * Fund: Verbundweite DST-Prüfung (Dashboard, 26.08.2026) — die alte
+     * `$start + 86400 - 1`-Grenze überlappte am 23h-Tag (März) 1h in den
+     * Folgetag hinein bzw. schnitt am 25h-Tag (Oktober) die letzte reale
+     * Stunde ab.
+     */
+    private function dayEndExclusive(int $start): int
+    {
+        return strtotime('tomorrow', $start);
+    }
+
     private function readMeasured(int $vid, int $slots, int $start)
     {
         if ($vid <= 0 || !IPS_VariableExists($vid)) { return null; }
@@ -800,12 +816,23 @@ class Energiebilanz extends IPSModule
 
         // 60 min: stündliches Aggregat (exakt, leichtgewichtig).
         if ($slots <= 24) {
-            $rows = AC_GetAggregatedValues($aid, $vid, 0, $start, $start + 86400 - 1, 0);
+            $rows = AC_GetAggregatedValues($aid, $vid, 0, $start, $this->dayEndExclusive($start) - 1, 0);
             if (!is_array($rows) || count($rows) === 0) { return null; }
             $out = array_fill(0, $slots, null);
+            $hits = array_fill(0, $slots, 0);
             foreach ($rows as $r) {
                 $h = (int) date('G', $r['TimeStamp']);
-                if ($h >= 0 && $h < $slots) { $out[$h] = (float) $r['Avg'] * $f; }
+                if ($h < 0 || $h >= $slots) { continue; }
+                $v = (float) $r['Avg'] * $f;
+                // Zeitumstellung Oktober: Wanduhr-Stunde 2 kommt real ZWEIMAL
+                // vor (Sommerzeit, dann nochmal nach der Umstellung) — beide
+                // Archivzeilen liefern denselben date('G')-Wert. Bisher schrieb
+                // die zweite Zeile die erste stillschweigend über (eine reale
+                // Stunde Messdaten ging verloren); jetzt wird gemittelt statt
+                // überschrieben, keine Zeile geht mehr unter.
+                if ($hits[$h] > 0) { $out[$h] = ($out[$h] * $hits[$h] + $v) / ($hits[$h] + 1); }
+                else { $out[$h] = $v; }
+                $hits[$h]++;
             }
             return $out;
         }
@@ -825,8 +852,12 @@ class Energiebilanz extends IPSModule
      */
     private function measuredFine(int $aid, int $vid, int $start, int $slots)
     {
-        $until   = min($start + 86400, time());
-        $slotSec = 86400.0 / $slots;
+        // DST-sicher: reale Taglänge (82800/86400/90000s an Umstellungstagen)
+        // statt fest 86400s — sonst würden alle Slots dieses Tages systematisch
+        // zu kurz/lang gerechnet (~4 % Verzerrung an den zwei Tagen im Jahr).
+        $dayEnd  = $this->dayEndExclusive($start);
+        $until   = min($dayEnd, time());
+        $slotSec = ($dayEnd - $start) / $slots;
 
         $carry = null;
         $pre = AC_GetLoggedValues($aid, $vid, 0, $start - 1, 1);

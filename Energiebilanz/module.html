@@ -287,7 +287,20 @@
             var heuteIdx = -1;
             data.days.forEach(function (d, di) { if (d.label === 'heute') { heuteIdx = di; } });
             if (heuteIdx >= 0) {
-                var now = new Date(); D.nowX = heuteIdx * 24 + now.getHours() + now.getMinutes() / 60;
+                // Anteil des bereits vergangenen Tages statt roher Wanduhr-Stunde
+                // (Verbundweite DST-Prüfung, Dashboard, 26.08.2026): an den zwei
+                // Zeitumstellungstagen hat der Tag real 23 bzw. 25 Stunden — mit
+                // getHours()+getMinutes()/60 direkt gerechnet, würde die Linie in
+                // der wiederholten Stunde (Oktober) kurz zurückspringen. Der
+                // Elapsed-Anteil über die tatsächliche lokale Taglänge bleibt
+                // dagegen monoton und ist an einem normalen 24h-Tag rechnerisch
+                // identisch zur alten Formel (fracOfDay*24 = getHours()+min/60).
+                var now = new Date();
+                var midnightToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+                var midnightTomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+                var dayLenMs = midnightTomorrow - midnightToday;
+                var fracOfDay = (dayLenMs > 0) ? (now - midnightToday) / dayLenMs : 0;
+                D.nowX = heuteIdx * 24 + fracOfDay * 24;
             }
             return D;
         }

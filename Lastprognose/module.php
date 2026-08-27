@@ -589,7 +589,7 @@ class Lastprognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
-            if ($this->dayHasSpecialEvent($specialEvents, $ts, $ts + 86400 - 1)) { $excluded++; continue; }
+            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1)) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
             $prof = $this->getDayProfile($ts);
@@ -916,6 +916,24 @@ class Lastprognose extends IPSModule
      * Erwartet eine LEISTUNGS-Variable (W). Rückgabe null bei
      * unzureichender Datenlage (< halber Tag belegt).
      */
+    /**
+     * Exklusives Tagesende (nächste lokale Mitternacht) von $start —
+     * DST-sicher statt fixer 86400s-Arithmetik: liefert an Umstellungstagen
+     * korrekt 23h/25h statt immer 24h. `strtotime('tomorrow', …)` rechnet in
+     * Kalendertagen, nicht in Sekunden, und respektiert damit automatisch
+     * Zeitumstellungen (PHP-Verhalten, kein manuelles DST-Handling nötig).
+     * Fund: Verbundweite DST-Prüfung (Dashboard, 26.08.2026) — die alte
+     * `$start + 86400 - 1`-Grenze überlappte am 23h-Tag (März) 1h in den
+     * Folgetag hinein bzw. schnitt am 25h-Tag (Oktober) die letzte reale
+     * Stunde ab. Betrifft hier direkt die k-NN-Trainingsprofile
+     * (dayProfile()/integratedProfile()) — ein Umstellungstag unter den
+     * nächsten Nachbarn wäre sonst systematisch leicht verfälscht.
+     */
+    private function dayEndExclusive(int $start): int
+    {
+        return strtotime('tomorrow', $start);
+    }
+
     private function dayProfile(int $varID, int $ts)
     {
         if ($varID <= 0 || !IPS_VariableExists($varID)) { return null; }
@@ -924,15 +942,24 @@ class Lastprognose extends IPSModule
 
         $slots = $this->slots();
         $start = strtotime('today', $ts);
-        $end   = $this->clampEnd($start + 86400 - 1);
+        $end   = $this->clampEnd($this->dayEndExclusive($start) - 1);
 
         if ($this->slotMinutes() === 60) {
             $profile = array_fill(0, $slots, null);
+            $hits = array_fill(0, $slots, 0);
             $rows = AC_GetAggregatedValues($aid, $varID, 0 /* stündlich */, $start, $end, 0);
             if (!is_array($rows) || count($rows) === 0) { return null; }
             foreach ($rows as $r) {
                 $h = (int)date('G', $r['TimeStamp']);
-                if ($h >= 0 && $h < $slots) { $profile[$h] = (float)$r['Avg']; }
+                if ($h < 0 || $h >= $slots) { continue; }
+                $v = (float)$r['Avg'];
+                // Zeitumstellung Oktober: Wanduhr-Stunde 2 kommt real ZWEIMAL
+                // vor — beide Archivzeilen liefern denselben date('G')-Wert.
+                // Bisher schrieb die zweite Zeile die erste stillschweigend
+                // über (eine reale Stunde ging verloren); jetzt gemittelt.
+                if ($hits[$h] > 0) { $profile[$h] = ($profile[$h] * $hits[$h] + $v) / ($hits[$h] + 1); }
+                else { $profile[$h] = $v; }
+                $hits[$h]++;
             }
             return $this->scaleProfile($this->finishProfile($profile, $slots), $varID);
         }
@@ -957,7 +984,11 @@ class Lastprognose extends IPSModule
      */
     private function integratedProfile(int $aid, int $varID, int $start, int $end, int $slots)
     {
-        $slotSec = 86400.0 / $slots;
+        // Reale Taglänge (DST-sicher), NICHT aus $end abgeleitet — $end kann
+        // für den heutigen (unvollständigen) Tag auf time() gekappt sein,
+        // die Slot-Breite muss aber unabhängig davon immer die volle
+        // Taglänge in $slots gleiche Stücke teilen.
+        $slotSec = ($this->dayEndExclusive($start) - $start) / $slots;
 
         // Wert, der zu Tagesbeginn aktiv ist (letzter Wechsel davor).
         $carry = null;
@@ -1031,7 +1062,7 @@ class Lastprognose extends IPSModule
         if ($aid === 0 || !$this->isLogged($aid, $varID)) { return null; }
 
         $start = strtotime('today', $ts);
-        $end   = $this->clampEnd($start + 86400 - 1);
+        $end   = $this->clampEnd($this->dayEndExclusive($start) - 1);
 
         $rows = AC_GetAggregatedValues($aid, $varID, 1 /* täglich */, $start, $end, 0);
         if (!is_array($rows) || count($rows) === 0) { return null; }
@@ -1231,7 +1262,10 @@ class Lastprognose extends IPSModule
         if ($this->fcTempCache === null) {
             $this->fcTempCache = $this->buildForecastTemps();
         }
-        $offset = (int)round(($ts - strtotime('today')) / 86400);
+        // Auf lokale Mitternacht normiert VOR der Division — sonst würde ein
+        // $ts mitten am Tag den Tagesoffset über eine Zeitumstellung hinweg
+        // (23h/25h-Tag dazwischen) im Grenzfall falsch runden.
+        $offset = (int)round((strtotime('today', $ts) - strtotime('today')) / 86400);
         if (isset($this->fcTempCache[$offset]) && $this->fcTempCache[$offset] !== null) {
             return $this->fcTempCache[$offset];
         }
@@ -1337,7 +1371,10 @@ class Lastprognose extends IPSModule
 
             $slotTs = (int)GetValue($tId);
             if ($slotTs <= 0) { continue; }
-            $off = (int)floor(($slotTs - $today) / 86400);
+            // Auf lokale Mitternacht normiert VOR der Division (DST-sicher,
+            // wie forecastTemp()) — sonst könnte der Tagesoffset über eine
+            // Zeitumstellung hinweg im Grenzfall falsch abgerundet werden.
+            $off = (int)round((strtotime('today', $slotTs) - $today) / 86400);
             if ($off < 0 || $off > LFC_MAX_OFFSET) { continue; } // nur heute..Horizontende
 
             $val = (float)GetValue($lId);
