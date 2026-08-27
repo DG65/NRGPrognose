@@ -14,6 +14,33 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   im Fall ganz ohne konfigurierte Ist-Werte), der freiwerdende Platz geht automatisch ans
   Diagramm (`computeCanvasHeight()` misst die tatsächliche Tagesstreifen-Höhe). Live verifiziert
   (Tagesstreifen-Höhe 39px→27px, Diagrammhöhe entsprechend gewachsen).
+- **Fix: Zeitumstellung (23h-Tag im März, 25h-Tag im Oktober) verzerrte Archivauswertungen
+  in allen drei Modulen (Fund: verbundweite DST-Prüfung, Dashboard, 26.08.2026).** Mehrere
+  Funktionen bildeten Stundenzeilen des Archivs per `date('G', $timestamp)` auf einen
+  24er-Slot-Index ab und begrenzten den Tag mit `$start + 86400 - 1` — an den zwei
+  Umstellungstagen im Jahr real falsch: im Oktober kommt Wanduhr-Stunde 2 zweimal vor
+  (Sommerzeit, dann nochmal danach), `date('G')` liefert für beide „2", die zweite Archivzeile
+  überschrieb die erste bisher stillschweigend (eine reale Stunde Messdaten ging verloren);
+  zusätzlich schnitt die feste Tagesgrenze am 25h-Tag die letzte reale Stunde ab bzw. ragte am
+  23h-Tag (März) 1h in den Folgetag hinein. Betraf `Energiebilanz::readMeasured()`
+  (Ist-Anzeige/-kWh), `Lastprognose::dayProfile()`/`integratedProfile()` (**die historischen
+  k-NN-Trainingsprofile** — ein Umstellungstag unter den nächsten Nachbarn hätte die
+  Prognose leicht verfälscht), `PVPrognose::measuredProfile()` (Selbstkalibrierung) und
+  `measuredKwh()` (Prognosegüte-Auswertung, ~14 Tage Nachlaufeffekt). Fix: Tagesgrenzen jetzt
+  über `strtotime('tomorrow', $start)` (DST-sicher, PHP rechnet in Kalendertagen statt
+  Sekunden) statt fester `86400`-Arithmetik; kollidierende Stundenzeilen werden gemittelt
+  statt überschrieben/verdoppelt; Tagesoffset-Berechnungen normieren zuerst auf lokale
+  Mitternacht, bevor durch 86400 geteilt wird. Live isoliert gegengeprüft (simulierter
+  25h-Archivtag: Kollisions-Slot enthielt vorher nur eine von zwei realen Stunden, jetzt
+  korrekt gemittelt; Tagesgrenzen-Berechnung lieferte exakt 82800s/86400s/90000s für
+  März-Tag/Normaltag/Oktober-Tag).
+- **Fix: „Jetzt"-Linie in der Energiebilanz-Kachel sprang an der Zeitumstellung im Oktober
+  kurz zurück (weiterer Fund derselben DST-Prüfung).** Die Position nutzte die rohe
+  Wanduhr-Stunde (`getHours()+getMinutes()/60`) — in der wiederholten Stunde nach der
+  Umstellung wäre die Linie kurzzeitig rückwärtsgesprungen statt weiterzuwandern. Jetzt aus
+  dem tatsächlich vergangenen Anteil des lokalen Kalendertags berechnet (monoton, an einem
+  normalen 24h-Tag rechnerisch identisch zur alten Formel — isoliert verifiziert). Rein
+  kosmetisch (die Kurven selbst waren nie betroffen), aber jetzt sauber statt „fast richtig".
 - **Neu: Legende der Energiebilanz-Kachel ausblendbar (Forum-Wunsch hfichtinger, 26.08.2026:
   wollte mehr Diagrammfläche).** Dietmar wollte das nicht als neuen Standard, deshalb ein
   Schalter „Legende anzeigen" (Doppelpfeil, Default an) statt einer festen Verhaltensänderung —

@@ -652,7 +652,7 @@ class PVPrognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
-            if ($this->dayHasSpecialEvent($specialEvents, $ts, $ts + 86400 - 1)) { $excluded++; continue; }
+            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1)) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
             $ist = 0.0; $any = false;
@@ -1155,6 +1155,22 @@ class PVPrognose extends IPSModule
         return $out;
     }
 
+    /**
+     * Exklusives Tagesende (nächste lokale Mitternacht) von $start —
+     * DST-sicher statt fixer 86400s-Arithmetik: liefert an Umstellungstagen
+     * korrekt 23h/25h statt immer 24h. `strtotime('tomorrow', …)` rechnet in
+     * Kalendertagen, nicht in Sekunden, und respektiert damit automatisch
+     * Zeitumstellungen (PHP-Verhalten, kein manuelles DST-Handling nötig).
+     * Fund: Verbundweite DST-Prüfung (Dashboard, 26.08.2026) — die alte
+     * `$start + 86400 - 1`-Grenze überlappte am 23h-Tag (März) 1h in den
+     * Folgetag hinein bzw. schnitt am 25h-Tag (Oktober) die letzte reale
+     * Stunde ab.
+     */
+    private function dayEndExclusive(int $start): int
+    {
+        return strtotime('tomorrow', $start);
+    }
+
     /** Gemessene Tages-kWh einer Leistungsvariablen (W) aus dem Archiv. */
     private function measuredKwh(int $varID, int $ts)
     {
@@ -1163,7 +1179,7 @@ class PVPrognose extends IPSModule
         if (!$this->isLogged($aid, $varID)) { return null; }
 
         $start = strtotime('today', $ts);
-        $end   = $this->clampEnd($start + 86400 - 1);
+        $end   = $this->clampEnd($this->dayEndExclusive($start) - 1);
         $rows  = AC_GetAggregatedValues($aid, $varID, 0, $start, $end, 0); // stündlich
         if (!is_array($rows) || count($rows) === 0) { return null; }
         $f  = $this->varPowerFactor($varID); // Einheit → W
@@ -1279,7 +1295,7 @@ class PVPrognose extends IPSModule
         if ($aid === 0) { return null; }
 
         $start  = strtotime('today', $ts);
-        $end    = $this->clampEnd($start + 86400 - 1);
+        $end    = $this->clampEnd($this->dayEndExclusive($start) - 1);
         $hourly = array_fill(0, 24, 0.0);
         $any    = false;
 
@@ -1289,9 +1305,24 @@ class PVPrognose extends IPSModule
             $rows = @AC_GetAggregatedValues($aid, $vid, 0 /* stündlich */, $start, $end, 0);
             if (!is_array($rows) || count($rows) === 0) { continue; }
             $f = $this->varPowerFactor($vid);
+            // Je Generator erst sauber auf 0..23 Stunden bringen (Kollision
+            // bei Zeitumstellung Oktober behandeln: Wanduhr-Stunde 2 kommt
+            // real ZWEIMAL vor, date('G') liefert für beide "2" — gemittelt
+            // statt aufaddiert, sonst würde diese eine Stunde für den
+            // Generator praktisch verdoppelt), erst DANACH über die
+            // Generatoren aufsummieren.
+            $genHourly = array_fill(0, 24, null);
+            $hits = array_fill(0, 24, 0);
             foreach ($rows as $r) {
                 $h = (int)date('G', $r['TimeStamp']);
-                if ($h >= 0 && $h < 24) { $hourly[$h] += (float)$r['Avg'] * $f; $any = true; }
+                if ($h < 0 || $h >= 24) { continue; }
+                $v = (float)$r['Avg'] * $f;
+                if ($hits[$h] > 0) { $genHourly[$h] = ($genHourly[$h] * $hits[$h] + $v) / ($hits[$h] + 1); }
+                else { $genHourly[$h] = $v; }
+                $hits[$h]++;
+            }
+            for ($h = 0; $h < 24; $h++) {
+                if ($genHourly[$h] !== null) { $hourly[$h] += $genHourly[$h]; $any = true; }
             }
         }
         if (!$any) { return null; }
