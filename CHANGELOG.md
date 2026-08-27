@@ -14,6 +14,25 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   im Fall ganz ohne konfigurierte Ist-Werte), der freiwerdende Platz geht automatisch ans
   Diagramm (`computeCanvasHeight()` misst die tatsächliche Tagesstreifen-Höhe). Live verifiziert
   (Tagesstreifen-Höhe 39px→27px, Diagrammhöhe entsprechend gewachsen).
+- **Fix (kritisch): Prognosegüte blieb dauerhaft leer — `EMS_GetSpecialEvents`-Wrapper
+  falsch gedeutet, ALLE Auswertungstage wurden still als Sondereffekt ausgeschlossen
+  (Dietmars Frage „warum sehe ich keine Prognosegüte?", 27.08.2026, live diagnostiziert).**
+  Das EMS liefert `{contractVersion, events: [...]}`, keine flache Event-Liste — der
+  bisherige Code in `fetchSpecialEvents()` (LFC + PVF) iterierte aber über den Wrapper
+  selbst. Der String `"1.0"` (contractVersion) wurde dabei in `dayHasSpecialEvent()` zu
+  einem Pseudo-Event mit `from=0`/`to=0`, und `to=0` bedeutet „noch andauernd" → das
+  Pseudo-Event überlappte JEDEN Tag seit Anbeginn der Zeit. Folge: Alle 14 Auswertungstage
+  ausgeschlossen, `LFC_Accuracy`/`PVF_Accuracy` dauerhaft „Noch keine auswertbaren Tage" —
+  obwohl die Snapshots (live geprüft: 10 Tage mit plausiblen kWh-Werten) längst vorlagen.
+  Der Ausschluss war unsichtbar, weil die Leer-Meldung den Ausschluss-Zähler verschluckte.
+  Dreifacher Fix: (1) Version wird auf Wrapper-Ebene geprüft, zurückgegeben wird
+  `events['events']` (flache Alt-Liste bleibt als Rückfall lesbar); (2) `dayHasSpecialEvent()`
+  wertet nur noch echte Event-Objekte mit realem Startzeitpunkt (`from > 0`); (3) die
+  Leer-Meldung nennt jetzt die Anzahl ausgeschlossener Tage mit, damit dieser Fehlermodus
+  nie wieder unsichtbar ist. Fix-Logik mit fünf Fällen isoliert gegengeprüft (Live-Wrapper
+  leer, echtes Event, andauerndes Event, fremde Major, flache Alt-Liste). Betrifft auch die
+  Residuen-Korrektur („immer genauer werden"): deren Datenbasis wurde durch denselben
+  Ausschluss mit leergeräumt — nach dem Update füllt sie sich ab dem nächsten Rebuild.
 - **Fix: Zeitumstellung (23h-Tag im März, 25h-Tag im Oktober) verzerrte Archivauswertungen
   in allen drei Modulen (Fund: verbundweite DST-Prüfung, Dashboard, 26.08.2026).** Mehrere
   Funktionen bildeten Stundenzeilen des Archivs per `date('G', $timestamp)` auf einen

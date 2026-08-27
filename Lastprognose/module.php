@@ -617,7 +617,14 @@ class Lastprognose extends IPSModule
         $this->storeResiduals($ratios, $rDays);
 
         if (count($errs) === 0) {
-            $this->SetValue('LFC_Accuracy', 'Noch keine auswertbaren Tage (Snapshots sammeln sich seit v0.14)');
+            // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
+            // erkennbar, ob Snapshots fehlen oder alle Tage ausgeschlossen
+            // wurden (genau das verschleierte den Wrapper-Bug, s. fetchSpecialEvents()).
+            $txt = 'Noch keine auswertbaren Tage (Snapshots sammeln sich seit v0.14)';
+            if ($excluded > 0) {
+                $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+            }
+            $this->SetValue('LFC_Accuracy', $txt);
             return;
         }
         $bias = array_sum($errs) / count($errs);
@@ -1107,31 +1114,46 @@ class Lastprognose extends IPSModule
         $events = @EMS_GetSpecialEvents($emsId, $from, $to);
         if (!is_array($events)) { return []; }
 
-        // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle Kompatibilität
-        // gilt nur innerhalb derselben Major. Liefert das EMS eine uns unbekannte
-        // Major, deuten wir die Felder nicht blind — Kopplung deaktivieren (wie
-        // vor Einführung der Sondereffekt-Markierung: keine Tage ausgeschlossen)
-        // statt mit falsch interpretierten Daten zu lernen, und sichtbar melden.
-        foreach ($events as $e) {
-            $verStr = (string)($e['contractVersion'] ?? '1.0');
-            $major  = (int)explode('.', $verStr)[0];
-            if ($major !== self::EMS_EVENTS_MAJOR) {
-                $this->specialEventsVersionMismatch = $verStr;
-                $this->log(LFC_LOG_BASIC, sprintf(
-                    'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
-                    $verStr, self::EMS_EVENTS_MAJOR
-                ));
-                return [];
-            }
+        // EMS liefert einen WRAPPER {contractVersion, events: [...]}, keine
+        // flache Event-Liste. Live gefunden (27.08.2026, Dietmars Frage warum
+        // die Prognosegüte leer blieb): Der bisherige Code iterierte über den
+        // Wrapper selbst — der String "1.0" (contractVersion) wurde dabei in
+        // dayHasSpecialEvent() zu einem Pseudo-Event mit from=0/to=0, und
+        // to=0 heißt „noch andauernd" → das Pseudo-Event überlappte JEDEN
+        // Tag, alle 14 Auswertungstage wurden still als Sondereffekt
+        // ausgeschlossen, LFC_Accuracy blieb dauerhaft bei „Noch keine
+        // auswertbaren Tage". Version wird jetzt auf Wrapper-Ebene geprüft,
+        // zurückgegeben wird die eigentliche Event-Liste; eine flache Liste
+        // (falls eine künftige EMS-Version das Format wechselt) bleibt als
+        // Rückfall lesbar.
+        $verStr = (string)($events['contractVersion'] ?? '1.0');
+        $major  = (int)explode('.', $verStr)[0];
+        if ($major !== self::EMS_EVENTS_MAJOR) {
+            // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle
+            // Kompatibilität nur innerhalb derselben Major — Kopplung
+            // deaktivieren statt Felder blind zu deuten, und sichtbar melden.
+            $this->specialEventsVersionMismatch = $verStr;
+            $this->log(LFC_LOG_BASIC, sprintf(
+                'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+                $verStr, self::EMS_EVENTS_MAJOR
+            ));
+            return [];
         }
-        return $events;
+        $list = $events['events'] ?? $events;
+        return is_array($list) ? $list : [];
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */
     private function dayHasSpecialEvent(array $events, int $dayStart, int $dayEnd): bool
     {
         foreach ($events as $e) {
+            // Nur echte Event-Objekte mit realem Startzeitpunkt werten —
+            // from=0 wäre „seit Anbeginn der Zeit" und würde (mit to=0 =
+            // „noch andauernd") jeden Tag treffen; genau so entstand der
+            // Alle-Tage-ausgeschlossen-Bug (siehe fetchSpecialEvents()).
+            if (!is_array($e)) { continue; }
             $from = (int)($e['from'] ?? 0);
+            if ($from <= 0) { continue; }
             $to   = (int)($e['to'] ?? 0);
             $effectiveTo = ($to > 0) ? $to : time(); // 0 = noch andauernd → bis jetzt
             if ($from <= $dayEnd && $effectiveTo >= $dayStart) { return true; }
