@@ -14,6 +14,20 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   im Fall ganz ohne konfigurierte Ist-Werte), der freiwerdende Platz geht automatisch ans
   Diagramm (`computeCanvasHeight()` misst die tatsächliche Tagesstreifen-Höhe). Live verifiziert
   (Tagesstreifen-Höhe 39px→27px, Diagrammhöhe entsprechend gewachsen).
+- **Fix: Solcast-Tageskontingent wurde beim Einrichten/Testen binnen Minuten aufgebraucht,
+  danach dauerhaft HTTP 429 und Null-Prognose (Forum-Meldung cbeham, 30.08.2026).** Das
+  Solcast-Gratiskonto erlaubt nur ~10 API-Abrufe pro Tag, und jede Neuberechnung kostete
+  bisher einen Live-Abruf JE Generator — mehrfaches „Prognose jetzt neu berechnen" beim
+  Einrichten (plus ggf. andere Skripte mit demselben Schlüssel) erschöpfte das Kontingent
+  sofort; bei 429 lieferten wir zudem eine Null-Prognose statt der letzten gültigen.
+  Dreifacher Fix in `fetchSolcast()`: (1) Antwort-Cache je Resource-ID für die Dauer des
+  Berechnungsintervalls — wiederholte Neuberechnungen kosten keine Abrufe mehr; (2) bei
+  HTTP 429 zwei Stunden Abkühlphase (kein sinnloses Anrennen gegen das Tageslimit) mit
+  klarer Log-Meldung; (3) in beiden Fällen wird die letzte gültige Antwort weiterverwendet
+  (stale-if-error) statt einer Null-Prognose. Neuer Formular-Hinweis erklärt das Kontingent
+  und die Intervall-Empfehlung (bei 2 Generatoren und 6h-Intervall sind 8 von 10
+  Abrufen/Tag weg — besser 8–12h). Ablaufsteuerung mit sechs Fällen isoliert gegengeprüft
+  (frischer Cache, Abkühlphase mit/ohne Cache, 429→Abkühlphase, Erfolg→Abkühlphase-Ende).
 - **Fix (kritisch): Prognosegüte blieb dauerhaft leer — `EMS_GetSpecialEvents`-Wrapper
   falsch gedeutet, ALLE Auswertungstage wurden still als Sondereffekt ausgeschlossen
   (Dietmars Frage „warum sehe ich keine Prognosegüte?", 27.08.2026, live diagnostiziert).**
