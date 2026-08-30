@@ -177,6 +177,10 @@
                     "type": "PasswordTextBox",
                     "name": "PVF_SolcastKey",
                     "caption": "Solcast API-Schlüssel (nur bei Solcast) — Eingabe, wird nach dem Speichern sicher abgelegt und hier geleert"
+                },
+                {
+                    "type": "Label",
+                    "caption": "⚠️ Solcast-Gratiskonto: nur ~10 API-Abrufe pro TAG — jede Neuberechnung kostet einen Abruf JE Generator, andere Skripte mit demselben Schlüssel zählen mit. Das Modul cacht Antworten für die Dauer des Berechnungsintervalls (mehrfaches „Jetzt neu berechnen“ kostet also nichts extra) und pausiert nach einem 429-Fehler (Tageslimit) automatisch 2 Stunden. Bei 2 Generatoren und 6h-Intervall werden 8 der 10 Abrufe/Tag verbraucht — Intervall ggf. auf 8–12h erhöhen."
                 }
             ]
         },

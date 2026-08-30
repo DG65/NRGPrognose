@@ -154,6 +154,17 @@ class PVPrognose extends IPSModule
         // innerhalb des laufenden ApplyChanges() nötig ist.
         $this->RegisterAttributeString('PVF_SolcastSecret', '');
         $this->RegisterTimer('PVF_ClearSolcastKeyTimer', 0, 'PVF_ClearSolcastKey($_IPS[\'TARGET\']);');
+
+        // Solcast-Antwort-Cache je Resource-ID + Abkühlphase nach HTTP 429
+        // (Forum-Meldung cbeham, 30.08.2026): Das Solcast-Gratiskonto erlaubt
+        // nur ~10 API-Abrufe pro TAG, und jede Neuberechnung kostete bisher
+        // einen Live-Abruf JE GENERATOR — beim Einrichten/Testen (mehrfach
+        // „Prognose jetzt neu berechnen") war das Kontingent binnen Minuten
+        // erschöpft, danach kam dauerhaft 429 und wir lieferten eine
+        // Null-Prognose statt der letzten gültigen. Cache-Format:
+        // { rid: {ts, byDate} }, Abkühlphase als Unix-Zeitstempel.
+        $this->RegisterAttributeString('PVF_SolcastCache', '');
+        $this->RegisterAttributeInteger('PVF_SolcastCooldownUntil', 0);
     }
 
     public function Destroy()
@@ -1092,6 +1103,19 @@ class PVPrognose extends IPSModule
         return trim($this->ReadPropertyString('PVF_SolcastKey'));
     }
 
+    /**
+     * Solcast mit Antwort-Cache + 429-Schutz (Forum-Meldung cbeham,
+     * 30.08.2026 — Details siehe Create()):
+     * 1. Frischer Cache (jünger als das Rebuild-Intervall) → KEIN API-Abruf.
+     *    Mehrfaches „Prognose jetzt neu berechnen" beim Einrichten kostet
+     *    damit keine Abrufe mehr vom knappen Tageskontingent (~10/Tag im
+     *    Gratiskonto, je Generator einer pro Neuberechnung).
+     * 2. Abkühlphase aktiv (nach 429) → ebenfalls kein Abruf; stattdessen
+     *    letzte gecachte Antwort, auch wenn älter (besser eine leicht
+     *    veraltete Prognose als eine Null-Prognose).
+     * 3. Bei neuem 429 → 2 h Abkühlphase setzen, klare Log-Meldung,
+     *    letzte gecachte Antwort weiterverwenden.
+     */
     private function fetchSolcast(array $g)
     {
         $key = $this->solcastKey();
@@ -1100,10 +1124,40 @@ class PVPrognose extends IPSModule
             $this->log(PVF_LOG_VERBOSE, 'Solcast: API-Schlüssel oder Resource-ID fehlt');
             return null;
         }
+
+        $cache = json_decode($this->ReadAttributeString('PVF_SolcastCache'), true);
+        if (!is_array($cache)) { $cache = []; }
+        $entry = $cache[$rid] ?? null;
+        $cacheFresh = is_array($entry)
+            && (time() - (int)($entry['ts'] ?? 0)) < max(1, $this->ReadPropertyInteger('PVF_IntervalHours')) * 3600 - 60;
+
+        if ($cacheFresh) {
+            return $this->mapOffsets($entry['byDate'], true);
+        }
+        $cooldown = $this->ReadAttributeInteger('PVF_SolcastCooldownUntil');
+        if ($cooldown > time()) {
+            if (is_array($entry)) {
+                $this->log(PVF_LOG_VERBOSE, sprintf('Solcast: Abkühlphase nach Tageslimit bis %s — letzte gültige Antwort wird weiterverwendet.', date('H:i', $cooldown)));
+                return $this->mapOffsets($entry['byDate'], true);
+            }
+            return null;
+        }
+
         $url = sprintf('https://api.solcast.com.au/rooftop_sites/%s/forecasts?format=json&hours=%d',
             rawurlencode($rid), (PVF_MAX_OFFSET + 1) * 24);
-        $j = $this->httpGetJson($url, ['Authorization: Bearer ' . $key]);
-        if ($j === null || !isset($j['forecasts'])) { return null; }
+        $httpCode = 0;
+        $j = $this->httpGetJson($url, ['Authorization: Bearer ' . $key], $httpCode);
+        if ($j === null || !isset($j['forecasts'])) {
+            if ($httpCode === 429) {
+                // Tageskontingent erschöpft — 2 h Pause statt weiter dagegen
+                // anzurennen (jeder Versuch würde nur wieder 429 liefern).
+                $this->WriteAttributeInteger('PVF_SolcastCooldownUntil', time() + 2 * 3600);
+                $this->log(PVF_LOG_BASIC, 'Solcast: Tageskontingent erschöpft (HTTP 429). Das Gratiskonto erlaubt nur ~10 Abrufe/Tag — je Generator einer pro Neuberechnung, andere Skripte mit demselben Schlüssel zählen mit. Nächster Versuch in 2 Stunden; bis dahin wird die letzte gültige Antwort weiterverwendet.');
+            }
+            // Letzte gecachte Antwort als Rückfall (stale-if-error) — besser
+            // leicht veraltet als Null-Prognose.
+            return is_array($entry) ? $this->mapOffsets($entry['byDate'], true) : null;
+        }
 
         // 30-Min-Schätzungen (kW) zu Stunden mitteln; P10/P50/P90.
         $acc = [];
@@ -1131,6 +1185,15 @@ class PVPrognose extends IPSModule
                 'p90' => array_sum($vals['p90']) / max(1, count($vals['p90'])),
             ];
         }
+
+        // Erfolgreiche Antwort cachen (kompakt: aggregiertes Tagesraster statt
+        // Roh-Forecasts, nach Datum indiziert — bleibt über Mitternacht gültig,
+        // mapOffsets() löst „heute + o" erst beim Lesen auf) und eine evtl.
+        // Abkühlphase beenden.
+        $cache[$rid] = ['ts' => time(), 'byDate' => $byDate];
+        $this->WriteAttributeString('PVF_SolcastCache', json_encode($cache));
+        if ($cooldown > 0) { $this->WriteAttributeInteger('PVF_SolcastCooldownUntil', 0); }
+
         return $this->mapOffsets($byDate, true);
     }
 
@@ -1396,7 +1459,8 @@ class PVPrognose extends IPSModule
         return 1.0;
     }
 
-    private function httpGetJson(string $url, array $headers = [])
+    /** $httpCode (out): tatsächlicher HTTP-Status — für Aufrufer, die z. B. 429 gesondert behandeln (fetchSolcast). */
+    private function httpGetJson(string $url, array $headers = [], int &$httpCode = 0)
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
@@ -1408,6 +1472,7 @@ class PVPrognose extends IPSModule
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $err  = curl_error($ch);
         curl_close($ch);
+        $httpCode = $code;
 
         if ($body === false || $code >= 400) {
             $this->log(PVF_LOG_BASIC, 'HTTP-Fehler ' . $code . ' ' . $err . ' bei ' . $url);
