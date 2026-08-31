@@ -260,15 +260,14 @@ zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in allen dre
 bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein weiterer Bedarf gefunden.
 
 
-## Verbund-Manifest SUITE.md — Bezugsquelle (19.08.2026)
+## Verbund-Manifest SUITE.md — Bezugsquelle (geändert 31.08.2026)
 
-Primärquelle für alle Verbund-Konventionen ist `SUITE.md` im EMS-Repo
-(https://github.com/DG65/NRGEMS — während der EMS-Integrationsphase ist der
-Branch `ems-integration` der aktuellste Stand, nicht `main`). In diesem Repo
-liegt eine automatisch synchronisierte READ-ONLY-Kopie als `SUITE.md` im
-Repo-Root — dort lokal grep'en/lesen. NIEMALS die Kopie hier editieren:
-Änderungen gehören ins EMS-Repo; der Sync (GitHub Action `sync-suite` im
-EMS-Repo) überschreibt lokale Änderungen kommentarlos.
-
-Fallback, falls die Kopie (noch) fehlt oder veraltet wirkt:
-https://raw.githubusercontent.com/DG65/NRGEMS/ems-integration/SUITE.md
+SUITE.md liegt seit 31.08.2026 NICHT mehr in einem GitHub-Repo (die
+Modul-Repos sind öffentlich, SUITE.md enthält das komplette Architektur-/
+Debugging-Know-how des Verbunds — Dietmars Entscheidung). Primärquelle ist
+ausschließlich die lokale Datei `/Users/dietmar/Nextcloud/Claude/SUITE.md`
+auf Dietmars Maschine, versioniert in einem eigenen lokalen Git-Repo ohne
+Remote. Frühere Kopien dieses Dokuments wurden zusätzlich aus der Historie
+aller Modul-Repos entfernt (`git filter-repo` + Force-Push). Kein
+Fallback-Link mehr — ohne lokalen Zugriff auf Dietmars Maschine ist SUITE.md
+nicht einsehbar.
