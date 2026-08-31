@@ -180,7 +180,7 @@ Timer-Tick. Bestehende Installationen migrieren beim nächsten `ApplyChanges()` 
 
 Physikalische Grundgrößen bekommen EIN geteiltes Profil (`NRG.Watt`, `NRG.kWh`, `NRG.Ampere`,
 `NRG.Volt`, `NRG.Percent`, `NRG.Celsius`) statt je Modul ein eigenes — bewusst klein gehalten, siehe
-[SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md). **Kein Eigentümer-Modul:** jedes prüft
+lokale SUITE.md (siehe oben). **Kein Eigentümer-Modul:** jedes prüft
 `IPS_VariableProfileExists(...)` und legt nur an, falls es fehlt (Muster aus GleitenderMittelwert).
 
 **Bei uns umgesetzt:** `ensureNrgPercentProfile()` (in LFC und PVF je einmal, idempotent) legt
@@ -217,7 +217,7 @@ eigenständige IPS-Variable vor (nur als `unit`-Feld in JSON-Nutzlasten) — kei
 ## Formular-Optik (Verbund-Standard, Dietmar 24.07.2026)
 
 Betrifft alle drei Formulare (Lastprognose/PVPrognose/Energiebilanz). Referenzimplementierung:
-InverterHub. Details/Wortlaut: [SUITE.md](https://github.com/DG65/NRGEMS/blob/main/SUITE.md), Abschnitt
+InverterHub. Details/Wortlaut: lokale SUITE.md (siehe oben), Abschnitt
 „Einheitliche Formular-Optik".
 
 **PFLICHT-CHECK bei JEDEM Fix/Update** (nicht nur bei großen Releases, Ergänzung 24.07.2026): Bei
