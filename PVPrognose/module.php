@@ -34,7 +34,10 @@ define('PVF_SRC_SOLCAST',       2);
 // Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
 // Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
 // (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
-define('PVF_CONTRACT_FORECAST',   '1.1'); // GetForecast / GetSnapshot
+// Minor-Bump 1.1→1.2 (12.09.2026, additiv): neue Funktion GetIntradaySnapshot()
+// ergänzt GetSnapshot() um untertägige Prognosestände. GetForecast()/
+// GetSnapshot() selbst unverändert, kein Major-Bruch.
+define('PVF_CONTRACT_FORECAST',   '1.2'); // GetForecast / GetSnapshot / GetIntradaySnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 
@@ -73,6 +76,13 @@ class PVPrognose extends IPSModule
     // Achse verschiebt, auf der Tagesanteil-Achse aber stabil bleibt.
     private const PVF_RESIDUAL_BUCKETS = 8;
     private const PVF_RESIDUAL_MIN_PER_BUCKET = 20;
+
+    // Untertägige Zusatz-Snapshots (Day-Ahead-Snapshot in PVF_Snapshots
+    // bleibt unberührt) — feste Tageszeiten, zu denen je Tag EINMAL der
+    // dann aktuelle Prognosestand für "heute" gesichert wird, sobald ein
+    // Rebuild nach diesem Zeitpunkt läuft. Grundlage für eine spätere
+    // Day-Ahead-vs-Intraday-Auswertung, s. saveIntradaySnapshot().
+    private const PVF_INTRADAY_CHECKPOINTS = ['06:00', '10:00'];
 
     // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
     // VersionLabel() im Doku-Panel (SUITE.md „Einheitliche Formular-Optik").
@@ -149,6 +159,11 @@ class PVPrognose extends IPSModule
 
         // Tages-Snapshots der Prognose (für spätere Soll-vs-Ist-Kontrolle je Tag)
         $this->RegisterAttributeString('PVF_Snapshots', '');
+        // Zusätzliche untertägige Prognose-Stände (Day-Ahead-Snapshot bleibt
+        // in PVF_Snapshots unberührt) — Grundlage für eine spätere
+        // Day-Ahead-vs-Intraday-Auswertung (Fund EMS-Sitzung, 12.09.2026,
+        // mit Dietmar priorisiert), s. saveIntradaySnapshot().
+        $this->RegisterAttributeString('PVF_IntradaySnapshots', '');
         // Empirische Quantile der Prognosefehler (Ist/Soll) für Band/Korrektur.
         $this->RegisterAttributeString('PVF_Residuals', '');
         // 0 = aus (Band der Quelle), 1 = Band aus Residuen,
@@ -338,6 +353,7 @@ class PVPrognose extends IPSModule
                 $this->SetValue($kwhIds[$offset], round($fc['kwh'], 2));
             }
             $this->saveSnapshot($fcs);
+            $this->saveIntradaySnapshot($fcs);
             $this->evaluateAccuracy();
 
             $this->SetValue('PVF_LastUpdate', time());
@@ -644,6 +660,20 @@ class PVPrognose extends IPSModule
     }
 
     /**
+     * Untertägiger Prognose-Stand eines Tages zu einem festen Checkpoint
+     * (aktuell '06:00'/'10:00', s. PVF_INTRADAY_CHECKPOINTS) — der
+     * Day-Ahead-Stand bleibt GetSnapshot() vorbehalten. Rückgabe [], wenn
+     * kein Stand vorhanden (Checkpoint noch nicht erreicht, oder Sammlung
+     * lief zu diesem Zeitpunkt noch nicht seit Build 94).
+     */
+    public function GetIntradaySnapshot(string $date, string $checkpoint)
+    {
+        $store = json_decode($this->ReadAttributeString('PVF_IntradaySnapshots'), true);
+        if (!is_array($store) || !isset($store[$date][$checkpoint])) { return []; }
+        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $store[$date][$checkpoint]);
+    }
+
+    /**
      * Prognosegüte: vergleicht je vergangenem Tag (bis 14 zurück) den
      * Day-Ahead-Snapshot (Soll-kWh) mit der gemessenen PV-Erzeugung
      * (Summe der Generator-Leistungsvariablen aus dem Archiv).
@@ -915,6 +945,47 @@ class PVPrognose extends IPSModule
         krsort($snaps);
         $snaps = array_slice($snaps, 0, 14, true);
         $this->WriteAttributeString('PVF_Snapshots', json_encode($snaps));
+    }
+
+    /**
+     * Speichert für JEDEN Checkpoint aus PVF_INTRADAY_CHECKPOINTS, der
+     * heute bereits erreicht und noch nicht erfasst ist, den aktuellen
+     * "heute"-Prognosestand (offset 0) — unabhängig vom Day-Ahead-Snapshot
+     * in PVF_Snapshots, der unberührt bleibt. Läuft der Rebuild-Intervall
+     * gröber als der Checkpoint-Abstand, können mehrere Checkpoints in
+     * einem Aufruf mit demselben (dann bereits etwas späteren) Stand
+     * gefüllt werden — informativer Bestwert statt gar keiner Erfassung,
+     * kein Fehler. Auf die letzten 14 Tage begrenzt, analog saveSnapshot().
+     */
+    private function saveIntradaySnapshot(array $fcs)
+    {
+        if (!isset($fcs[0])) { return; }
+        $fc = $fcs[0];
+        if (array_sum($fc['p50'] ?? []) <= 0) { return; }
+
+        $date = date('Y-m-d');
+        $now  = date('H:i');
+
+        $store = json_decode($this->ReadAttributeString('PVF_IntradaySnapshots'), true);
+        if (!is_array($store)) { $store = []; }
+        if (!isset($store[$date])) { $store[$date] = []; }
+
+        $changed = false;
+        foreach (self::PVF_INTRADAY_CHECKPOINTS as $cp) {
+            if ($now < $cp || isset($store[$date][$cp])) { continue; }
+            $store[$date][$cp] = [
+                'slots'      => $fc['slots'],
+                'resolution' => $fc['resolution'],
+                'p50'        => $fc['p50'],
+                'kwh'        => $fc['kwh'],
+            ];
+            $changed = true;
+        }
+        if (!$changed) { return; }
+
+        krsort($store);
+        $store = array_slice($store, 0, 14, true);
+        $this->WriteAttributeString('PVF_IntradaySnapshots', json_encode($store));
     }
 
     // ----------------------------------------------------------------
