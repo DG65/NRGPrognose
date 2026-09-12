@@ -6,6 +6,10 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Doku: veralteter Kommentar „bis 7 zurück" korrigiert (Fund: EMS-Sitzung bei der
+  Verifikation ihrer Prognosegüte-Analyse, 12.09.2026).** Die Auswertungsschleife in
+  `evaluateAccuracy()` (Lastprognose + PVPrognose) läuft schon länger über 14 Tage statt 7;
+  der Docstring war stehen geblieben. Rein kosmetisch, keine Verhaltensänderung.
 - **Neu: „Ist"-Zeile im Tagesstreifen ausblendbar (Dietmar, 26.08.2026 — derselbe Gedanke
   wie eben bei der Legende, noch mehr Platz fürs Diagramm).** Neuer Schalter „‚Ist'-Zeile im
   Tagesstreifen anzeigen" (Doppelpfeil, Default an), direkt unter „Legende anzeigen". Wirkt nur
