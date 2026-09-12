@@ -63,6 +63,17 @@ class PVPrognose extends IPSModule
     // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
     private $specialEventsVersionMismatch = null;
 
+    // Residuen-Korrektur ("Immer genauer werden"): Tagesgang-Profil statt
+    // einem einzigen globalen Faktor (Fund EMS-Sitzung 12.09.2026: Morgens
+    // wird überschätzt, abends unterschätzt, bei stimmender Mittagsspitze —
+    // ein globaler Faktor mittelt das gegenseitig weg). Buckets liegen auf
+    // der TAGESANTEIL-Achse (0=Sonnenaufgang, 1=Sonnenuntergang je Tag),
+    // nicht auf der Uhrzeit — eine fixe Horizont-/Bebauungsverschattung
+    // hängt am Sonnenstand, der sich mit der Jahreszeit auf der Uhrzeit-
+    // Achse verschiebt, auf der Tagesanteil-Achse aber stabil bleibt.
+    private const PVF_RESIDUAL_BUCKETS = 8;
+    private const PVF_RESIDUAL_MIN_PER_BUCKET = 20;
+
     // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
     // VersionLabel() im Doku-Panel (SUITE.md „Einheitliche Formular-Optik").
     private const LIBRARY_GUID = '{2D15AFF6-7CD5-4147-B438-B4288BD598AE}';
@@ -653,7 +664,7 @@ class PVPrognose extends IPSModule
 
         $slots  = $this->slots();
         $errs   = [];   // Tages-kWh-Fehler (%) → Bias/MAPE
-        $ratios = [];   // Slot-Verhältnisse Ist/Soll → Residuen-Quantile
+        $bucketRatios = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // je Tagesanteil-Bucket
         $rDays  = 0;
         $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
         $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
@@ -687,18 +698,24 @@ class PVPrognose extends IPSModule
             if ($maxS <= 0) { continue; }
             // Schwelle blendet Nacht/Dämmerung aus — dort ist Soll≈0 und das
             // Verhältnis Ist/Soll wäre bedeutungslos bzw. explodiert.
-            $floor = max(10.0, 0.02 * $maxS);
-            $used  = 0;
-            for ($i = 0; $i < $slots; $i++) {
-                $s = (float)$sp[$i];
-                if ($s < $floor) { continue; }
-                $ratios[] = ((float)$prof[$i]) / $s;
-                $used++;
+            $floor  = max(10.0, 0.02 * $maxS);
+            $bounds = $this->daylightBounds($sp, $floor);
+            $used   = 0;
+            if ($bounds !== null) {
+                [$dStart, $dEnd] = $bounds;
+                for ($i = $dStart; $i <= $dEnd; $i++) {
+                    $s = (float)$sp[$i];
+                    if ($s < $floor) { continue; }
+                    $frac = $this->daylightFraction($i, $dStart, $dEnd);
+                    $b    = $this->residualBucket($frac);
+                    $bucketRatios[$b][] = ((float)$prof[$i]) / $s;
+                    $used++;
+                }
             }
             if ($used > 0) { $rDays++; }
         }
 
-        $this->storeResiduals($ratios, $rDays);
+        $this->storeResiduals($bucketRatios, $rDays);
 
         if (count($errs) === 0) {
             // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
@@ -719,9 +736,12 @@ class PVPrognose extends IPSModule
         $this->SetValue('PVF_ErrorMAPE', round($mape, 1));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
-        if (is_array($res) && isset($res['q10'])) {
-            $txt .= sprintf(' | Residuen ×%.2f…×%.2f (Median ×%.2f, %d Tage)',
-                $res['q10'], $res['q90'], $res['q50'], $res['days']);
+        if (is_array($res) && isset($res['q50']) && is_array($res['q50'])) {
+            $q50vals = array_filter($res['q50'], function ($v) { return $v !== null; });
+            if (count($q50vals) > 0) {
+                $txt .= sprintf(' | Tagesgang-Residuen ×%.2f…×%.2f (%d Tage)',
+                    min($q50vals), max($q50vals), $res['days']);
+            }
         }
         if ($excluded > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
@@ -738,22 +758,71 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Empirische Quantile der Prognosefehler (Ist/Soll je Slot) ablegen.
-     * Braucht eine Mindestbasis, sonst wird nichts gespeichert.
+     * Erster/letzter Slot-Index mit Soll ≥ Schwelle ("Tageslicht" laut
+     * Modell). Null, wenn kein Slot die Schwelle erreicht (z.B. bei einem
+     * Datenfehler, der $maxS<=0 nicht schon vorher abgefangen hat).
      */
-    private function storeResiduals(array $ratios, int $days)
+    private function daylightBounds(array $sp, float $floor): ?array
     {
-        if ($days < 3 || count($ratios) < 50) {
+        $n = count($sp);
+        $start = null; $end = null;
+        for ($i = 0; $i < $n; $i++) {
+            if ((float)$sp[$i] >= $floor) {
+                if ($start === null) { $start = $i; }
+                $end = $i;
+            }
+        }
+        return ($start === null) ? null : [$start, $end];
+    }
+
+    /**
+     * Position eines Slots innerhalb der Tageslicht-Spanne, 0 (Sonnenaufgang)
+     * … 1 (Sonnenuntergang). Bewusst auf dieser Achse statt der Uhrzeit,
+     * s. PVF_RESIDUAL_BUCKETS.
+     */
+    private function daylightFraction(int $i, int $start, int $end): float
+    {
+        if ($end <= $start) { return 0.0; }
+        return max(0.0, min(1.0, ($i - $start) / ($end - $start)));
+    }
+
+    /** Tagesanteil (0..1) auf einen Bucket-Index abbilden. */
+    private function residualBucket(float $frac): int
+    {
+        $b = (int)floor($frac * self::PVF_RESIDUAL_BUCKETS);
+        return max(0, min(self::PVF_RESIDUAL_BUCKETS - 1, $b));
+    }
+
+    /**
+     * Empirische Quantile der Prognosefehler (Ist/Soll je Slot) ablegen —
+     * je Tagesanteil-Bucket getrennt (Tagesgang-Profil, s. PVF_RESIDUAL_BUCKETS),
+     * damit sich morgens/abends unterschiedliche Fehler nicht gegenseitig
+     * weg mitteln. Ein Bucket ohne ausreichende Datenbasis bleibt null
+     * (Passthrough, keine Korrektur) statt aus zu wenigen Werten zu raten.
+     */
+    private function storeResiduals(array $bucketRatios, int $days)
+    {
+        $total = 0;
+        foreach ($bucketRatios as $arr) { $total += count($arr); }
+        if ($days < 3 || $total < 50) {
             $this->WriteAttributeString('PVF_Residuals', '');
             return;
         }
-        sort($ratios);
-        $q10 = $this->clampFactor($this->percentileOf($ratios, 0.10));
-        $q50 = $this->clampFactor($this->percentileOf($ratios, 0.50));
-        $q90 = $this->clampFactor($this->percentileOf($ratios, 0.90));
+        $q10 = []; $q50 = []; $q90 = [];
+        for ($b = 0; $b < self::PVF_RESIDUAL_BUCKETS; $b++) {
+            $arr = $bucketRatios[$b] ?? [];
+            if (count($arr) < self::PVF_RESIDUAL_MIN_PER_BUCKET) {
+                $q10[$b] = null; $q50[$b] = null; $q90[$b] = null;
+                continue;
+            }
+            sort($arr);
+            $q10[$b] = round($this->clampFactor($this->percentileOf($arr, 0.10)), 3);
+            $q50[$b] = round($this->clampFactor($this->percentileOf($arr, 0.50)), 3);
+            $q90[$b] = round($this->clampFactor($this->percentileOf($arr, 0.90)), 3);
+        }
         $this->WriteAttributeString('PVF_Residuals', json_encode([
-            'q10' => round($q10, 3), 'q50' => round($q50, 3), 'q90' => round($q90, 3),
-            'days' => $days, 'samples' => count($ratios), 'updated' => time(),
+            'buckets' => self::PVF_RESIDUAL_BUCKETS, 'q10' => $q10, 'q50' => $q50, 'q90' => $q90,
+            'days' => $days, 'samples' => $total, 'updated' => time(),
         ]));
     }
 
@@ -773,9 +842,13 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Band (und optional Pegel) aus den gemessenen Prognosefehlern. Besonders
-     * relevant bei Open-Meteo/Forecast.Solar, die p10=p50=p90 liefern — dort
-     * entsteht so überhaupt erst ein Unsicherheitsband.
+     * Band (und optional Pegel) aus den gemessenen Prognosefehlern — je
+     * Tagesanteil-Bucket ein eigener Faktor (Tagesgang-Profil), auf die
+     * Tageslicht-Spanne DIESER Prognose abgebildet (eigener Sonnenaufgang/
+     * -untergang je Tag/Jahreszeit). Besonders relevant bei Open-Meteo/
+     * Forecast.Solar, die p10=p50=p90 liefern — dort entsteht so überhaupt
+     * erst ein Unsicherheitsband. Slots ohne Bucket-Datenbasis bleiben
+     * unverändert (Passthrough).
      */
     private function applyResiduals(array $p10, array $p50, array $p90): array
     {
@@ -783,19 +856,31 @@ class PVPrognose extends IPSModule
         if ($mode === 0) { return [$p10, $p50, $p90]; }
 
         $r = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
-        if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90'])) {
+        if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90']) || !is_array($r['q10'])) {
             return [$p10, $p50, $p90];
         }
-        $q10 = (float)$r['q10']; $q50 = (float)$r['q50']; $q90 = (float)$r['q90'];
-        if ($q50 <= 0) { return [$p10, $p50, $p90]; }
+        $q10arr = $r['q10']; $q50arr = $r['q50']; $q90arr = $r['q90'];
 
-        $nP10 = []; $nP50 = []; $nP90 = [];
-        if ($mode === 1) {
-            $lo = $q10 / $q50; $hi = $q90 / $q50;
-            foreach ($p50 as $i => $v) { $nP10[$i] = $v * $lo; $nP90[$i] = $v * $hi; }
-            return [$nP10, $p50, $nP90];
-        }
+        $maxS = (count($p50) > 0) ? max($p50) : 0.0;
+        if ($maxS <= 0) { return [$p10, $p50, $p90]; }
+        $floor  = max(10.0, 0.02 * $maxS);
+        $bounds = $this->daylightBounds($p50, $floor);
+        if ($bounds === null) { return [$p10, $p50, $p90]; }
+        [$dStart, $dEnd] = $bounds;
+
+        $nP10 = $p10; $nP50 = $p50; $nP90 = $p90;
         foreach ($p50 as $i => $v) {
+            if ($i < $dStart || $i > $dEnd) { continue; }
+            $b = $this->residualBucket($this->daylightFraction($i, $dStart, $dEnd));
+            $q10 = $q10arr[$b] ?? null; $q50 = $q50arr[$b] ?? null; $q90 = $q90arr[$b] ?? null;
+            if ($q10 === null || $q50 === null || $q90 === null || (float)$q50 <= 0) { continue; }
+            $q10 = (float)$q10; $q50 = (float)$q50; $q90 = (float)$q90;
+
+            if ($mode === 1) {
+                $lo = $q10 / $q50; $hi = $q90 / $q50;
+                $nP10[$i] = $v * $lo; $nP90[$i] = $v * $hi;
+                continue;
+            }
             $nP10[$i] = $v * $q10;
             $nP50[$i] = $v * $q50;
             $nP90[$i] = $v * $q90;
