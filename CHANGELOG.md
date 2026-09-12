@@ -6,6 +6,23 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Untertägige Zusatz-Snapshots für eine spätere Day-Ahead-vs-Intraday-Auswertung
+  (mit Dietmar priorisiert, nach der Tagesgang-Korrektur oben).** Bislang hielt
+  `PVF_Snapshots` nur den frühesten (Day-Ahead-)Stand je Tag fest — EMS wollte für die
+  Wetter-Bias-Frage wissen, ob sich der Prognosefehler mit kürzerem Vorlauf verringert,
+  das ließ sich rückwirkend aber nicht mehr auswerten. Neues Attribut
+  `PVF_IntradaySnapshots`: bei jedem Rebuild wird für jeden noch nicht erfassten,
+  bereits erreichten Tageszeit-Checkpoint (06:00, 10:00) der dann aktuelle
+  "heute"-Prognosestand zusätzlich gesichert, ohne den Day-Ahead-Snapshot zu berühren.
+  Neue öffentliche Funktion `PVF_GetIntradaySnapshot($id,'Y-m-d','06:00'|'10:00')`
+  (Vertrag `PVF_CONTRACT_FORECAST` additiv 1.1→1.2). Bei einem gröberen
+  Rebuild-Intervall als dem Checkpoint-Abstand können mehrere Checkpoints in einem
+  Durchlauf denselben (dann bereits etwas späteren) Stand erhalten — informativer
+  Bestwert statt gar keiner Erfassung, kein Fehler. Sechs Fälle isoliert
+  gegengeprüft (vor dem ersten Checkpoint, einzelner Checkpoint, beide Checkpoints
+  nacheinander, bereits vollständig, grober Intervall, leerer Forecast). Wirkt nur
+  vorausschauend — bestehende Tage ohne Zusatz-Snapshots bleiben leer, die
+  Auswertung braucht ein paar Tage Vorlauf.
 - **Verbessert: „Immer genauer werden"-Korrektur berücksichtigt jetzt den Tagesverlauf statt
   eines einzigen Faktors für den ganzen Tag (Fund EMS-Sitzung anhand #22026, 12.09.2026, mit
   Dietmar priorisiert).** Live nachvollzogen: an klaren Tagen wird morgens systematisch zu

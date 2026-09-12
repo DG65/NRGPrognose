@@ -66,6 +66,7 @@ vergleicht sie mit dem gemessenen Ertrag → Verschmutzungs-/Defekterkennung).
 | `PVF_GetModuleAreas($id)` | Fläche je Generator `[{name,modules,lengthMM,widthMM,areaPerModule,area}]` | – |
 | `PVF_GetForecast($id,$offset)` | Prognoseprofil (0=heute,1=morgen,2=übermorgen) | – |
 | `PVF_GetSnapshot($id,'Y-m-d')` | Gespeicherte Day-Ahead-Prognose eines Tages | – |
+| `PVF_GetIntradaySnapshot($id,'Y-m-d','06:00'\|'10:00')` | Untertägiger Prognosestand desselben Tages (seit Build 94) | – |
 | Statusvariable `PVF_ModuleArea` | Gesamtfläche (m²) | ✅ Fallback |
 | Property `PVF_PR` (via `IPS_GetConfiguration`) | Performance-Ratio | ⚠️ Alt-Fallback, siehe unten |
 
