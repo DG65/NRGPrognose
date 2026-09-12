@@ -633,7 +633,7 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Prognosegüte: vergleicht je vergangenem Tag (bis 7 zurück) den
+     * Prognosegüte: vergleicht je vergangenem Tag (bis 14 zurück) den
      * Day-Ahead-Snapshot (Soll-kWh) mit der gemessenen PV-Erzeugung
      * (Summe der Generator-Leistungsvariablen aus dem Archiv).
      */

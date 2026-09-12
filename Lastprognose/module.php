@@ -567,7 +567,7 @@ class Lastprognose extends IPSModule
     }
 
     /**
-     * Prognosegüte: vergleicht je vergangenem Tag (bis 7 zurück) den
+     * Prognosegüte: vergleicht je vergangenem Tag (bis 14 zurück) den
      * Day-Ahead-Snapshot (Soll-kWh) mit dem gemessenen Ist aus dem Archiv
      * (identisch zum Trainings-Ziel: Hauptverbrauch minus Abzugsliste).
      * Bias = mittlere vorzeichenbehaftete Abweichung, |Ø| = mittlerer Betrag.
