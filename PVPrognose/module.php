@@ -655,7 +655,8 @@ class PVPrognose extends IPSModule
         $errs   = [];   // Tages-kWh-Fehler (%) → Bias/MAPE
         $ratios = [];   // Slot-Verhältnisse Ist/Soll → Residuen-Quantile
         $rDays  = 0;
-        $excluded = 0;  // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
+        $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
+        $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
 
         $specialEvents = $this->fetchSpecialEvents(14);
 
@@ -666,6 +667,13 @@ class PVPrognose extends IPSModule
             if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1)) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
+
+            // Slot-Profil vorab holen (auch für den Archivstörungs-Check
+            // gebraucht) — nur bei gleicher Auflösung (Snapshot vs. heute).
+            $sp   = $snaps[$date]['p50'] ?? null;
+            $prof = (is_array($sp) && count($sp) === $slots) ? $this->measuredProfile($ts, $slots) : null;
+            if ($prof !== null && $this->hasNightArtifact($prof, $sp)) { $corrupted++; continue; }
+
             $ist = 0.0; $any = false;
             foreach ($gens as $vid) {
                 $k = $this->measuredKwh($vid, $ts);
@@ -674,10 +682,6 @@ class PVPrognose extends IPSModule
             if (!$any || $ist < 0.5) { continue; }
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
-            // Slot-Residuen nur bei gleicher Auflösung (Snapshot vs. heute).
-            $sp = $snaps[$date]['p50'] ?? null;
-            if (!is_array($sp) || count($sp) !== $slots) { continue; }
-            $prof = $this->measuredProfile($ts, $slots);
             if ($prof === null) { continue; }
             $maxS = max($sp);
             if ($maxS <= 0) { continue; }
@@ -704,6 +708,9 @@ class PVPrognose extends IPSModule
             if ($excluded > 0) {
                 $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
             }
+            if ($corrupted > 0) {
+                $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
+            }
             $this->SetValue('PVF_Accuracy', $txt);
             return;
         }
@@ -718,6 +725,9 @@ class PVPrognose extends IPSModule
         }
         if ($excluded > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+        }
+        if ($corrupted > 0) {
+            $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
         }
         if ($this->specialEventsVersionMismatch !== null) {
             $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
@@ -1419,6 +1429,27 @@ class PVPrognose extends IPSModule
             $out[$s] = $hourly[(int)floor($s * 24 / $slots)];
         }
         return $out;
+    }
+
+    /**
+     * Erkennt Archivstörungen, bei denen der letzte Messwert über Stunden
+     * gehalten wurde (Fund: EMS-Sitzung bei der Verifikation ihrer
+     * Prognosegüte-Analyse, 12.09.2026 — 01.09. zeigte 745 W konstant von
+     * 18:45 bis 22:00, obwohl das Modell dort längst Soll=0 ansetzt). Real
+     * ist nächtliche PV-Erzeugung unmöglich, ein gehaltener Wert dagegen
+     * unauffällig konstant über viele Slots — die Schwelle von 20 W lässt
+     * Wandler-Eigenverbrauch/Messrauschen durch, ohne einen echten
+     * Nachtwert durchzulassen. Ein Treffer verwirft den ganzen Tag (Bias/
+     * MAPE UND Residuen), da nicht bekannt ist, wie weit die Störung in
+     * den Tag hinein reicht.
+     */
+    private function hasNightArtifact(array $prof, array $sp): bool
+    {
+        $n = min(count($prof), count($sp));
+        for ($i = 0; $i < $n; $i++) {
+            if ((float)$sp[$i] <= 0.5 && (float)$prof[$i] > 20.0) { return true; }
+        }
+        return false;
     }
 
     /** Faktor zur Umrechnung nach W: 0=W, 1=kW, 2=automatisch je Variable. */

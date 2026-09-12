@@ -6,6 +6,22 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Archivstörungen (gehaltene Messwerte) verfälschten die Prognosegüte unbemerkt
+  (Fund: EMS-Sitzung bei der Verifikation einer Bias-Analyse für #22026, 12.09.2026,
+  live nachvollzogen).** Am 01.09. hielt das Archiv drei Perioden auf einem konstanten
+  Wert fest (u.a. 745 W von 18:45 bis 22:00 — nachts, obwohl das Modell dort Soll=0
+  ansetzt), statt einer echten Messlücke. `measuredKwh()` summierte das ungeprüft in
+  die Tages-kWh, die Prognosegüte für diesen Tag war dadurch um mehrere Prozentpunkte
+  verzerrt. Neue Prüfung `hasNightArtifact()` in `evaluateAccuracy()` (PVPrognose):
+  ist an einem Slot, an dem das Modell Soll=0 ansetzt (Sonne unten), trotzdem eine
+  Leistung über 20 W gemessen, ist das physikalisch nur als Archivstörung erklärbar —
+  der ganze Tag wird dann aus Bias/MAPE und aus der Residuen-Korrektur ausgeschlossen
+  (neuer Zähler „X Tag(e) mit Archivstörung ausgeschlossen", analog zum
+  Sondereffekt-Ausschluss). Die beiden Tages-Plateaus (2209 W, 4820 W) blieben davon
+  bewusst unberührt, da echte, gleichförmige Bewölkung ähnlich aussehen kann und eine
+  automatische Erkennung dort zu Fehlalarmen führen könnte. Logik mit fünf Fällen
+  isoliert gegengeprüft (echte Störung, normaler Tag, Nachtrauschen, Dämmerungs-Slot,
+  Grenzfall knapp über der Schwelle).
 - **Doku: veralteter Kommentar „bis 7 zurück" korrigiert (Fund: EMS-Sitzung bei der
   Verifikation ihrer Prognosegüte-Analyse, 12.09.2026).** Die Auswertungsschleife in
   `evaluateAccuracy()` (Lastprognose + PVPrognose) läuft schon länger über 14 Tage statt 7;
