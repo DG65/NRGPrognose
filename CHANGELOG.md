@@ -6,6 +6,25 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Verbessert: „Immer genauer werden"-Korrektur berücksichtigt jetzt den Tagesverlauf statt
+  eines einzigen Faktors für den ganzen Tag (Fund EMS-Sitzung anhand #22026, 12.09.2026, mit
+  Dietmar priorisiert).** Live nachvollzogen: an klaren Tagen wird morgens systematisch zu
+  hoch, abends systematisch zu niedrig prognostiziert (04.09.: 07:15 Soll 818 W/Ist 159 W,
+  19:15 Soll 145 W/Ist 236 W), während die Mittagsspitze exakt passt — vermutlich
+  Horizont-/Bebauungsverschattung Richtung Osten und eine etwas bessere Abendlage als
+  modelliert. Ein einziger globaler Korrekturfaktor mittelt Morgen- und Abendfehler
+  gegenseitig weg und trifft dadurch keinen der beiden richtig. Die Residuen-Quantile
+  (q10/q50/q90) werden jetzt für 8 Abschnitte der TAGESLICHT-SPANNE getrennt ermittelt
+  (0 = Sonnenaufgang … 1 = Sonnenuntergang je Tag/Jahreszeit) statt für den ganzen Tag
+  gemeinsam — bewusst auf dieser Achse statt der Uhrzeit, weil eine fixe Verschattung am
+  Sonnenstand hängt, der sich mit der Jahreszeit auf der Uhrzeit-Achse verschiebt, auf der
+  Tagesanteil-Achse aber stabil bleibt. Ein Abschnitt ohne ausreichende Datenbasis
+  (< 20 Werte) bleibt unkorrigiert statt aus zu wenig Daten zu raten. Mit synthetischen
+  14-Tage-Serien (Morgen-/Mittags-/Abendfaktor deutlich unterschiedlich) isoliert
+  gegengeprüft: das Tagesgang-Profil erkennt und korrigiert alle drei Abschnitte richtig,
+  während Nacht-Slots und datenarme Abschnitte unverändert bleiben. Die Anzeige in
+  `PVF_Accuracy` zeigt jetzt die Bandbreite über den Tag („Tagesgang-Residuen ×a…×b")
+  statt eines einzelnen Faktors.
 - **Fix: Archivstörungen (gehaltene Messwerte) verfälschten die Prognosegüte unbemerkt
   (Fund: EMS-Sitzung bei der Verifikation einer Bias-Analyse für #22026, 12.09.2026,
   live nachvollzogen).** Am 01.09. hielt das Archiv drei Perioden auf einem konstanten
