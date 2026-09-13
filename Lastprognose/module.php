@@ -565,7 +565,7 @@ class Lastprognose extends IPSModule
      */
     public function GetSnapshot(string $date)
     {
-        $snaps = json_decode($this->ReadAttributeString('LFC_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('LFC_Snapshots'), true);
         if (!is_array($snaps) || !isset($snaps[$date])) { return []; }
         return array_merge(['contractVersion' => LFC_CONTRACT_FORECAST], $snaps[$date]);
     }
@@ -578,7 +578,7 @@ class Lastprognose extends IPSModule
      */
     private function evaluateAccuracy()
     {
-        $snaps = json_decode($this->ReadAttributeString('LFC_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('LFC_Snapshots'), true);
         if (!is_array($snaps)) { $snaps = []; }
 
         $slots  = $this->slots();
@@ -635,7 +635,7 @@ class Lastprognose extends IPSModule
         $mape = array_sum(array_map('abs', $errs)) / count($errs);
         $this->SetValue('LFC_ErrorMAPE', round($mape, 1));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
-        $res = json_decode($this->ReadAttributeString('LFC_Residuals'), true);
+        $res = json_decode((string)$this->ReadAttributeString('LFC_Residuals'), true);
         if (is_array($res) && isset($res['q10'])) {
             $txt .= sprintf(' | Residuen ×%.2f…×%.2f (Median ×%.2f, %d Tage)',
                 $res['q10'], $res['q90'], $res['q50'], $res['days']);
@@ -697,7 +697,7 @@ class Lastprognose extends IPSModule
         $mode = $this->ReadPropertyInteger('LFC_ResidualMode');
         if ($mode === 0) { return [$p10, $p50, $p90, $mean]; }
 
-        $r = json_decode($this->ReadAttributeString('LFC_Residuals'), true);
+        $r = json_decode((string)$this->ReadAttributeString('LFC_Residuals'), true);
         if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90'])) {
             return [$p10, $p50, $p90, $mean];
         }
@@ -728,7 +728,7 @@ class Lastprognose extends IPSModule
      */
     private function saveSnapshot(array $fcs)
     {
-        $snaps = json_decode($this->ReadAttributeString('LFC_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('LFC_Snapshots'), true);
         if (!is_array($snaps)) { $snaps = []; }
 
         foreach ([0, 1] as $offset) {
@@ -838,7 +838,7 @@ class Lastprognose extends IPSModule
         $y     = (int)date('Y', $ts);
         $md    = date('m-d', $ts);
         $ymd   = date('Y-m-d', $ts);
-        $state = strtoupper(trim($this->ReadPropertyString('LFC_State')));
+        $state = strtoupper(trim((string)$this->ReadPropertyString('LFC_State')));
 
         // Bundesweite feste Feiertage
         $fixed = ['01-01', '05-01', '10-03', '12-25', '12-26'];
@@ -905,7 +905,7 @@ class Lastprognose extends IPSModule
         $main = $this->dayProfile($this->ReadPropertyInteger('VAR_Consumption'), $ts);
         if ($main === null) { return null; }
 
-        $excludes = json_decode($this->ReadPropertyString('ExcludeVars'), true);
+        $excludes = json_decode((string)$this->ReadPropertyString('ExcludeVars'), true);
         if (is_array($excludes)) {
             foreach ($excludes as $row) {
                 $vid = isset($row['VariableID']) ? (int)$row['VariableID'] : 0;
@@ -1205,10 +1205,10 @@ class Lastprognose extends IPSModule
         $check($this->ReadPropertyInteger('VAR_Consumption'));
         $check($this->ReadPropertyInteger('VAR_TempHistory'));
         $check($this->ReadPropertyInteger('VAR_Presence'));
-        foreach ((array)json_decode($this->ReadPropertyString('ExcludeVars'), true) as $row) {
+        foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
             $check((int)($row['VariableID'] ?? 0));
         }
-        foreach ((array)json_decode($this->ReadPropertyString('WPDevices'), true) as $row) {
+        foreach ((array)json_decode((string)$this->ReadPropertyString('WPDevices'), true) as $row) {
             $check((int)($row['PowerVar'] ?? 0));
         }
         $check($this->ReadPropertyInteger('VAR_WP_Power'));
@@ -1248,11 +1248,11 @@ class Lastprognose extends IPSModule
         };
 
         $check($this->ReadPropertyInteger('VAR_Consumption'), 'Hausverbrauch', 48 * 3600);
-        foreach ((array)json_decode($this->ReadPropertyString('ExcludeVars'), true) as $row) {
+        foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
             $vid = (int)($row['VariableID'] ?? 0);
             $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste', 30 * 86400);
         }
-        foreach ((array)json_decode($this->ReadPropertyString('WPDevices'), true) as $row) {
+        foreach ((array)json_decode((string)$this->ReadPropertyString('WPDevices'), true) as $row) {
             $vid = (int)($row['PowerVar'] ?? 0);
             $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'WP-Gerät', 30 * 86400);
         }
@@ -1366,9 +1366,9 @@ class Lastprognose extends IPSModule
     private function forecastFromIdentPattern()
     {
         $parent  = $this->ReadPropertyInteger('LFC_FcParentID');
-        $patLow  = trim($this->ReadPropertyString('LFC_FcTempIdentLow'));
-        $patHigh = trim($this->ReadPropertyString('LFC_FcTempIdentHigh'));
-        $patTime = trim($this->ReadPropertyString('LFC_FcTimeIdent'));
+        $patLow  = trim((string)$this->ReadPropertyString('LFC_FcTempIdentLow'));
+        $patHigh = trim((string)$this->ReadPropertyString('LFC_FcTempIdentHigh'));
+        $patTime = trim((string)$this->ReadPropertyString('LFC_FcTimeIdent'));
         $start   = $this->ReadPropertyInteger('LFC_FcStartIndex');
         $count   = $this->ReadPropertyInteger('LFC_FcCount');
 
@@ -1572,7 +1572,7 @@ class Lastprognose extends IPSModule
     private function wpDevices(): array
     {
         $out  = [];
-        $list = json_decode($this->ReadPropertyString('WPDevices'), true);
+        $list = json_decode((string)$this->ReadPropertyString('WPDevices'), true);
         if (is_array($list)) {
             foreach ($list as $row) {
                 $vid = isset($row['PowerVar']) ? (int)$row['PowerVar'] : 0;
