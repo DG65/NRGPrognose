@@ -243,22 +243,28 @@ zwischen entfernten Panels für zusammengehörige Einstellungen), Feldkanten/-br
 einer Linie statt kreuz und quer — bei jeder Formular-Änderung mitdenken, auch außerhalb des
 Zielumbaus oben.
 
-**Feld-Tooltips (Ergänzung 27.07.2026, präzisiert 28.07.2026):** IP-Symcon kennt kein natives
-Mouseover-Tooltip-Attribut (gegen offizielle Doku geprüft, weder `form.json` allgemein noch
-List-Spalten). Für erklärungsbedürftige Einzelfelder: `PopupButton` (Klick statt Hover) für die
-fokussierte Erklärung EINES Felds, mit `caption="?"` (reiner Buchstabe, kein Emoji) und
-`width="70px"` — InverterHub hat live getestet, dass `width` unter ~70px keinen sichtbaren Effekt
-hat (WebFront-Skin erzwingt eine Mindestbreite) und Icon-Größe/Hintergrund grundsätzlich nicht
-änderbar sind (globaler Skin); `"?"` + `70px` ergibt eine quadratisch wirkende Fläche
-(SUITE.md-Konvention, finale Fassung Commit `6bb6975` — ein Zwischenstand hatte kurzzeitig `"i"`
-vorgesehen, Dietmars Entscheidung: `"i"` wirkt bei 70px optisch verloren). Der Button steht
-typischerweise in einer `RowLayout` neben einem kurzen Kontext-`Label`, damit das bloße „?" nicht
-ohne Bezug dasteht. `Label` bleibt für kurze, immer sichtbare Erklärungen; das „Dokumentation &
+**Feld-Hilfestellung (Ergänzung 27.07.2026, präzisiert 28.07.2026, Caption/Breite überholt
+01.09.2026 — Dietmars finale Entscheidung nach Praxiseinsatz in MeterHub, s. SUITE.md
+„Feld-Hilfestellung"):** IP-Symcon kennt kein natives Mouseover-Tooltip-Attribut (gegen offizielle
+Doku geprüft, weder `form.json` allgemein noch List-Spalten). Für erklärungsbedürftige Einzelfelder:
+`PopupButton` (Klick statt Hover) für die fokussierte Erklärung EINES Felds. **Caption = die volle
+Frage, nicht ein bloßes „?"** (z. B. „Wann sollte ich X ausschalten?") — liest sich im Formular
+selbst schon wie ein Hilfe-Angebot, kein rätselhaftes Symbol mehr nötig; endet die Frage schon mit
+„?", KEIN zweites Fragezeichen anhängen. `popup.caption` (Popup-Titel) = dieselbe Frage.
+`width` an der tatsächlichen Textlänge ausrichten, nicht mehr an der alten 70px-Quadrat-Empfehlung
+— in MeterHub haben sich 460–480px für einzeilige Fragen bewährt (`width` unter ~70px hat ohnehin
+keinen sichtbaren Effekt, WebFront-Skin erzwingt eine Mindestbreite; Icon-Größe/Hintergrund
+grundsätzlich nicht änderbar, globaler Skin). Die frühere Vorschrift, den Button in einer
+`RowLayout` neben einem separaten Kontext-`Label` zu platzieren, entfällt damit — die Frage-Caption
+trägt den Kontext jetzt selbst, ein zusätzliches Label würde denselben Text nur duplizieren.
+`Label` bleibt für kurze, immer sichtbare Erklärungen ohne Popup; das „Dokumentation &
 Hilfe"-Panel bleibt für den Gesamtzusammenhang.
-**Bei uns umgesetzt:** PV-Generatorliste, Spalte „Kalibrieren" — war bisher nur in zwei benachbarten
-Absätzen (Panel-Label davor, Kalibrierungs-Panel danach) erklärt, nicht direkt am Feld. Jetzt
-zusätzlich ein `PopupButton` direkt unter der Liste. Andere Felder in allen drei Formularen geprüft:
-bereits ausreichend durch vorhandene `Label`-Elemente abgedeckt, kein weiterer Bedarf gefunden.
+**Bei uns umgesetzt:** PV-Generatorliste, Spalten „Kalibrieren" und „Korrektur" — je ein
+`PopupButton` direkt unter der Liste, Caption jetzt die volle Frage („Wann „Kalibrieren"
+ausschalten?"/„Was bedeutet „Korrektur"?"), `width` 460px/480px, `popup.caption` identisch zur
+Frage, die vormals separate Kontext-Label entfernt (Fund EMS-Sitzung, 13.09.2026, Build 96).
+Andere Felder in allen drei Formularen geprüft: bereits ausreichend durch vorhandene
+`Label`-Elemente abgedeckt, kein weiterer Bedarf gefunden.
 
 
 ## Verbund-Manifest SUITE.md — Bezugsquelle (geändert 31.08.2026)
