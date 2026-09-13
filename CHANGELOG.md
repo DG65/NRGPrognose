@@ -6,6 +6,13 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular: „Was ist neu"-Panel (PVPrognose) nachgezogen (PFLICHT-CHECK-Rückstand behoben,
+  13.09.2026).** Der Banner blieb seit mehreren Runden unverändert (Solcast-Fix, EMS-Wrapper-Fix,
+  DST-Fix, Tagesgang-Korrektur, Archivstörungs-Fix, `PVF_GetAccuracy()` — keins davon stand drin).
+  Jetzt aktuell: Solcast-Tageskontingent-Schutz, robustere Prognosegüte-Auswertung (Sondereffekte
+  + Archivstörungen), Tagesgang-Korrektur, `PVF_GetAccuracy()`/`PVF_GetIntradaySnapshot()`. Ältere
+  Punkte (Prognosehorizont, Plausibilitätskontrolle, `GetEnergyWindow()`) raus — die galten für die
+  vorherige Runde und wurden bereits bestätigt.
 - **Neu: Strukturierte Prognosegüte `PVF_GetAccuracy()` für EMS' netzdienlichen Baustein B1
   (Mittagsspitze, mit Dietmar abgestimmt, 13.09.2026).** Bislang gab es die Prognosegüte nur als
   Fließtext in `PVF_Accuracy`. Neuer Vertrag `PVF_CONTRACT_ACCURACY` (1.0): `days`,

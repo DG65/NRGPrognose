@@ -96,11 +96,12 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20';
+    private const NEWS_VERSION = '0.20 (Build 98)';
     private const NEWS_ITEMS = [
-        'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage statt bisher 2).',
-        'Laufende Plausibilitätskontrolle ergänzt — erkennt unplausible Prognosen automatisch.',
-        'Neue Funktion `PVF_GetEnergyWindow()` für flexible Zeitfenster-Abfragen (z. B. EMS-Integration).',
+        'Solcast-Abfragen werden jetzt zwischengespeichert und bei erreichtem Tageslimit automatisch gedrosselt, statt bei Kontingent-Erschöpfung leer zu bleiben.',
+        'Prognosegüte-Auswertung deutlich robuster: externe Sondereffekte und Archivstörungen (z. B. gehaltene Messwerte nach einer Datenlücke) werden jetzt zuverlässig erkannt und ausgeschlossen statt die Auswertung stillschweigend zu verfälschen.',
+        '„Immer genauer werden"-Korrektur berücksichtigt jetzt den Tagesverlauf (Vormittag/Mittag/Nachmittag/Abend getrennt) statt eines einzigen Faktors für den ganzen Tag.',
+        'Neue Funktionen `PVF_GetAccuracy()` (strukturierte Prognosegüte) und `PVF_GetIntradaySnapshot()` (untertägige Prognosestände) für externe Auswertungen (z. B. EMS-Integration).',
     ];
 
     // ----------------------------------------------------------------
