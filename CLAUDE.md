@@ -73,6 +73,7 @@ vergleicht sie mit dem gemessenen Ertrag → Verschmutzungs-/Defekterkennung).
 | `PVF_GetForecast($id,$offset)` | Prognoseprofil (0=heute,1=morgen,2=übermorgen) | – |
 | `PVF_GetSnapshot($id,'Y-m-d')` | Gespeicherte Day-Ahead-Prognose eines Tages | – |
 | `PVF_GetIntradaySnapshot($id,'Y-m-d','06:00'\|'10:00')` | Untertägiger Prognosestand desselben Tages (seit Build 94) | – |
+| `PVF_GetAccuracy($id)` | Strukturierte Prognosegüte (Bias/MAPE/Tagesanzahl/Tagesgang-Buckets), seit Build 98, für EMS' B1 | – |
 | Statusvariable `PVF_ModuleArea` | Gesamtfläche (m²) | ✅ Fallback |
 | Property `PVF_PR` (via `IPS_GetConfiguration`) | Performance-Ratio | ⚠️ Alt-Fallback, siehe unten |
 
@@ -99,6 +100,15 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
   im Erfolgsfall immer 0, physikbasiert statt k-NN) — stattdessen prüft `GetEnergyWindow` den
   internen `modelCache`-Zustand: schlägt `buildModel()` fehl (API/Netzwerk) oder fehlen
   Generatoren, zählt nichts als `coverage`, statt `kwh=0, coverage=1.0` vorzutäuschen.
+- `PVF_CONTRACT_ACCURACY` (`GetAccuracy`) — strukturierte Prognosegüte, ab 13.09.2026 für EMS'
+  netzdienlichen Baustein B1 gebaut. **Vorzeichen-Falle, bewusst dokumentiert (EMS' Wunsch):**
+  `bias` (aus (Soll-Ist)/Ist) ist POSITIV bei zu HOHER Prognose; `byDaylightFraction[].factor`
+  (Ist/Soll-Median je Tagesanteil-Bucket, dieselben Buckets wie die Residuen-Korrektur) ist
+  GRÖSSER ALS 1 bei zu NIEDRIGER Prognose — entgegengesetzte Zählrichtung, nicht verwechseln.
+  `days`/`bias`/`mape` sind `null`/`0`, solange keine auswertbaren Tage vorliegen; ein einzelnes
+  `factor` ist unabhängig davon `null`, wenn genau dieser Bucket zu wenig Daten hat (< 20 Werte).
+  Rein lesend, kein Wetter-Abruf — Rückgabe ist der Stand der letzten `evaluateAccuracy()`
+  (läuft bei jedem Rebuild).
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.
