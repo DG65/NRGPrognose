@@ -321,15 +321,11 @@
                     "type": "RowLayout",
                     "items": [
                         {
-                            "type": "Label",
-                            "caption": "Wann „Kalibrieren\" ausschalten?"
-                        },
-                        {
                             "type": "PopupButton",
-                            "caption": "?",
-                            "width": "70px",
+                            "caption": "Wann „Kalibrieren\" ausschalten?",
+                            "width": "460px",
                             "popup": {
-                                "caption": "Spalte „Kalibrieren\"",
+                                "caption": "Wann „Kalibrieren\" ausschalten?",
                                 "items": [
                                     {
                                         "type": "Label",
@@ -344,15 +340,11 @@
                     "type": "RowLayout",
                     "items": [
                         {
-                            "type": "Label",
-                            "caption": "Was bedeutet „Korrektur\"?"
-                        },
-                        {
                             "type": "PopupButton",
-                            "caption": "?",
-                            "width": "70px",
+                            "caption": "Was bedeutet „Korrektur\"?",
+                            "width": "480px",
                             "popup": {
-                                "caption": "Spalte „Korrektur\"",
+                                "caption": "Was bedeutet „Korrektur\"?",
                                 "items": [
                                     {
                                         "type": "Label",

@@ -6,6 +6,13 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular: Hilfe-Knöpfe auf die überholte Verbund-Konvention umgestellt (Fund EMS-Sitzung,
+  13.09.2026).** Die beiden `PopupButton`s bei der PV-Generatorliste (Spalten „Kalibrieren" und
+  „Korrektur") zeigten noch „?" statt der Frage selbst — die Konvention wurde am 01.09.2026 nach
+  Praxiseinsatz in MeterHub überarbeitet (Dietmars finale Entscheidung). Jetzt: Caption = volle
+  Frage („Wann „Kalibrieren" ausschalten?"/„Was bedeutet „Korrektur"?"), `width` 460px/480px
+  statt 70px, Popup-Titel identisch zur Frage, die vormals separate Kontext-Label neben dem
+  Button entfernt (duplizierte sonst denselben Text). Rein optisch, keine Verhaltensänderung.
 - **Neu: Untertägige Zusatz-Snapshots für eine spätere Day-Ahead-vs-Intraday-Auswertung
   (mit Dietmar priorisiert, nach der Tagesgang-Korrektur oben).** Bislang hielt
   `PVF_Snapshots` nur den frühesten (Day-Ahead-)Stand je Tag fest — EMS wollte für die
