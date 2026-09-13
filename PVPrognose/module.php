@@ -1591,19 +1591,52 @@ class PVPrognose extends IPSModule
      * Erkennt Archivstörungen, bei denen der letzte Messwert über Stunden
      * gehalten wurde (Fund: EMS-Sitzung bei der Verifikation ihrer
      * Prognosegüte-Analyse, 12.09.2026 — 01.09. zeigte 745 W konstant von
-     * 18:45 bis 22:00, obwohl das Modell dort längst Soll=0 ansetzt). Real
-     * ist nächtliche PV-Erzeugung unmöglich, ein gehaltener Wert dagegen
-     * unauffällig konstant über viele Slots — die Schwelle von 20 W lässt
-     * Wandler-Eigenverbrauch/Messrauschen durch, ohne einen echten
-     * Nachtwert durchzulassen. Ein Treffer verwirft den ganzen Tag (Bias/
-     * MAPE UND Residuen), da nicht bekannt ist, wie weit die Störung in
-     * den Tag hinein reicht.
+     * 18:45 bis 22:00, obwohl das Modell dort längst Soll=0 ansetzt).
+     *
+     * KORRIGIERT 13.09.2026 (live Fehlalarm auf Dietmars Instanz #22026
+     * gefunden, Erstfassung war zu scharf): direkt an der vom Modell
+     * markierten Tageslicht-Grenze prüfen ist falsch — echte PV-Erzeugung
+     * reicht durch Zwielicht oft noch 30-60 Min. über das vom Modell
+     * angesetzte Soll=0 hinaus (live beobachtet: 20:00 zeigte an JEDEM der
+     * 14 Tage 36-131 W, obwohl das Modell dort schon Nacht ansetzt — echte
+     * Resterzeugung, keine Störung). Deshalb: erst 90 Minuten nach
+     * Sonnenuntergang / vor Sonnenaufgang gilt ein Slot als "tiefe Nacht",
+     * UND es müssen mindestens 2 aufeinanderfolgende Slots dort über der
+     * Schwelle liegen (ein gehaltener Wert ist über Stunden konstant, eine
+     * einzelne Zwielicht-/Rausch-Spitze nicht). Die 745-W-Störung vom
+     * 01.09. lag mit 21:15-22:00 weiterhin klar in der so definierten
+     * tiefen Nacht und wird weiterhin erkannt.
      */
     private function hasNightArtifact(array $prof, array $sp): bool
     {
         $n = min(count($prof), count($sp));
+        if ($n === 0) { return false; }
+        $maxS = max($sp);
+        if ($maxS <= 0) { return false; }
+        $floor = max(10.0, 0.02 * $maxS);
+
+        $start = null; $end = null;
         for ($i = 0; $i < $n; $i++) {
-            if ((float)$sp[$i] <= 0.5 && (float)$prof[$i] > 20.0) { return true; }
+            if ((float)$sp[$i] >= $floor) {
+                if ($start === null) { $start = $i; }
+                $end = $i;
+            }
+        }
+        if ($start === null) { return false; }
+
+        $slotSec = (int)(86400 / $n);
+        $buffer  = max(1, (int)ceil(5400 / $slotSec)); // 90 Minuten Zwielicht-Puffer
+
+        $run = 0;
+        for ($i = 0; $i < $n; $i++) {
+            $deepNight = ($i > $end + $buffer) || ($i < $start - $buffer);
+            if (!$deepNight) { $run = 0; continue; }
+            if ((float)$prof[$i] > 20.0) {
+                $run++;
+                if ($run >= 2) { return true; }
+            } else {
+                $run = 0;
+            }
         }
         return false;
     }
