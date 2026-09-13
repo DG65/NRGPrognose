@@ -40,6 +40,9 @@ define('PVF_SRC_SOLCAST',       2);
 define('PVF_CONTRACT_FORECAST',   '1.2'); // GetForecast / GetSnapshot / GetIntradaySnapshot
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+// Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
+// Prognosegüte-Kennzahlen statt der bisherigen reinen Textausgabe in PVF_Accuracy.
+define('PVF_CONTRACT_ACCURACY', '1.0'); // GetAccuracy
 
 // Horizont: gültige Offsets für GetForecast() sind 0..PVF_MAX_OFFSET (0=heute).
 // Von der kostenlosen Open-Meteo-/Forecast.Solar-/Solcast-Anbindung her wären
@@ -166,6 +169,10 @@ class PVPrognose extends IPSModule
         $this->RegisterAttributeString('PVF_IntradaySnapshots', '');
         // Empirische Quantile der Prognosefehler (Ist/Soll) für Band/Korrektur.
         $this->RegisterAttributeString('PVF_Residuals', '');
+        // Strukturierte Prognosegüte-Kennzahlen für externe Abfrage (EMS'
+        // netzdienlicher Baustein B1, 13.09.2026) — GetAccuracy() liefert
+        // daraus zusammen mit PVF_Residuals den Vertrag PVF_CONTRACT_ACCURACY.
+        $this->RegisterAttributeString('PVF_AccuracyDetail', '');
         // 0 = aus (Band der Quelle), 1 = Band aus Residuen,
         // 2 = Band + Pegelkorrektur aus Residuen.
         $this->RegisterPropertyInteger('PVF_ResidualMode', 0);
@@ -674,6 +681,68 @@ class PVPrognose extends IPSModule
     }
 
     /**
+     * Strukturierte Prognosegüte (Vertrag PVF_CONTRACT_ACCURACY) — Grundlage
+     * für EMS' netzdienlichen Baustein B1 (Mittagsspitze, 13.09.2026): ein
+     * lesender Abruf, löst KEINEN Wetter-Abruf aus, liefert den Stand der
+     * letzten `evaluateAccuracy()`-Auswertung (läuft bei jedem Rebuild).
+     *
+     * ACHTUNG VORZEICHEN — `bias` und `byDaylightFraction[].factor` zählen
+     * in ENTGEGENGESETZTE Richtungen (EMS' ausdrücklicher Wunsch, das hier
+     * nebeneinander festzuhalten, damit sich kein Konsument vertut):
+     *   - `bias` (%, aus (Soll-Ist)/Ist): POSITIV = Prognose zu HOCH.
+     *   - `factor` (Ist/Soll-Median je Bucket): GRÖSSER ALS 1 = Prognose zu
+     *     NIEDRIG (Ist übertrifft Soll).
+     * Ein optimistischer Bias und ein Bucket-Faktor > 1 sagen also NICHT
+     * dasselbe — sie sagen sich sogar tendenziell wörtlich das Gegenteil.
+     *
+     * `days`/`bias`/`mape` sind `null`, solange noch keine auswertbaren
+     * Tage vorliegen (dann auch `days: 0`) — das ist der Fall, den EMS als
+     * "zu wenig Daten, beim festen Faktor bleiben" behandeln will.
+     * `byDaylightFraction[].factor` ist einzeln `null`, wenn dieser
+     * Tagesanteil-Abschnitt (0=Sonnenaufgang…1=Sonnenuntergang) noch keine
+     * ausreichende Datenbasis hat (< 20 Werte) — auch dann unabhängig von
+     * den anderen Buckets.
+     */
+    public function GetAccuracy()
+    {
+        $detail = json_decode($this->ReadAttributeString('PVF_AccuracyDetail'), true);
+        if (!is_array($detail)) {
+            $detail = [
+                'days' => 0, 'excludedSpecialEvent' => 0, 'excludedArchiveFault' => 0,
+                'bias' => null, 'mape' => null, 'updated' => 0,
+            ];
+        }
+
+        $res = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
+        $buckets = self::PVF_RESIDUAL_BUCKETS;
+        $byDaylightFraction = [];
+        for ($b = 0; $b < $buckets; $b++) {
+            $factor = null; $n = 0;
+            if (is_array($res) && isset($res['q50'][$b])) {
+                $factor = $res['q50'][$b] !== null ? (float)$res['q50'][$b] : null;
+                $n = (int)($res['n'][$b] ?? 0);
+            }
+            $byDaylightFraction[] = [
+                'from'   => round($b / $buckets, 3),
+                'to'     => round(($b + 1) / $buckets, 3),
+                'factor' => $factor,
+                'n'      => $n,
+            ];
+        }
+
+        return [
+            'contractVersion'      => PVF_CONTRACT_ACCURACY,
+            'days'                 => $detail['days'] ?? 0,
+            'excludedSpecialEvent' => $detail['excludedSpecialEvent'] ?? 0,
+            'excludedArchiveFault' => $detail['excludedArchiveFault'] ?? 0,
+            'bias'                 => $detail['bias'] ?? null,
+            'mape'                 => $detail['mape'] ?? null,
+            'updated'              => $detail['updated'] ?? 0,
+            'byDaylightFraction'   => $byDaylightFraction,
+        ];
+    }
+
+    /**
      * Prognosegüte: vergleicht je vergangenem Tag (bis 14 zurück) den
      * Day-Ahead-Snapshot (Soll-kWh) mit der gemessenen PV-Erzeugung
      * (Summe der Generator-Leistungsvariablen aus dem Archiv).
@@ -759,11 +828,19 @@ class PVPrognose extends IPSModule
                 $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
             }
             $this->SetValue('PVF_Accuracy', $txt);
+            $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
+                'days' => 0, 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
+                'bias' => null, 'mape' => null, 'updated' => time(),
+            ]));
             return;
         }
         $bias = array_sum($errs) / count($errs);
         $mape = array_sum(array_map('abs', $errs)) / count($errs);
         $this->SetValue('PVF_ErrorMAPE', round($mape, 1));
+        $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
+            'days' => count($errs), 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
+            'bias' => round($bias, 2), 'mape' => round($mape, 2), 'updated' => time(),
+        ]));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
         if (is_array($res) && isset($res['q50']) && is_array($res['q50'])) {
@@ -838,10 +915,11 @@ class PVPrognose extends IPSModule
             $this->WriteAttributeString('PVF_Residuals', '');
             return;
         }
-        $q10 = []; $q50 = []; $q90 = [];
+        $q10 = []; $q50 = []; $q90 = []; $n = [];
         for ($b = 0; $b < self::PVF_RESIDUAL_BUCKETS; $b++) {
             $arr = $bucketRatios[$b] ?? [];
-            if (count($arr) < self::PVF_RESIDUAL_MIN_PER_BUCKET) {
+            $n[$b] = count($arr);
+            if ($n[$b] < self::PVF_RESIDUAL_MIN_PER_BUCKET) {
                 $q10[$b] = null; $q50[$b] = null; $q90[$b] = null;
                 continue;
             }
@@ -851,7 +929,7 @@ class PVPrognose extends IPSModule
             $q90[$b] = round($this->clampFactor($this->percentileOf($arr, 0.90)), 3);
         }
         $this->WriteAttributeString('PVF_Residuals', json_encode([
-            'buckets' => self::PVF_RESIDUAL_BUCKETS, 'q10' => $q10, 'q50' => $q50, 'q90' => $q90,
+            'buckets' => self::PVF_RESIDUAL_BUCKETS, 'q10' => $q10, 'q50' => $q50, 'q90' => $q90, 'n' => $n,
             'days' => $days, 'samples' => $total, 'updated' => time(),
         ]));
     }

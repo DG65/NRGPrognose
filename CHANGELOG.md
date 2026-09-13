@@ -6,6 +6,20 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu: Strukturierte Prognosegüte `PVF_GetAccuracy()` für EMS' netzdienlichen Baustein B1
+  (Mittagsspitze, mit Dietmar abgestimmt, 13.09.2026).** Bislang gab es die Prognosegüte nur als
+  Fließtext in `PVF_Accuracy`. Neuer Vertrag `PVF_CONTRACT_ACCURACY` (1.0): `days`,
+  `excludedSpecialEvent`, `excludedArchiveFault`, `bias`, `mape`, `updated` sowie
+  `byDaylightFraction` — dieselben 8 Tagesanteil-Buckets wie die Tagesgang-Residuen-Korrektur,
+  je mit `factor` (Ist/Soll-Median) und Stichprobengröße `n`. Rein lesend, kein Wetter-Abruf.
+  **Vorzeichen-Falle bewusst dokumentiert** (EMS' ausdrücklicher Wunsch): `bias` ist POSITIV bei
+  zu hoher Prognose, `factor` ist GRÖSSER ALS 1 bei zu niedriger Prognose — entgegengesetzte
+  Zählrichtung. `days`/`bias`/`mape` sind `null`/`0` ohne auswertbare Tage, ein einzelnes
+  `factor` unabhängig davon `null` bei zu wenig Daten in genau diesem Bucket (< 20 Werte).
+  `PVF_GetForecast($id, 0)['p10'\|'p90']` (bereits residuen-korrigiert) deckt zusätzlich EMS'
+  Bedarf nach einer Unsicherheit für HEUTE ab — kein neuer Code dafür nötig, nur ein Hinweis.
+  Sechs Fälle isoliert gegengeprüft (fehlende Daten, zu wenig Tage, gemischte Buckets mit
+  `null`, gute und schlechte Güte, Vorzeichen-Gegenrichtung).
 - **Fix (kritisch): Archivstörungs-Erkennung aus Build 93 war zu scharf und schloss auf Dietmars
   Instanz #22026 8 von 14 Tagen unnötig aus (live gefunden, 13.09.2026, direkt nach Aktivierung
   der Tagesgang-Korrektur).** Live nachvollzogen: um 20:00 zeigte JEDER der 14 Tage 36-131 W
