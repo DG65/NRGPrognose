@@ -6,6 +6,21 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Store-Checkliste 9c — `ReadAttributeString()`/`ReadPropertyString()` nie ungecastet
+  an `json_decode()`/`trim()` weiterreichen (13.09.2026, Store-Reife-Durchgang auf
+  InverterHub-Hinweis, verbundweites Muster — dreimal unabhängig bei Tibber/OCPPHub/Dashboard
+  aufgetreten).** Während die Instanz neu lädt (Kernel-Runlevel nicht `KR_READY`) liefern
+  diese SDK-Aufrufe `false` statt eines Strings. In Energiebilanz (`declare(strict_types=1)`)
+  hätte das einen `TypeError` ausgelöst und die Kachel-Aktualisierung abgerissen; in
+  PVPrognose/Lastprognose (kein `strict_types`) wäre daraus statt eines Fehlers still eine
+  leere/falsche Auswertung geworden. 16 Fundstellen (`json_decode()` in allen drei Modulen,
+  `trim()` in PVPrognose/Lastprognose) mit `(string)`-Cast abgesichert. Isoliert unter
+  `strict_types=1` gegengeprüft: ungecastet wirft `json_decode(false, ...)`/`trim(false)`
+  nachweislich den beschriebenen `TypeError`, gecastet liefert beides den erwarteten sicheren
+  Rückfall (`null`/`''`), von den bestehenden `is_array()`-Prüfungen ohnehin schon abgefangen.
+  **Store-Checkliste 9d** (keine geparkten Instanzen mit Fehlerstatus > 200) geprüft:
+  betrifft uns nicht — alle drei Module nutzen ausschließlich 102/104, keine
+  Instanz-Verwaltungslogik.
 - **Formular: „Was ist neu"-Panel bei Lastprognose und Energiebilanz ebenfalls nachgezogen
   (PFLICHT-CHECK, 13.09.2026 — auf Nachfrage geprüft, nachdem der Rückstand bei PVPrognose
   aufgefallen war).**

@@ -289,7 +289,7 @@ class PVPrognose extends IPSModule
 
         // Neu eingegebenen Solcast-Schlüssel ins Attribut übernehmen und das
         // Formularfeld per Kurz-Timer (nicht rekursiv) wieder leeren.
-        $enteredKey = trim($this->ReadPropertyString('PVF_SolcastKey'));
+        $enteredKey = trim((string)$this->ReadPropertyString('PVF_SolcastKey'));
         if ($enteredKey !== '') {
             $this->WriteAttributeString('PVF_SolcastSecret', $enteredKey);
             $this->SetTimerInterval('PVF_ClearSolcastKeyTimer', 1);
@@ -316,7 +316,7 @@ class PVPrognose extends IPSModule
     public function ClearSolcastKey()
     {
         $this->SetTimerInterval('PVF_ClearSolcastKeyTimer', 0);
-        if (trim($this->ReadPropertyString('PVF_SolcastKey')) === '') { return; }
+        if (trim((string)$this->ReadPropertyString('PVF_SolcastKey')) === '') { return; }
         @IPS_SetProperty($this->InstanceID, 'PVF_SolcastKey', '');
         @IPS_ApplyChanges($this->InstanceID);
     }
@@ -662,7 +662,7 @@ class PVPrognose extends IPSModule
      */
     public function GetSnapshot(string $date)
     {
-        $snaps = json_decode($this->ReadAttributeString('PVF_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('PVF_Snapshots'), true);
         if (!is_array($snaps) || !isset($snaps[$date])) { return []; }
         return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snaps[$date]);
     }
@@ -676,7 +676,7 @@ class PVPrognose extends IPSModule
      */
     public function GetIntradaySnapshot(string $date, string $checkpoint)
     {
-        $store = json_decode($this->ReadAttributeString('PVF_IntradaySnapshots'), true);
+        $store = json_decode((string)$this->ReadAttributeString('PVF_IntradaySnapshots'), true);
         if (!is_array($store) || !isset($store[$date][$checkpoint])) { return []; }
         return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $store[$date][$checkpoint]);
     }
@@ -706,7 +706,7 @@ class PVPrognose extends IPSModule
      */
     public function GetAccuracy()
     {
-        $detail = json_decode($this->ReadAttributeString('PVF_AccuracyDetail'), true);
+        $detail = json_decode((string)$this->ReadAttributeString('PVF_AccuracyDetail'), true);
         if (!is_array($detail)) {
             $detail = [
                 'days' => 0, 'excludedSpecialEvent' => 0, 'excludedArchiveFault' => 0,
@@ -714,7 +714,7 @@ class PVPrognose extends IPSModule
             ];
         }
 
-        $res = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
+        $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         $buckets = self::PVF_RESIDUAL_BUCKETS;
         $byDaylightFraction = [];
         for ($b = 0; $b < $buckets; $b++) {
@@ -750,7 +750,7 @@ class PVPrognose extends IPSModule
      */
     private function evaluateAccuracy()
     {
-        $snaps = json_decode($this->ReadAttributeString('PVF_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('PVF_Snapshots'), true);
         if (!is_array($snaps)) { $snaps = []; }
 
         $gens = [];
@@ -843,7 +843,7 @@ class PVPrognose extends IPSModule
             'bias' => round($bias, 2), 'mape' => round($mape, 2), 'updated' => time(),
         ]));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
-        $res = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
+        $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         if (is_array($res) && isset($res['q50']) && is_array($res['q50'])) {
             $q50vals = array_filter($res['q50'], function ($v) { return $v !== null; });
             if (count($q50vals) > 0) {
@@ -964,7 +964,7 @@ class PVPrognose extends IPSModule
         $mode = $this->ReadPropertyInteger('PVF_ResidualMode');
         if ($mode === 0) { return [$p10, $p50, $p90]; }
 
-        $r = json_decode($this->ReadAttributeString('PVF_Residuals'), true);
+        $r = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90']) || !is_array($r['q10'])) {
             return [$p10, $p50, $p90];
         }
@@ -1004,7 +1004,7 @@ class PVPrognose extends IPSModule
      */
     private function saveSnapshot(array $fcs)
     {
-        $snaps = json_decode($this->ReadAttributeString('PVF_Snapshots'), true);
+        $snaps = json_decode((string)$this->ReadAttributeString('PVF_Snapshots'), true);
         if (!is_array($snaps)) { $snaps = []; }
 
         foreach ([0, 1] as $offset) {
@@ -1045,7 +1045,7 @@ class PVPrognose extends IPSModule
         $date = date('Y-m-d');
         $now  = date('H:i');
 
-        $store = json_decode($this->ReadAttributeString('PVF_IntradaySnapshots'), true);
+        $store = json_decode((string)$this->ReadAttributeString('PVF_IntradaySnapshots'), true);
         if (!is_array($store)) { $store = []; }
         if (!isset($store[$date])) { $store[$date] = []; }
 
@@ -1117,7 +1117,7 @@ class PVPrognose extends IPSModule
     private function pvGenerators(): array
     {
         $out  = [];
-        $list = json_decode($this->ReadPropertyString('PVGenerators'), true);
+        $list = json_decode((string)$this->ReadPropertyString('PVGenerators'), true);
         if (is_array($list)) {
             foreach ($list as $row) {
                 $out[] = [
@@ -1343,9 +1343,9 @@ class PVPrognose extends IPSModule
      */
     private function solcastKey(): string
     {
-        $secret = trim($this->ReadAttributeString('PVF_SolcastSecret'));
+        $secret = trim((string)$this->ReadAttributeString('PVF_SolcastSecret'));
         if ($secret !== '') { return $secret; }
-        return trim($this->ReadPropertyString('PVF_SolcastKey'));
+        return trim((string)$this->ReadPropertyString('PVF_SolcastKey'));
     }
 
     /**
@@ -1370,7 +1370,7 @@ class PVPrognose extends IPSModule
             return null;
         }
 
-        $cache = json_decode($this->ReadAttributeString('PVF_SolcastCache'), true);
+        $cache = json_decode((string)$this->ReadAttributeString('PVF_SolcastCache'), true);
         if (!is_array($cache)) { $cache = []; }
         $entry = $cache[$rid] ?? null;
         $cacheFresh = is_array($entry)

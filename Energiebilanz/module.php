@@ -777,7 +777,7 @@ class Energiebilanz extends IPSModule
         // Abgeschlossene Tage ändern sich nicht mehr → länger cachen.
         $ttl     = ($start < $today) ? 21600 : max(15, (int) $this->GetValue('MeasuredCacheSec'));
 
-        $cache = json_decode($this->ReadAttributeString('MeasuredCache'), true);
+        $cache = json_decode((string)$this->ReadAttributeString('MeasuredCache'), true);
         if (!is_array($cache)) { $cache = []; }
 
         $e = $cache[$cKey] ?? null;
