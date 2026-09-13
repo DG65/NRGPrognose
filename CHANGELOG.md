@@ -6,6 +6,18 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular: „Was ist neu"-Panel bei Lastprognose und Energiebilanz ebenfalls nachgezogen
+  (PFLICHT-CHECK, 13.09.2026 — auf Nachfrage geprüft, nachdem der Rückstand bei PVPrognose
+  aufgefallen war).**
+  - **Lastprognose:** Wortlaut zum Sondereffekt-Ausschluss geschärft — der Punkt versprach
+    diese Funktion schon länger, sie war aber seit Einführung durch den EMS-Events-Wrapper-Bug
+    (s. o.) unbemerkt fehlerhaft (schloss ALLE Tage aus statt nur die betroffenen). Jetzt
+    korrekt als "deutlich robuster" beschrieben statt unverändert weiter das Ursprüngliche zu
+    behaupten.
+  - **Energiebilanz:** zwei fehlende Punkte ergänzt (Legende und „Ist"-Zeile im Tagesstreifen
+    je einzeln ausblendbar, beide vom 26.08.2026, nie ins Panel aufgenommen).
+  - Beide Panels erscheinen dadurch beim nächsten Formularaufruf erneut, auch wenn zuvor schon
+    bestätigt.
 - **Formular: „Was ist neu"-Panel (PVPrognose) nachgezogen (PFLICHT-CHECK-Rückstand behoben,
   13.09.2026).** Der Banner blieb seit mehreren Runden unverändert (Solcast-Fix, EMS-Wrapper-Fix,
   DST-Fix, Tagesgang-Korrektur, Archivstörungs-Fix, `PVF_GetAccuracy()` — keins davon stand drin).
