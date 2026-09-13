@@ -52,13 +52,17 @@ class Energiebilanz extends IPSModule
     // NEWS_VERSION, jede Erhöhung zeigt den Banner erneut, bis bestätigt.
     // Nur bei nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem
     // Patch (25.08./26.08.2026-Runde: 5-Tage-Horizont, Scroll, Doppelpfeil-
-    // Einstellungen, div. Kachel-Feinschliff).
-    private const NEWS_VERSION = '0.20';
+    // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
+    // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
+    // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
+    private const NEWS_VERSION = '0.20 (Build 100)';
     private const NEWS_ITEMS = [
         'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage) — bei mehr als 3 Tagen lässt sich das Diagramm horizontal scrollen, Legende und Y-Achse bleiben dabei sichtbar.',
         'Alle Darstellungseinstellungen (Farben, Schriftart, Diagramm-Engine, Tage, Ist-Anzeige, Gitter, Y-Achse fest …) sind jetzt direkt im WebFront einstellbar — Kachel über den Doppelpfeil aufziehen, statt in der Konsole zu suchen.',
         'Tooltip zeigt beim Verbrauch zusätzlich die Unsicherheitsspanne (P10–P90).',
         'Diagrammhöhe passt sich automatisch der Kachelgröße an — keine eigene Einstellung mehr nötig.',
+        '„Legende anzeigen" (Doppelpfeil) — Legende bei Bedarf ausblendbar, mehr Platz fürs Diagramm.',
+        '„‚Ist\'-Zeile im Tagesstreifen anzeigen" (Doppelpfeil) — ebenfalls ausblendbar, ebenfalls mehr Platz fürs Diagramm.',
     ];
 
     public function Create()

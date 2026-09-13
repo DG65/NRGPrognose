@@ -91,11 +91,15 @@ class Lastprognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20';
+    // PFLICHT-CHECK-Rückstand behoben (13.09.2026): der Sondereffekt-
+    // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
+    // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
+    // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
+    private const NEWS_VERSION = '0.20 (Build 100)';
     private const NEWS_ITEMS = [
         'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage statt bisher 2).',
         'Laufende Plausibilitätskontrolle ergänzt — erkennt unplausible Prognosen automatisch.',
-        'Sondereffekte (z. B. §14a-Eingriffe) werden bei der Genauigkeitsauswertung automatisch ausgeschlossen, sofern ein EMS installiert ist.',
+        'Prognosegüte-Auswertung deutlich robuster: Sondereffekte (z. B. §14a-Eingriffe, sofern ein EMS installiert ist) werden jetzt zuverlässig erkannt und ausgeschlossen statt die Auswertung stillschweigend zu verfälschen.',
     ];
 
     // ----------------------------------------------------------------

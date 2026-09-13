@@ -96,7 +96,7 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 98)';
+    private const NEWS_VERSION = '0.20 (Build 100)';
     private const NEWS_ITEMS = [
         'Solcast-Abfragen werden jetzt zwischengespeichert und bei erreichtem Tageslimit automatisch gedrosselt, statt bei Kontingent-Erschöpfung leer zu bleiben.',
         'Prognosegüte-Auswertung deutlich robuster: externe Sondereffekte und Archivstörungen (z. B. gehaltene Messwerte nach einer Datenlücke) werden jetzt zuverlässig erkannt und ausgeschlossen statt die Auswertung stillschweigend zu verfälschen.',
