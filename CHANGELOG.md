@@ -6,6 +6,19 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (kritisch): Archivstörungs-Erkennung aus Build 93 war zu scharf und schloss auf Dietmars
+  Instanz #22026 8 von 14 Tagen unnötig aus (live gefunden, 13.09.2026, direkt nach Aktivierung
+  der Tagesgang-Korrektur).** Live nachvollzogen: um 20:00 zeigte JEDER der 14 Tage 36-131 W
+  echte Resterzeugung (Zwielicht), obwohl das Modell dort schon Soll=0 ansetzt — `hasNightArtifact()`
+  wertete das fälschlich als Archivstörung, weil es direkt an der Modell-Tageslichtgrenze prüfte,
+  ohne Zwielicht-Toleranz. Zwei Korrekturen: (1) ein Slot gilt erst 90 Minuten nach
+  Sonnenuntergang/vor Sonnenaufgang als "tiefe Nacht" (Zwielicht-Puffer); (2) erst zwei
+  aufeinanderfolgende Slots über der Schwelle gelten als Störung, eine einzelne Zwielicht-/
+  Rausch-Spitze nicht mehr. Die ursprüngliche 745-W-Störung vom 01.09. (lief bis 22:00, weit in
+  die so definierte tiefe Nacht hinein) wird davon unberührt weiterhin erkannt. Sechs Fälle
+  isoliert gegengeprüft, darunter exakt der live gefundene Fehlalarm und der ursprüngliche
+  echte Fund. **Wirkung erst nach manuellem Modul-Update** (Symcon-Modulverwaltung, kein
+  Selbst-Update) — bis dahin zeigt die Instanz weiterhin die zu vielen Ausschlüsse.
 - **Formular: Hilfe-Knöpfe auf die überholte Verbund-Konvention umgestellt (Fund EMS-Sitzung,
   13.09.2026).** Die beiden `PopupButton`s bei der PV-Generatorliste (Spalten „Kalibrieren" und
   „Korrektur") zeigten noch „?" statt der Frage selbst — die Konvention wurde am 01.09.2026 nach
