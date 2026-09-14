@@ -111,6 +111,7 @@ class Lastprognose extends IPSModule
         parent::Create();
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
 
         // ── Allgemein ───────────────────────────────────────────────
         $this->RegisterPropertyBoolean('LFC_Active',         false);
@@ -252,7 +253,41 @@ class Lastprognose extends IPSModule
             array_unshift($form['elements'], $banner);
         }
 
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
+
         return json_encode($form);
+    }
+
+    /**
+     * „Wozu dieses Modul?" — ganz oben, vor dem News-Panel, einmalig
+     * dismissible (nicht pro Version, s. SUITE.md „Einheitliche
+     * Formular-Optik" Punkt 0). Auslöser: ein Praxistester wusste am
+     * Anfang nicht, was er mit dem Modul machen kann/soll.
+     */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Lastprognose sagt für die kommenden Tage deinen Stromverbrauch voraus — aus deiner Verbrauchshistorie per Ähnliche-Tage-Verfahren (k-NN), berücksichtigt Wochentag, Jahreszeit, Außentemperatur und Anwesenheit.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement oder ein Energiemanagement-System (EMS), ganz ohne Wetterstation oder manuelles Schätzen.'],
+                ['type' => 'Label', 'caption' => 'Für die Erzeugungsseite gehört PVPrognose dazu, für eine gemeinsame Übersicht beider Prognosen die Kachel Energiebilanz.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'LFC_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro(): void
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
     }
 
     /** Versionszeile im Doku-Panel — dauerhaft sichtbar, anders als der dismissible „Neu"-Banner. */

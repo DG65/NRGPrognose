@@ -113,6 +113,7 @@ class PVPrognose extends IPSModule
         parent::Create();
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
 
         $this->RegisterPropertyBoolean('PVF_Active',        false);
         $this->RegisterPropertyInteger('PVF_IntervalHours', 6);
@@ -241,7 +242,41 @@ class PVPrognose extends IPSModule
             array_unshift($form['elements'], $banner);
         }
 
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
+
         return json_encode($form);
+    }
+
+    /**
+     * „Wozu dieses Modul?" — ganz oben, vor dem News-Panel, einmalig
+     * dismissible (nicht pro Version, s. SUITE.md „Einheitliche
+     * Formular-Optik" Punkt 0). Auslöser: ein Praxistester wusste am
+     * Anfang nicht, was er mit dem Modul machen kann/soll.
+     */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'PVPrognose berechnet für die kommenden Tage aus Wetterdaten (Open-Meteo, Forecast.Solar oder Solcast) und den Daten deiner PV-Anlage eine physikbasierte Erzeugungsprognose mit Unsicherheitsband (P10/P50/P90) — und lernt aus dem Vergleich mit der tatsächlichen Erzeugung laufend dazu.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement, Batteriesteuerung oder ein Energiemanagement-System (EMS), ohne selbst aufs Wetter schauen zu müssen.'],
+                ['type' => 'Label', 'caption' => 'Für die Verbrauchsseite gehört Lastprognose dazu, für eine gemeinsame Übersicht beider Prognosen die Kachel Energiebilanz.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'PVF_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro(): void
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
     }
 
     /** Versionszeile im Doku-Panel — dauerhaft sichtbar, anders als der dismissible „Neu"-Banner. */

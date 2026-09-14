@@ -79,6 +79,7 @@ class Energiebilanz extends IPSModule
         $this->RegisterAttributeString('MeasuredCache', '');
         $this->RegisterAttributeString('SeenNews', '');
         $this->RegisterAttributeBoolean(self::ATTR_REVIEW_HINT_GONE, false);
+        $this->RegisterAttributeBoolean('PurposeIntroGone', false);
 
         // Alle übrigen Einstellungen (Dietmar, 26.08.2026: "Bau alles um" —
         // Auftrag, die kompletten bisher konsolenpflichtigen Einstell-
@@ -448,7 +449,41 @@ class Energiebilanz extends IPSModule
             array_unshift($form['elements'], $banner);
         }
 
+        $purpose = $this->PurposeIntro();
+        if ($purpose !== null) {
+            array_unshift($form['elements'], $purpose);
+        }
+
         return json_encode($form);
+    }
+
+    /**
+     * „Wozu dieses Modul?" — ganz oben, vor dem News-Panel, einmalig
+     * dismissible (nicht pro Version, s. SUITE.md „Einheitliche
+     * Formular-Optik" Punkt 0). Auslöser: ein Praxistester wusste am
+     * Anfang nicht, was er mit dem Modul machen kann/soll.
+     */
+    private function PurposeIntro(): ?array
+    {
+        if ($this->ReadAttributeBoolean('PurposeIntroGone')) {
+            return null;
+        }
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
+            'caption' => '👋  Wozu dieses Modul?',
+            'items' => [
+                ['type' => 'Label', 'caption' => 'Energiebilanz zeigt PV-Erzeugung und Verbrauch gemeinsam als eine WebFront-Kachel mit Unsicherheitsband (P10–P90) — auf einen Blick, statt zwei getrennte Diagramme zu vergleichen.'],
+                ['type' => 'Label', 'caption' => 'Der Nutzen: schneller Überblick, wie viel Strom du wann selbst erzeugst und brauchst — Grundlage für eigene Entscheidungen, z. B. wann sich ein Verbraucher einschalten lohnt.'],
+                ['type' => 'Label', 'caption' => 'Die Kachel zeigt, was PVPrognose und/oder Lastprognose liefern — mindestens eines der beiden Module wird als Datenquelle gebraucht.'],
+                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'EFTILE_AckPurposeIntro($id);'],
+            ],
+        ];
+    }
+
+    public function AckPurposeIntro(): void
+    {
+        $this->WriteAttributeBoolean('PurposeIntroGone', true);
+        $this->UpdateFormField('PurposeIntroPanel', 'visible', false);
     }
 
     /** Versionszeile im Doku-Panel — dauerhaft sichtbar, anders als der dismissible „Neu"-Banner. */
