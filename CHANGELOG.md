@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular: „👋 Wozu dieses Modul?"-Panel ergänzt (alle drei Module, 14.09.2026, Dietmars
+  Auftrag via EMS — Formular-Konvention Punkt 0, Referenzimplementierung MeterHub).** Steht
+  ganz oben, VOR dem „Was ist neu"-Banner, standardmäßig aufgeklappt, einmalig dismissible
+  (eigenes `bool`-Attribut, nicht versionsgebunden wie das News-Panel — der Zweck eines
+  Moduls ändert sich nicht mit jedem Release). Je Modul ein eigener, kurzer Text (2-3 Sätze):
+  was das Modul tut, welchen Nutzen das stiftet, Verweis auf die beiden jeweils anderen
+  Prognose-Suite-Module für benachbarte Bedürfnisse. Panel-Reihenfolge isoliert
+  gegengeprüft (PurposeIntro immer vor News, unabhängig ob eins/beide/keins bereits
+  bestätigt wurde).
 - **Fix: Store-Checkliste Punkt 13 (Energiebilanz) — „Doppelpfeil-Einstellungen auf Standard
   zurücksetzen"-Button gab keine sichtbare Rückmeldung (14.09.2026, Store-Reife-Durchgang
   Punkte 1-13, Rest sauber).** `ResetStyle()` war `void` und der Formular-Button rief die
