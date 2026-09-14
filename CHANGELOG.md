@@ -6,6 +6,18 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix: Store-Checkliste Punkt 13 (Energiebilanz) — „Doppelpfeil-Einstellungen auf Standard
+  zurücksetzen"-Button gab keine sichtbare Rückmeldung (14.09.2026, Store-Reife-Durchgang
+  Punkte 1-13, Rest sauber).** `ResetStyle()` war `void` und der Formular-Button rief die
+  Methode ohne `echo` auf — ein Klick sah aus, als wäre nichts passiert, obwohl alle
+  Einstellungen zurückgesetzt wurden. Jetzt `string`-Rückgabe mit Bestätigungstext, Button
+  ruft über `echo EFTILE_ResetStyle($id);` auf (Muster 1, wie die übrigen Rebuild-/
+  Status-Buttons in allen drei Modulen bereits). Restliche Checkliste (1-2, 4-12) durchgegangen,
+  keine weiteren Funde — insbesondere Punkt 5 (Variablenprofile) gegen die volle
+  Erkenntnis-Quelle geprüft: betrifft nur den `profile`-Parameter von `RegisterVariableXXX()`
+  (von IPS selbst schon nur bei Erstanlage angewendet), nicht das Aktualisieren einer
+  privaten Profil-Definition wie bei Energiebilanz' `EFTILE.*`-Profilen — kein Fund, keine
+  Änderung dort.
 - **Fix: Store-Checkliste 9c — `ReadAttributeString()`/`ReadPropertyString()` nie ungecastet
   an `json_decode()`/`trim()` weiterreichen (13.09.2026, Store-Reife-Durchgang auf
   InverterHub-Hinweis, verbundweites Muster — dreimal unabhängig bei Tibber/OCPPHub/Dashboard

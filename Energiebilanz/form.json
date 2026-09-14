@@ -76,7 +76,7 @@
         {
             "type": "Button",
             "caption": "Doppelpfeil-Einstellungen auf Standard zurücksetzen",
-            "onClick": "EFTILE_ResetStyle($id);"
+            "onClick": "echo EFTILE_ResetStyle($id);"
         },
         {
             "type": "Button",
