@@ -491,8 +491,11 @@ class Energiebilanz extends IPSModule
      * Alle Doppelpfeil-Einstellungen auf den Modul-Default zurücksetzen —
      * seit Build 76 echte Variablen statt Formularfelder, deshalb SetValue()
      * statt UpdateFormField() (per Konsolen-Button weiterhin erreichbar).
+     * Gibt einen Ergebnistext zurück (Store-Checkliste Punkt 13, „Sichtbare
+     * Rückmeldung bei jeder Aktion") — der Formular-Button ruft das über
+     * "echo EFTILE_ResetStyle($id);" auf.
      */
-    public function ResetStyle(): void
+    public function ResetStyle(): string
     {
         $this->SetValue('ShowPV', true);
         $this->SetValue('ShowLoad', true);
@@ -518,6 +521,7 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ShowIstRow', true);
         $this->SetValue('YMaxManual', self::DEF_YMAX);
         $this->Render();
+        return '✅ Alle Darstellungseinstellungen auf Standard zurückgesetzt.';
     }
 
     public function GetVisualizationTile()
