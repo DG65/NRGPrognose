@@ -4,6 +4,16 @@
 
 Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in der Version. Neue
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
+übernommen.
+
+- **Formular: Doku-Panel/Feldhilfe bei PVPrognose nachgezogen (14.09.2026, Dietmars Bitte via
+  EMS vor dem Store-Launch — zweiter Durchgang nach dem „Wozu dieses Modul?"-Panel).** Die
+  Prognosegüte- und Unsicherheitsband-Erklärungen im Doku-Panel beschrieben noch den Stand vor
+  der Tagesgang-Korrektur/Archivstörungs-Erkennung. Jetzt ergänzt: Sondereffekt- UND
+  Archivstörungs-Ausschluss erwähnt, Hinweis dass die Residuen-Korrektur je Tagesabschnitt
+  (8 Abschnitte Sonnenaufgang–untergang) statt für den ganzen Tag rechnet, Verweis auf
+  `PVF_GetAccuracy($id)` für externe Auswertungen. Lastprognose/Energiebilanz geprüft, dort
+  kein Nachholbedarf (keine der drei Funktionen existiert dort).
 - **Formular: Neuinstallations-Simulation durchgeführt (14.09.2026, vor dem Store-Launch —
   letzter voller Durchgang war 28.07./Build 59, seitdem sehr viel passiert).** Ein echter Fund
   bei PVPrognose: Breitengrad/Längengrad hatten keinen Hinweis, dass sie auf die eigene Anlage
