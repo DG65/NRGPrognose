@@ -6,6 +6,13 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular: „🧡 Über dieses Modul"-Panel ergänzt (alle drei Module, 14.09.2026, Dietmars
+  Auftrag via EMS — Formular-Konvention Punkt 5, verbundweit identischer Wortlaut).** Ganz
+  unten, nach dem Forum-Hinweis, bewusst NICHT dismissible (Lizenz ist kein einmaliger
+  Hinweis). Lizenztext-Link zeigt auf `beta` (nicht `main` — `main` trägt bei uns wie zuvor
+  bei MeterHub noch die alte, dort nie aktualisierte MIT-Lizenz; die aktuelle PolyForm
+  Noncommercial 1.0.0 steht nur auf `ems-integration`/`beta`, vorab geprüft statt blind
+  verlinkt).
 - **Formular: Doku-Panel/Feldhilfe bei PVPrognose nachgezogen (14.09.2026, Dietmars Bitte via
   EMS vor dem Store-Launch — zweiter Durchgang nach dem „Wozu dieses Modul?"-Panel).** Die
   Prognosegüte- und Unsicherheitsband-Erklärungen im Doku-Panel beschrieben noch den Stand vor
