@@ -46,6 +46,15 @@ Idents waren durchgehend unangetastet.
   gefunden (unsere „(Pflicht)"-Panels sind herstellerneutral und ohne Discovery-Alternative; Lat/Long-
   Default 49.0/9.0 ist generisch, keine eigene Adresse; keine eigenen IDs im Code). Einzige Baustelle
   war Feld-Klarheit für Laien, siehe „Korrektur"-Spalte in PVPrognose weiter unten in der Historie.
+  **Zweiter Durchgang 14.09.2026** (build 104, vor dem Store-Launch, Dietmars Bitte): der Default
+  49.0/9.0 selbst war zwar generisch, aber der 28.07.-Durchgang hatte übersehen, dass um die
+  Lat/Long-Felder herum kein Hinweis stand, sie auf die eigene Anlage zu setzen — unverändert
+  übernommen liefert das plausibel aussehendes, aber falsches Wetter, ohne dass ein Fehler
+  sichtbar wird (genau das Muster, vor dem diese Prüfung warnt, wurde beim ersten Durchgang also
+  nicht vollständig erkannt). Jetzt ein ⚠️-Hinweis direkt über den Feldern (PVPrognose), analoge
+  Klarstellung in der Beschriftung bei Lastprognose (dort geringeres Risiko, nur Tageslänge-Proxy).
+  Lehre für künftige Durchgänge: "generischer Default" allein reicht als Prüfkriterium nicht —
+  zusätzlich prüfen, ob überhaupt sichtbar ist, DASS der Wert personenbezogen angepasst werden muss.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "7.0"}`.
