@@ -4,7 +4,19 @@
 
 Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in der Version. Neue
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
-übernommen.
+- **Formular: Neuinstallations-Simulation durchgeführt (14.09.2026, vor dem Store-Launch —
+  letzter voller Durchgang war 28.07./Build 59, seitdem sehr viel passiert).** Ein echter Fund
+  bei PVPrognose: Breitengrad/Längengrad hatten keinen Hinweis, dass sie auf die eigene Anlage
+  gesetzt werden müssen — der generische Vorbelegungswert (49,0/9,0, irgendwo in Deutschland)
+  hätte bei unverändert übernommen ein plausibel aussehendes, aber falsches Wetter für den
+  falschen Ort geliefert, ohne dass ein Fehler sichtbar wird (genau das Muster, vor dem die
+  Neuinstallations-Simulation warnt). Jetzt ein deutlicher ⚠️-Hinweis direkt über den Feldern.
+  Bei Lastprognose zusätzlich die Breitengrad-Beschriftung präzisiert (niedrigeres Risiko —
+  wirkt nur als Tageslänge-Proxy, kein direkter Wetterabruf). Restliche Formularfelder,
+  Fabrikat-Nennungen (immer nur „z. B." bzw. echte Alternativen wie DWD/Meteoblue), Defaults
+  (Selbstkalibrierung/Residuen-Korrektur aus, Quelle=kostenlos ohne Key) und eine Volltextsuche
+  nach eigenen Objekt-/Variablen-IDs, PLZ/Adressen oder Vertragsnamen geprüft: keine weiteren
+  Funde.
 
 - **Formular: „👋 Wozu dieses Modul?"-Panel ergänzt (alle drei Module, 14.09.2026, Dietmars
   Auftrag via EMS — Formular-Konvention Punkt 0, Referenzimplementierung MeterHub).** Steht

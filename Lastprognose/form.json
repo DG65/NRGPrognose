@@ -338,7 +338,7 @@
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_Latitude",
-                    "caption": "Breitengrad (für Tageslänge)",
+                    "caption": "Breitengrad deines Standorts (für Tageslänge, Vorbelegung nur ein Platzhalter)",
                     "digits": 3,
                     "suffix": " °"
                 },

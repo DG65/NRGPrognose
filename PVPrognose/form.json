@@ -130,6 +130,10 @@
                     ]
                 },
                 {
+                    "type": "Label",
+                    "caption": "⚠️ Bitte auf die tatsächlichen Koordinaten deiner Anlage setzen (z. B. über einen Kartendienst nachschlagen) — der vorbelegte Wert ist nur ein Platzhalter irgendwo in Deutschland und liefert unverändert Wetterdaten vom falschen Ort, ohne dass das auffällt."
+                },
+                {
                     "type": "RowLayout",
                     "items": [
                         {
