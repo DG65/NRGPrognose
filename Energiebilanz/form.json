@@ -40,6 +40,10 @@
                 {
                     "type": "Label",
                     "caption": "IPSView/Popup: Die Kachel läuft auch als eigenständige Webseite unter http://<IPS-IP>:3777%%HOOK%% (Auto-Aktualisierung alle 30 s). In IPSView ein WebView-Element auf eine Popup-Seite legen und diese URL eintragen. Hinweis: WebHooks sind im lokalen Netz ohne Anmeldung erreichbar."
+                },
+                {
+                    "type": "Label",
+                    "caption": "Verhältnis zu NRG-Stack Dashboard: Diese Kachel funktioniert komplett eigenständig, keine weitere Installation nötig. NRGDashboard/NRGDashboardForecast ist eine zusätzliche, optionale Visualisierungsschicht, die u. a. diese Prognose als eine von mehreren Quellen konsumiert — kein Ersatz. Diese Instanz (bzw. PVPrognose/Lastprognose) sollte deshalb installiert bleiben, auch wenn NRGDashboard zusätzlich genutzt wird."
                 }
             ]
         },

@@ -6,6 +6,12 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Formular (Energiebilanz): Verhältnis zu NRG-Stack Dashboard erklärt (15.09.2026, mit
+  Dashboard abgestimmt — Beta-Tester somm war unsicher, ob die beiden Modulverwaltungs-Karten
+  sich überschneiden und ob er eines löschen kann).** Neuer Hinweis im Doku-Panel: Energiebilanz
+  funktioniert eigenständig, NRGDashboard/NRGDashboardForecast ist eine optionale, zusätzliche
+  Visualisierungsschicht obendrauf (konsumiert die Prognose nur als Quelle) — kein Ersatz, kein
+  Grund zum Deinstallieren. Dashboard ergänzt spiegelbildlich einen Hinweis im eigenen Formular.
 - **Fix (Energiebilanz): tote Objekt-Referenzen sammelten sich bei jedem `ApplyChanges()` an
   (15.09.2026, Fund Beta-Tester somm im Forum, Ursache von Dashboard code-verifiziert statt
   vermutet).** `RegisterReference()` lief für PV-/Last-Quelle (je 5 Tages-Variablen) und die
