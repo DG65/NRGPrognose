@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Energiebilanz): tote Objekt-Referenzen sammelten sich bei jedem `ApplyChanges()` an
+  (15.09.2026, Fund Beta-Tester somm im Forum, Ursache von Dashboard code-verifiziert statt
+  vermutet).** `RegisterReference()` lief für PV-/Last-Quelle (je 5 Tages-Variablen) und die
+  beiden Ist-Wert-Variablen (bis zu 12 Referenzen), ohne die vorherigen zuerst über
+  `UnregisterReference()` zu leeren — änderte sich die aufgelöste Quelle oder eine
+  Ist-Wert-Variable (Reload, „Übernehmen", geänderte Instanz, gelöschtes Testobjekt), blieben
+  die alten Referenzen für immer bestehen. Sichtbar wurde das über Community-Module wie
+  „IntegrityCheck" (demel42), die `IPS_GetReferenceList()` auswerten — keine Fehlfunktion der
+  Kachel selbst, aber ein echtes, wachsendes Datenleck. Jetzt: Referenzen werden vor dem
+  Neuaufbau vollständig geleert, analog zum bereits korrekten Message-Cleanup direkt darüber.
+  Live gegengeprüft (Dietmars Instanz: 12 Referenzen, alle gültig, keine Bereinigung nötig).
 - **Formular: „🧡 Über dieses Modul"-Panel ergänzt (alle drei Module, 14.09.2026, Dietmars
   Auftrag via EMS — Formular-Konvention Punkt 5, verbundweit identischer Wortlaut).** Ganz
   unten, nach dem Forum-Hinweis, bewusst NICHT dismissible (Lizenz ist kein einmaliger

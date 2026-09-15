@@ -297,6 +297,19 @@ class Energiebilanz extends IPSModule
             }
         }
 
+        // Referenzen vor dem Neuaufbau leeren — sonst sammeln sich bei jedem
+        // ApplyChanges() (Reload, "Übernehmen", geänderte Quelle) tote
+        // Referenzen an, sobald sich die aufgelöste PV-/Last-Instanz oder
+        // eine Ist-Wert-Variable ändert (Fund: Beta-Tester somm, 15.09.2026 —
+        // Dutzende "referenziertes Objekt existiert nicht"-Meldungen über
+        // IPS_GetReferenceList(), von Dashboard code-verifiziert als echte,
+        // nie bereinigte Referenzen dieser Instanz). Analog zum
+        // Message-Cleanup direkt darüber, das genau dieses Muster für
+        // VM_UPDATE-Abos schon richtig macht.
+        foreach (IPS_GetReferenceList($this->InstanceID) as $refID) {
+            $this->UnregisterReference($refID);
+        }
+
         $found = false;
         $pv = $this->ResolveSource(self::SOURCE_PV, 'PVSource');
         if ($pv > 0) {
