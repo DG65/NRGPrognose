@@ -18,7 +18,7 @@ Energieprognose-Suite mit drei Bausteinen, die dem EMS beide Seiten der Energieb
 
 ## Lastprognose — Verbrauchsprognose
 
-Erstellt aus deinen Archivdaten eine **1–3-Tage-Verbrauchsprognose** und liefert sie
+Erstellt aus deinen Archivdaten eine **1–5-Tage-Verbrauchsprognose** und liefert sie
 als JSON-Profil (60/30/15-min-Auflösung, P10/P50/P90) zur direkten Nutzung durch das EMS.
 
 ## Konzept
@@ -169,9 +169,20 @@ sondern Anlagengeometrie × Einstrahlungsvorhersage:
    manueller Korrekturfaktor je Generator.
 
 Ausgabe: Profil (P10/P50/P90 — bei Open-Meteo/Forecast.Solar als Linie, bei Solcast echtes Band) +
-kWh für heute/morgen/übermorgen. **Auflösung 60/30/15 min** wählbar (deckungsgleich zur Lastprognose;
+kWh für 1–5 Tage. **Auflösung 60/30/15 min** wählbar (deckungsgleich zur Lastprognose;
 die Wetterquellen liefern stündlich, feinere Stufen werden interpoliert). EMS-Zugriff:
 `PVF_GetForecast($id, $offset)`.
+
+**Prognosegüte & Tagesgang-Korrektur.** Beide Prognosemodule speichern täglich einen
+Day-Ahead-Snapshot und vergleichen ihn mit der gemessenen Erzeugung/dem gemessenen Verbrauch —
+Sondereffekte (externe Regeleingriffe wie §14a, bei EMS-Kopplung) und erkannte Archivstörungen
+(gehaltene Messwerte nach einer Datenlücke) werden dabei automatisch ausgeschlossen. Bei PVF wird
+die daraus abgeleitete Residuen-Korrektur je Tagesabschnitt getrennt ermittelt (Sonnenaufgang bis
+-untergang in 8 Abschnitte geteilt, statt einem Faktor für den ganzen Tag) — morgens und abends
+liegt eine Prognose oft anders daneben als mittags. `PVF_GetAccuracy($id)` liefert die
+Prognosegüte strukturiert (Bias/Fehlerquote/Tagesanzahl, je Tagesabschnitt) für externe
+Auswertungen; `PVF_GetIntradaySnapshot($id, 'Y-m-d', '06:00'|'10:00')` liefert zusätzliche
+untertägige Prognosestände.
 
 ## Energiebilanz — kombinierte Kachel
 
@@ -195,11 +206,13 @@ Konfigurierbar: kWh je Tag (2 Nachkommastellen), Diagrammhöhe, Linienstärke, K
 Unsicherheitsband (ein/aus + Transparenz), Gitter/Achsen, Y-Achse manuell, Farben, Schriftart und
 Schriftgröße; Standard ist theme-konform.
 
-> **Charting-Library:** Die Kachel rendert mit **Highcharts**, das per CDN (`code.highcharts.com`)
-> geladen wird — es ist **nicht** Teil dieses Repos. Highcharts ist für **private,
-> nicht-kommerzielle** Nutzung kostenlos; für kommerzielle Nutzung ist eine Highcharts-Lizenz nötig
-> (siehe [highcharts.com/license](https://www.highcharts.com/license)). Im WebFront muss der Browser
-> das CDN erreichen können.
+> **Charting-Library:** Standardmäßig rendert die Kachel mit **ECharts** (Apache-2.0, auch
+> kommerziell kostenlos). Wahlweise lässt sich auf **Highcharts** umschalten, das per CDN
+> (`code.highcharts.com`) geladen wird — es ist **nicht** Teil dieses Repos. Highcharts ist für
+> **private, nicht-kommerzielle** Nutzung kostenlos; für kommerzielle Nutzung ist eine
+> Highcharts-Lizenz nötig (siehe [highcharts.com/license](https://www.highcharts.com/license)).
+> Beide Libraries werden per CDN geladen — im WebFront muss der Browser das jeweilige CDN
+> erreichen können.
 
 ## Verwandte Projekte
 
