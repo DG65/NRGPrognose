@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Aufräumen: veraltete Modul-Aliase entfernt (16.09.2026, Fund Beta-Tester Ghostraider).**
+  Im Dialog „Instanz hinzufügen" tauchten pro Modul bis zu 4 Namen gleichzeitig auf
+  (z. B. bei Lastprognose: „Last-Prognose", „Verbrauchsprognose", „Lastprognose",
+  „NRG-Stack Lastprognose") — Reste aus früheren Namens-Iterationen (siehe
+  Korrektur-Historie in CLAUDE.md), die die Auswahl unnötig unübersichtlich machten. Alle
+  drei `module.json` jetzt auf je zwei Namen reduziert: den kanonischen Modulnamen
+  (`Lastprognose`/`PVPrognose`/`Energiebilanz`, unverändert seit der Rename-Rückabwicklung)
+  und den `NRG-Stack ...`-Alias für die Suche nach dem Verbundnamen. Rein kosmetisch — GUID,
+  Prefix, Idents, Verträge und bestehende Instanzen unberührt.
 - **Fix (Energiebilanz): Neuanlage der Instanz konnte mit „Konnte Instanz nicht erstellen"
   fehlschlagen (16.09.2026, Fund Beta-Tester Ghostraider).** Regression aus dem
   Referenz-Cleanup vom Vortag (siehe Eintrag unten): Während `IPS_CreateInstance()` die neue
