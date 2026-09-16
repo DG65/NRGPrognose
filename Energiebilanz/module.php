@@ -306,8 +306,16 @@ class Energiebilanz extends IPSModule
         // nie bereinigte Referenzen dieser Instanz). Analog zum
         // Message-Cleanup direkt darüber, das genau dieses Muster für
         // VM_UPDATE-Abos schon richtig macht.
-        foreach (IPS_GetReferenceList($this->InstanceID) as $refID) {
-            $this->UnregisterReference($refID);
+        // IPS_GetReferenceList() liefert während der Instanz-ERSTELLUNG false
+        // statt eines Arrays (Instanz ist durch IPS_CreateInstance() selbst
+        // noch belegt, re-entranter Aufruf abgelehnt) — Fund: Beta-Tester
+        // Ghostraider, 16.09.2026, "Konnte Instanz nicht erstellen". Ohne den
+        // is_array()-Schutz bricht foreach() daran die komplette Neuanlage ab.
+        $existingRefs = IPS_GetReferenceList($this->InstanceID);
+        if (is_array($existingRefs)) {
+            foreach ($existingRefs as $refID) {
+                $this->UnregisterReference($refID);
+            }
         }
 
         $found = false;

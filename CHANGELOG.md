@@ -6,6 +6,17 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Energiebilanz): Neuanlage der Instanz konnte mit „Konnte Instanz nicht erstellen"
+  fehlschlagen (16.09.2026, Fund Beta-Tester Ghostraider).** Regression aus dem
+  Referenz-Cleanup vom Vortag (siehe Eintrag unten): Während `IPS_CreateInstance()` die neue
+  Instanz noch anlegt, ist sie durch diese „selbst gestartete Operation" belegt — ein
+  `IPS_GetReferenceList()`-Aufruf in genau diesem Moment liefert dann `false` statt eines
+  Arrays, und `foreach(false)` brach die komplette Erstellung ab (PHP-Warnung, Code -32603).
+  Jetzt mit `is_array()`-Schutz: Ist die Rückgabe kein Array (Instanz noch in Erstellung, keine
+  Referenzen zum Aufräumen vorhanden), wird die Schleife einfach übersprungen statt zu crashen.
+  Wer die Instanz wegen dieses Fehlers mehrfach neu anzulegen versucht hat, findet im
+  Objektbaum vermutlich mehrere unvollständige Energiebilanz-Instanzen — die bis auf die
+  zuletzt erfolgreich erstellte können gelöscht werden.
 - **Formular (Energiebilanz): Verhältnis zu NRG-Stack Dashboard erklärt (15.09.2026, mit
   Dashboard abgestimmt — Beta-Tester somm war unsicher, ob die beiden Modulverwaltungs-Karten
   sich überschneiden und ob er eines löschen kann).** Neuer Hinweis im Doku-Panel: Energiebilanz
