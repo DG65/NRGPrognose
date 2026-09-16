@@ -6,6 +6,18 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Lastprognose, PVPrognose): seltene Warnung „Aggregation von Datensatz aus der
+  Zukunft fehlgeschlagen" abgemildert (16.09.2026, Fund Beta-Tester somm, „kommt immer
+  mal wieder").** Recherche im Symcon-Forum bestätigt: bekanntes, ungelöstes
+  Symcon-Core-Verhalten — eine minimale Systemuhr-Korrektur (z. B. NTP-Sprung knapp
+  nach einem Sekundenwechsel) kann einen archivierten Zeitstempel für einen winzigen
+  Moment als „in der Zukunft" erscheinen lassen, auch wenn unsere eigene
+  `clampEnd()`-Absicherung die Abfrage-Endzeit korrekt auf `time()` begrenzt hatte —
+  keine offizielle Symcon-Lösung dokumentiert. `clampEnd()` in beiden Modulen jetzt mit
+  2 Sekunden Sicherheitsabstand (`time() - 2` statt `time()`) statt exakt an der
+  Sekundengrenze zu fahren — macht die Warnung seltener, kann sie aber (wie im
+  Symcon-Forum bestätigt) nicht vollständig ausschließen, da die Ursache im
+  Archiv-Kern liegt, nicht in unserem Code.
 - **Aufräumen: veraltete Modul-Aliase entfernt (16.09.2026, Fund Beta-Tester Ghostraider).**
   Im Dialog „Instanz hinzufügen" tauchten pro Modul bis zu 4 Namen gleichzeitig auf
   (z. B. bei Lastprognose: „Last-Prognose", „Verbrauchsprognose", „Lastprognose",

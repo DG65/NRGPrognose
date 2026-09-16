@@ -1669,10 +1669,20 @@ class PVPrognose extends IPSModule
         return $this->loggedCache[$vid];
     }
 
-    /** Endzeit nie in die Zukunft (verhindert "Aggregation aus der Zukunft"). */
+    /**
+     * Endzeit nie in die Zukunft (verhindert "Aggregation aus der Zukunft").
+     * 2 Sekunden Sicherheitsabstand statt exakt time(): bekannte, seltene
+     * Symcon-Archiv-Falle bei minimaler Systemuhr-Korrektur (NTP-Sprung
+     * knapp nach einem Sekundenwechsel) — ohne Puffer reicht schon 1
+     * Sekunde Jitter, um "Aggregation von Datensatz aus der Zukunft
+     * fehlgeschlagen" auszulösen (Fund: Beta-Tester somm, 16.09.2026 bei
+     * Lastprognose, analog übernommen — bestätigtes, ungelöstes
+     * Symcon-Core-Verhalten, keine offizielle Lösung dokumentiert — wir
+     * können es nur seltener machen, nicht ausschließen).
+     */
     private function clampEnd(int $end): int
     {
-        return min($end, time());
+        return min($end, time() - 2);
     }
 
     /**
