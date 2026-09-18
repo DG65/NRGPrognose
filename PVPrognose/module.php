@@ -37,7 +37,7 @@ define('PVF_SRC_SOLCAST',       2);
 // Minor-Bump 1.1→1.2 (12.09.2026, additiv): neue Funktion GetIntradaySnapshot()
 // ergänzt GetSnapshot() um untertägige Prognosestände. GetForecast()/
 // GetSnapshot() selbst unverändert, kein Major-Bruch.
-define('PVF_CONTRACT_FORECAST',   '1.2'); // GetForecast / GetSnapshot / GetIntradaySnapshot
+define('PVF_CONTRACT_FORECAST',   '1.3'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated)
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 // Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
@@ -182,6 +182,8 @@ class PVPrognose extends IPSModule
         $this->RegisterPropertyInteger('PVF_ResidualMode', 0);
 
         $this->RegisterTimer('PVF_RebuildTimer', 0, 'PVF_Rebuild($_IPS[\'TARGET\']);');
+        // Tageswechsel: gespeicherte Tage um Mitternacht verschieben (siehe RollDay()).
+        $this->RegisterTimer('PVF_DayRollTimer', 0, 'PVF_RollDay($_IPS[\'TARGET\']);');
 
         // Solcast-API-Schlüssel: das Formularfeld (Property, PasswordTextBox)
         // dient nur der Eingabe. Der wirksame Wert liegt in einem Attribut
@@ -364,10 +366,60 @@ class PVPrognose extends IPSModule
 
         if ($active) {
             $this->SetTimerInterval('PVF_RebuildTimer', $hours * 3600 * 1000);
+            $this->SetTimerInterval('PVF_DayRollTimer', $this->msToNextMidnight());
             $this->SetStatus(102);
         } else {
             $this->SetTimerInterval('PVF_RebuildTimer', 0);
+            $this->SetTimerInterval('PVF_DayRollTimer', 0);
             $this->SetStatus(104);
+        }
+    }
+
+    /** Millisekunden bis 10 s nach der nächsten lokalen Mitternacht. */
+    private function msToNextMidnight(): int
+    {
+        return max(1000, (strtotime('tomorrow') - time() + 10) * 1000);
+    }
+
+    /**
+     * Tageswechsel: schiebt die gespeicherten Tage weiter (Prognose von gestern-
+     * "morgen" wird "heute" usw.), OHNE die Wetter-API zu brauchen. Fund (EMS,
+     * 19.09.2026): Bei Netzausfall um Mitternacht blieb in PVF_Today die Kurve von
+     * gestern stehen — jeder, der die Variablen direkt liest (Energiebilanz, andere
+     * Module), zeigte sie als "heute", obwohl die richtige Prognose in
+     * PVF_Tomorrow lag. Läuft als Timer kurz nach Mitternacht und stellt sich
+     * selbst für den nächsten Tag neu.
+     */
+    public function RollDay()
+    {
+        try {
+            $this->rotateForecastCache();
+        } finally {
+            $this->SetTimerInterval('PVF_DayRollTimer', $this->ReadPropertyBoolean('PVF_Active') ? $this->msToNextMidnight() : 0);
+        }
+    }
+
+    /**
+     * Ordnet die fünf gespeicherten Tagesprognosen nach ihrem 'date' wieder den
+     * Offsets zu. Ein Offset ohne passende Quelle bekommt eine ehrliche
+     * Leer-Prognose (generated=0) statt einer falschen Kurve mit altem Datum.
+     */
+    private function rotateForecastCache()
+    {
+        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+        $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter', 'PVF_kWhDay3', 'PVF_kWhDay4'];
+        $byDate = [];
+        foreach ($idents as $ident) {
+            $c = json_decode((string)$this->GetValue($ident), true);
+            if (is_array($c) && isset($c['date']) && ($c['generated'] ?? 1) !== 0) { $byDate[$c['date']] = $c; }
+        }
+        foreach ($idents as $o => $ident) {
+            $want = date('Y-m-d', strtotime('today +' . $o . ' days'));
+            $cur  = json_decode((string)$this->GetValue($ident), true);
+            if (is_array($cur) && ($cur['date'] ?? null) === $want) { continue; }
+            $fc = $byDate[$want] ?? $this->emptyForecast(strtotime('today +' . $o . ' days'));
+            $this->SetValue($ident, json_encode($fc));
+            $this->SetValue($kwhIds[$o], round((float)($fc['kwh'] ?? 0), 2));
         }
     }
 
@@ -415,6 +467,7 @@ class PVPrognose extends IPSModule
             $this->modelCache = $model;
             if ($model === null) {
                 $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?) — zuletzt gültige Prognose bleibt erhalten.';
+                $this->rotateForecastCache(); // Tageswechsel trotzdem nachziehen (siehe RollDay())
                 $this->SetValue('PVF_Status', $msg);
                 $this->SetStatus(104);
                 return $msg;
@@ -512,11 +565,14 @@ class PVPrognose extends IPSModule
         // Datum, jeder Aufruf löste einen Live-Abruf aus (bei Netzausfall im
         // Sekundentakt Timeouts) und lieferte Null- oder Teilwerte, obwohl die
         // richtige Prognose längst gespeichert war.
-        foreach ($idents as $ident) {
+        foreach ($idents as $i => $ident) {
             $cached = json_decode((string)$this->GetValue($ident), true);
-            if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
-                return $cached;
-            }
+            if (!is_array($cached) || ($cached['date'] ?? null) !== $wantDate) { continue; }
+            if (($cached['generated'] ?? 1) === 0) { continue; } // Leer-Platzhalter, keine echten Daten
+            // Treffer in einem anderen Speicher als dem des Offsets = Tageswechsel
+            // noch nicht verschoben → jetzt nachholen, damit auch direkte Leser stimmen.
+            if (isset($idents[$offset]) && $i !== $offset) { $this->rotateForecastCache(); }
+            return $cached;
         }
         return $this->computeForecast($offset);
     }
@@ -566,6 +622,7 @@ class PVPrognose extends IPSModule
             'mean'       => array_map(function ($x) { return round($x, 1); }, $p50),
             'kwh'        => round($kwh, 2),
             'neighbors'  => 0,
+            'generated'  => time(),
         ];
     }
 
@@ -1904,6 +1961,7 @@ class PVPrognose extends IPSModule
             'unit'       => 'W',
             'p10' => $zeros, 'p50' => $zeros, 'p90' => $zeros, 'mean' => $zeros,
             'kwh' => 0.0, 'neighbors' => 0,
+            'generated' => 0,
         ];
     }
 

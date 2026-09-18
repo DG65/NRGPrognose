@@ -23,7 +23,7 @@ define('LFC_ARCHIVE_GUID', '{43192F0B-135B-4CE7-A0A7-1475603F3060}');
 // Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
 // Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
 // (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
-define('LFC_CONTRACT_FORECAST', '1.1'); // GetForecast / GetSnapshot
+define('LFC_CONTRACT_FORECAST', '1.2'); // GetForecast / GetSnapshot (1.2: +generated)
 define('LFC_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 
 // Horizont: gültige Offsets für GetForecast() sind 0..LFC_MAX_OFFSET (0=heute).
@@ -213,6 +213,8 @@ class Lastprognose extends IPSModule
         $this->RegisterPropertyInteger('LFC_ResidualMode', 0);
 
         $this->RegisterTimer('LFC_RebuildTimer', 0, 'LFC_Rebuild($_IPS[\'TARGET\']);');
+        // Tageswechsel: gespeicherte Tage um Mitternacht verschieben (siehe RollDay()).
+        $this->RegisterTimer('LFC_DayRollTimer', 0, 'LFC_RollDay($_IPS[\'TARGET\']);');
     }
 
     public function Destroy()
@@ -360,12 +362,60 @@ class Lastprognose extends IPSModule
 
         if ($active) {
             $this->SetTimerInterval('LFC_RebuildTimer', $hours * 3600 * 1000);
+            $this->SetTimerInterval('LFC_DayRollTimer', $this->msToNextMidnight());
             $this->SetStatus(102);
             $this->log(LFC_LOG_BASIC, 'Aktiv, Neuberechnung alle ' . $hours . ' h');
         } else {
             $this->SetTimerInterval('LFC_RebuildTimer', 0);
+            $this->SetTimerInterval('LFC_DayRollTimer', 0);
             $this->SetStatus(104);
             $this->log(LFC_LOG_BASIC, 'Deaktiviert');
+        }
+    }
+
+    /** Millisekunden bis 10 s nach der nächsten lokalen Mitternacht. */
+    private function msToNextMidnight(): int
+    {
+        return max(1000, (strtotime('tomorrow') - time() + 10) * 1000);
+    }
+
+    /**
+     * Tageswechsel: schiebt die gespeicherten Tage weiter (gestern-"morgen" wird
+     * "heute" usw.), ohne bis zum nächsten Rebuild zu warten. Sonst zeigt jeder,
+     * der LFC_Today direkt liest (Energiebilanz u. a.), bis dahin die Kurve von
+     * gestern als "heute" (Fund bei PVPrognose, EMS 19.09.2026 — gleiche
+     * Cache-Struktur). Läuft als Timer kurz nach Mitternacht, stellt sich selbst neu.
+     */
+    public function RollDay()
+    {
+        try {
+            $this->rotateForecastCache();
+        } finally {
+            $this->SetTimerInterval('LFC_DayRollTimer', $this->ReadPropertyBoolean('LFC_Active') ? $this->msToNextMidnight() : 0);
+        }
+    }
+
+    /**
+     * Ordnet die fünf gespeicherten Tagesprognosen nach ihrem 'date' wieder den
+     * Offsets zu. Ein Offset ohne passende Quelle bekommt eine ehrliche
+     * Leer-Prognose (generated=0) statt einer falschen Kurve mit altem Datum.
+     */
+    private function rotateForecastCache()
+    {
+        $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
+        $kwhIds = ['LFC_kWhToday', 'LFC_kWhTomorrow', 'LFC_kWhDayAfter', 'LFC_kWhDay3', 'LFC_kWhDay4'];
+        $byDate = [];
+        foreach ($idents as $ident) {
+            $c = json_decode((string)$this->GetValue($ident), true);
+            if (is_array($c) && isset($c['date']) && ($c['generated'] ?? 1) !== 0) { $byDate[$c['date']] = $c; }
+        }
+        foreach ($idents as $o => $ident) {
+            $want = date('Y-m-d', strtotime('today +' . $o . ' days'));
+            $cur  = json_decode((string)$this->GetValue($ident), true);
+            if (is_array($cur) && ($cur['date'] ?? null) === $want) { continue; }
+            $fc = $byDate[$want] ?? $this->emptyForecast(strtotime('today +' . $o . ' days'));
+            $this->SetValue($ident, json_encode($fc));
+            $this->SetValue($kwhIds[$o], round((float)($fc['kwh'] ?? 0), 2));
         }
     }
 
@@ -472,11 +522,14 @@ class Lastprognose extends IPSModule
         // der gestrige "morgen"-Stand heute der "heute"-Stand (steht in LFC_Tomorrow).
         // Sonst wird bis zum nächsten Rebuild jeder Aufruf teuer neu berechnet
         // (Fund bei PVPrognose, EMS 19.09.2026 — gleiche Cache-Struktur hier).
-        foreach ($idents as $ident) {
+        foreach ($idents as $i => $ident) {
             $cached = json_decode((string)$this->GetValue($ident), true);
-            if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
-                return $cached;
-            }
+            if (!is_array($cached) || ($cached['date'] ?? null) !== $wantDate) { continue; }
+            if (($cached['generated'] ?? 1) === 0) { continue; } // Leer-Platzhalter aus rotateForecastCache()
+            // Treffer in anderem Speicher als dem des Offsets = Tageswechsel noch
+            // nicht verschoben → nachholen, damit auch direkte Leser stimmen.
+            if (isset($idents[$offset]) && $i !== $offset) { $this->rotateForecastCache(); }
+            return $cached;
         }
         return $this->computeForecast($offset);
     }
@@ -504,7 +557,7 @@ class Lastprognose extends IPSModule
         }
 
         if (count($cands) === 0) {
-            return $this->emptyForecast($targetTs);
+            return $this->emptyForecast($targetTs, time()); // echtes Ergebnis "kein Nachbar", kein Platzhalter
         }
 
         // k nächste Nachbarn auswählen.
@@ -557,6 +610,7 @@ class Lastprognose extends IPSModule
             'mean'      => array_map(function ($x) { return round($x, 1); }, $mean),
             'kwh'       => round($kwh, 2),
             'neighbors' => count($neighbors),
+            'generated' => time(),
         ];
     }
 
@@ -1793,7 +1847,8 @@ class Lastprognose extends IPSModule
         return end($pairs)['v'];
     }
 
-    private function emptyForecast(int $ts)
+    /** $generated=0 = Platzhalter ohne echte Daten; ein echt berechnetes Ergebnis "kein Nachbar" bekommt time(). */
+    private function emptyForecast(int $ts, int $generated = 0)
     {
         $slots = $this->slots();
         $zeros = array_fill(0, $slots, 0.0);
@@ -1805,6 +1860,7 @@ class Lastprognose extends IPSModule
             'unit'      => 'W',
             'p10' => $zeros, 'p50' => $zeros, 'p90' => $zeros, 'mean' => $zeros,
             'kwh' => 0.0, 'neighbors' => 0,
+            'generated' => $generated,
         ];
     }
 

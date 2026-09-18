@@ -6,6 +6,21 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix + Vertrag (PVPrognose, Lastprognose): Tageswechsel verschiebt jetzt die gespeicherten
+  Tage selbst, Vertrag um `generated` ergänzt (19.09.2026, Nachtrag EMS-Sitzung).**
+  Build 112 ließ `GetForecast()` nach Mitternacht das richtige Datum finden — wer die
+  Variablen `PVF_Today`/`LFC_Today` aber DIREKT liest (Energiebilanz, andere Module), sah bei
+  ausgefallenem Abruf bis zum nächsten erfolgreichen Rebuild weiter die Kurve von gestern als
+  „heute". Neu: ein Timer verschiebt die fünf Tage 10 s nach jeder lokalen Mitternacht anhand
+  ihres `date` (`RollDay()`, funktioniert ohne Wetter-API), `GetForecast()` holt es bei einem
+  versetzten Treffer nach, und der Rebuild-Fehlerpfad tut es ebenfalls. Ein Offset ohne
+  passende Quelle (der letzte Tag) bekommt eine ehrliche Leer-Prognose (`generated` = 0)
+  statt einer falschen Kurve mit altem Datum.
+  **Vertrag additiv:** Jede Tagesprognose trägt jetzt zusätzlich `generated` (Unix-Zeitstempel
+  der Berechnung, `0` = Platzhalter ohne echte Daten) — daran erkennen Konsumenten das Alter.
+  `date` (`Y-m-d`) gab es schon. `PVF_CONTRACT_FORECAST` 1.2 → 1.3, `LFC_CONTRACT_FORECAST`
+  1.1 → 1.2 (Minor, rückwärtskompatibel; Konsumenten, die `generated` nicht kennen, ignorieren
+  das Feld).
 - **Fix (PVPrognose, Lastprognose): zu niedrige PV-Prognose bei wackligem Netz + Cache
   nach Mitternacht (19.09.2026, Fund EMS-Sitzung an Dietmars Heimanlage: Spitze 1,2 statt
   6,6 kW bei klarem Himmel).** Drei zusammenwirkende Ursachen, live an der Anlage

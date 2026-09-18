@@ -92,6 +92,11 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
 
 - `PVF_CONTRACT_FORECAST` (`GetForecast`, `GetSnapshot`) und `LFC_CONTRACT_FORECAST` (`GetForecast`,
   `GetSnapshot`) — Prognoseprofil.
+  Jede Tagesprognose trägt `date` (`Y-m-d`, der Kalendertag, für den sie gilt) und seit
+  PVF 1.3 / LFC 1.2 `generated` (Unix-Zeit der Berechnung, `0` = Platzhalter ohne echte Daten).
+  Konsumenten sollten `date` gegen heute prüfen; `GetForecast($offset)` liefert nach Mitternacht
+  den Stand des richtigen Kalendertags (Cache wird nach Datum durchsucht und um Mitternacht
+  verschoben, auch ohne Wetter-API).
 - `PVF_CONTRACT_GENERATORS` (`GetGenerators`) — Generatorparameter.
 - `GetModuleArea` liefert ein Skalar (float) und kann kein Feld tragen — Version dort über
   `GetGenerators`. `GetModuleAreas` liefert eine flache Liste (unverändert, additive Feld-Ergänzung
