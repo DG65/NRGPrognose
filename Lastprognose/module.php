@@ -466,10 +466,14 @@ class Lastprognose extends IPSModule
      */
     public function GetForecast(int $offset)
     {
-        $idents = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
-        if (isset($idents[$offset])) {
-            $cached = json_decode($this->GetValue($idents[$offset]), true);
-            $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+        $idents   = ['LFC_Today', 'LFC_Tomorrow', 'LFC_DayAfter', 'LFC_Day3', 'LFC_Day4'];
+        $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+        // Nach DATUM suchen, nicht nur im Ident des Offsets: Nach Mitternacht ist
+        // der gestrige "morgen"-Stand heute der "heute"-Stand (steht in LFC_Tomorrow).
+        // Sonst wird bis zum nächsten Rebuild jeder Aufruf teuer neu berechnet
+        // (Fund bei PVPrognose, EMS 19.09.2026 — gleiche Cache-Struktur hier).
+        foreach ($idents as $ident) {
+            $cached = json_decode((string)$this->GetValue($ident), true);
             if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
                 return $cached;
             }

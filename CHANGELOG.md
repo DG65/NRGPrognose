@@ -6,6 +6,36 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose, Lastprognose): zu niedrige PV-Prognose bei wackligem Netz + Cache
+  nach Mitternacht (19.09.2026, Fund EMS-Sitzung an Dietmars Heimanlage: Spitze 1,2 statt
+  6,6 kW bei klarem Himmel).** Drei zusammenwirkende Ursachen, live an der Anlage
+  nachvollzogen (Open-Meteo meldete für den Tag ~820 W/m², also klar — das Wetter war nicht
+  schuld):
+  1. `buildModel()` summierte still nur die Generatoren, deren Abruf gerade klappte. Bei
+     Timeouts gegen Open-Meteo (jeder Generator ist ein eigener Abruf) blieb z. B. nur der
+     kleine Generator (2,04 von 9,18 kWp = Faktor 0,22) übrig — gleiche Kurvenform, ein
+     Fünftel der Leistung. Jetzt **alles oder nichts**: Schlägt ein Abruf fehl, wird das
+     Modell verworfen und die zuletzt gültige, gespeicherte Prognose bleibt bestehen
+     (Solcast-Generatoren ohne Resource-ID zählen weiter als „nicht konfiguriert", nicht
+     als Ausfall).
+  2. `GetForecast()` suchte den Cache nur im Ident des Offsets. Nach Mitternacht steht die
+     „heute"-Prognose aber in `PVF_Tomorrow` (Datum passt nicht zu `PVF_Today`) — jeder
+     Aufruf löste stattdessen einen Live-Abruf aus (bei Netzausfall im Sekundentakt
+     10-s-Timeouts) und lieferte Null-/Teilwerte, obwohl die richtige Prognose gespeichert
+     war. Jetzt wird nach **Datum** über alle fünf Speicher gesucht. Gleiche Änderung in
+     Lastprognose (dort ohne Netzwerk, aber sonst teure Neuberechnung pro Aufruf).
+  3. Nach fehlgeschlagenem Modellaufbau jetzt 2 Minuten Abruf-Pause (neues Attribut
+     `PVF_ModelFailUntil`), damit externe Aufrufer (Dashboard, EMS) die Wetter-API nicht
+     im Sekundentakt anrennen.
+  Zusätzlich behoben: `Rebuild()` lud den Modellaufbau bisher **zweimal** (das erste Ergebnis
+  wurde verworfen) — halbiert die Abrufe, relevant für das Tageslimit bei Forecast.Solar.
+  Und `GetEnergyWindow()` meldete `coverage` 0, sobald die Prognose aus dem Cache kam
+  (`modelCache` blieb dann leer); „echte Daten" wird jetzt an der Prognose selbst
+  festgemacht (Tages-kWh > 0).
+  Offen, nicht behoben: Warnungen „Ungültige Aggregation hour … Erwartet 11:00, Gefunden
+  11:35:54" (18.09.) aus `measuredKwh()` — das ist eine beschädigte Stunden-Aggregation im
+  Archiv der drei PowerVars (Kern-Meldung), nicht unser Code; bei Bedarf dort neu
+  aggregieren.
 - **Fix (Lastprognose, PVPrognose): seltene Warnung „Aggregation von Datensatz aus der
   Zukunft fehlgeschlagen" abgemildert (16.09.2026, Fund Beta-Tester somm, „kommt immer
   mal wieder").** Recherche im Symcon-Forum bestätigt: bekanntes, ungelöstes

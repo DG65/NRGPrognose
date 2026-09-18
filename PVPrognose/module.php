@@ -202,6 +202,10 @@ class PVPrognose extends IPSModule
         // { rid: {ts, byDate} }, Abkühlphase als Unix-Zeitstempel.
         $this->RegisterAttributeString('PVF_SolcastCache', '');
         $this->RegisterAttributeInteger('PVF_SolcastCooldownUntil', 0);
+
+        // Abruf-Pause nach fehlgeschlagenem Modellaufbau (alle Quellen): Bis dahin
+        // löst GetForecast() keinen weiteren Live-Abruf aus (siehe computeForecast()).
+        $this->RegisterAttributeInteger('PVF_ModelFailUntil', 0);
     }
 
     public function Destroy()
@@ -404,8 +408,13 @@ class PVPrognose extends IPSModule
         try {
             $this->modelCache = null;
             $model = $this->buildModel();
+            $this->WriteAttributeInteger('PVF_ModelFailUntil', $model === null ? time() + 120 : 0);
+            // Bisher blieb modelCache hier null, computeForecast() lud danach beim
+            // ersten Offset alles ein ZWEITES Mal von der Wetter-API (doppelte Abrufe,
+            // bei Forecast.Solar ratenbegrenzt) — jetzt wird der Aufbau wiederverwendet.
+            $this->modelCache = $model;
             if ($model === null) {
-                $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?).';
+                $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?) — zuletzt gültige Prognose bleibt erhalten.';
                 $this->SetValue('PVF_Status', $msg);
                 $this->SetStatus(104);
                 return $msg;
@@ -494,10 +503,17 @@ class PVPrognose extends IPSModule
      */
     public function GetForecast(int $offset)
     {
-        $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
-        if (isset($idents[$offset])) {
-            $cached = json_decode($this->GetValue($idents[$offset]), true);
-            $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+        $idents   = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
+        $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
+        // Nach DATUM suchen, nicht nur im Ident des Offsets: Nach Mitternacht (und
+        // nach jedem fehlgeschlagenen Rebuild) ist die Prognose von gestern-"morgen"
+        // heute der "heute"-Stand — sie steht dann in PVF_Tomorrow, nicht in
+        // PVF_Today. Fund (EMS, 19.09.2026): Der Offset-Treffer scheiterte am
+        // Datum, jeder Aufruf löste einen Live-Abruf aus (bei Netzausfall im
+        // Sekundentakt Timeouts) und lieferte Null- oder Teilwerte, obwohl die
+        // richtige Prognose längst gespeichert war.
+        foreach ($idents as $ident) {
+            $cached = json_decode((string)$this->GetValue($ident), true);
             if (is_array($cached) && ($cached['date'] ?? null) === $wantDate) {
                 return $cached;
             }
@@ -508,8 +524,11 @@ class PVPrognose extends IPSModule
     /** Die eigentliche, teure Modellberechnung — siehe GetForecast() für den Cache davor. */
     private function computeForecast(int $offset)
     {
-        if ($this->modelCache === null) {
+        if ($this->modelCache === null && time() >= $this->ReadAttributeInteger('PVF_ModelFailUntil')) {
             $this->modelCache = $this->buildModel();
+            // Bei Fehlschlag 2 Minuten Pause: sonst lädt jeder externe Aufruf
+            // (Dashboard, EMS, …) erneut und blockiert bei Netzausfall je 10 s.
+            $this->WriteAttributeInteger('PVF_ModelFailUntil', $this->modelCache === null ? time() + 120 : 0);
         }
         $targetTs = strtotime('today +' . $offset . ' days');
         if ($this->modelCache === null || !isset($this->modelCache[$offset])) {
@@ -624,9 +643,12 @@ class PVPrognose extends IPSModule
         for ($offset = 0; $offset <= PVF_MAX_OFFSET; $offset++) {
             $dayStart = strtotime('today +' . $offset . ' days');
             $fc = $this->GetForecast($offset);
-            // buildModel() deckt alle Tage in einem Rutsch ab; modelCache
-            // bleibt null, wenn die Quelle (API/Netzwerk) fehlschlug.
-            $realData = ($this->modelCache !== null);
+            // "Echte Daten" an der Prognose selbst festmachen: emptyForecast() (Quelle
+            // fehlgeschlagen, kein Cache-Treffer) liefert exakt 0 kWh, jede reale
+            // Tagesprognose > 0. Früher stand hier ($this->modelCache !== null) — das
+            // ist aber auch bei gültigem Cache-Treffer null (es wurde ja nichts neu
+            // gebaut) und meldete dann fälschlich coverage 0.
+            $realData = (($fc['kwh'] ?? 0) > 0);
             $mean = $fc['mean'] ?? null;
             if (!is_array($mean)) { continue; }
 
@@ -1149,6 +1171,7 @@ class PVPrognose extends IPSModule
         }
 
         $gotAny = false;
+        $failed = 0;
         foreach ($gens as $g) {
             switch ($src) {
                 case PVF_SRC_FORECASTSOLAR: $perDay = $this->fetchForecastSolar($g); break;
@@ -1156,7 +1179,12 @@ class PVPrognose extends IPSModule
                 case PVF_SRC_OPENMETEO:
                 default:                    $perDay = $this->fetchOpenMeteo($g);     break;
             }
-            if ($perDay === null) { continue; }
+            if ($perDay === null) {
+                // Solcast ohne API-Schlüssel/Resource-ID = nicht konfiguriert, kein Ausfall.
+                $unconfigured = ($src === PVF_SRC_SOLCAST && (trim($g['solcast']) === '' || $this->solcastKey() === ''));
+                if (!$unconfigured) { $failed++; }
+                continue;
+            }
 
             $factor = $this->generatorFactor($g, $src);
             for ($o = 0; $o <= PVF_MAX_OFFSET; $o++) {
@@ -1169,6 +1197,20 @@ class PVPrognose extends IPSModule
                 }
             }
             $gotAny = true;
+        }
+
+        // Alles oder nichts: Klappt der Abruf nur für einen Teil der Generatoren
+        // (typisch bei wackligem Netz — jeder Generator ist ein eigener Abruf),
+        // wäre die Summe stillschweigend zu niedrig, bei 3 Generatoren z. B. nur
+        // ein Fünftel der Anlage (Fund: EMS, 19.09.2026, Spitze 1,2 statt 6,6 kW
+        // bei klarem Himmel). Lieber verwerfen — Rebuild()/GetForecast() greifen
+        // dann auf die zuletzt gültige, gespeicherte Prognose zurück.
+        if ($failed > 0) {
+            $this->log(PVF_LOG_BASIC, sprintf(
+                'Vorhersage verworfen: Abruf für %d von %d Generatoren fehlgeschlagen — eine Teilsumme wäre stillschweigend zu niedrig',
+                $failed, count($gens)
+            ));
+            return null;
         }
 
         return $gotAny ? $model : null;
