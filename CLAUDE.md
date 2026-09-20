@@ -58,7 +58,8 @@ Idents waren durchgehend unangetastet.
 - **Prüfstände (lokal, `tools/pruefstand/`):** Vor Änderungen an Zeitraster, Tagesgrenzen,
   Wetter-Zeitstempeln oder `GetEnergyWindow` `sommerzeit.php` (PV, echte Kurven beider Umstellungen)
   und `lastprognose_sommerzeit.php` (Lastprognose Ende-zu-Ende mit gestelltem Archiv) laufen lassen;
-  vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`. Alle
+  vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`; vor Änderungen an
+  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`. Alle
   ohne IP-Symcon, müssen „ALLES GRÜN“ melden. Liegt lokal in `tools/` (per
   `.gitignore` bewusst nicht im Repo); Fixtures trotzdem nur mit generischen Koordinaten.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:

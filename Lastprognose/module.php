@@ -71,6 +71,8 @@ class Lastprognose extends IPSModule
 {
     // Request-lokaler Cache der Prognosetemperaturen [0=>heute,1=>morgen,2=>übermorgen]
     private $fcTempCache = null;
+    /** Erkannte Wallboxen (Opt-in), request-lokal — Erkennung läuft höchstens einmal je Ausführung. */
+    private $wallboxCache = null;
     // Request-lokaler Cache der automatisch erkannten Einheiten je Variable
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
@@ -97,11 +99,12 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.20 (Build 100)';
+    private const NEWS_VERSION = '0.20 (Build 122)';
     private const NEWS_ITEMS = [
-        'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage statt bisher 2).',
-        'Laufende Plausibilitätskontrolle ergänzt — erkennt unplausible Prognosen automatisch.',
-        'Prognosegüte-Auswertung deutlich robuster: Sondereffekte (z. B. §14a-Eingriffe, sofern ein EMS installiert ist) werden jetzt zuverlässig erkannt und ausgeschlossen statt die Auswertung stillschweigend zu verfälschen.',
+        '🔌 Neu, optional: Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) können jetzt automatisch von der Hauslast abgezogen werden — Schalter unter „Datenquellen (Archiv)", Standard aus. Jede Wallbox wird nur einmal abgezogen, auch wenn sie über beide Hubs erreichbar ist; was erkannt wurde, steht in der Status-Zeile. Bereits von Hand eingetragene Wallboxen dann aus der Liste entfernen.',
+        'Die Warnung „ohne neuen Messwert" zählt jetzt ab der letzten Aktualisierung statt ab der letzten Wertänderung — eine regelmäßig gemeldete, aber dauerhaft konstante Leistung (z. B. ungenutzte Wallbox mit 0 W) löst sie nicht mehr fälschlich aus.',
+        'Zeitumstellung (25.10. / 28.03.): Historische Umstellungstage fließen bei 15/30 Minuten Auflösung jetzt nach Wanduhr in die Prognose ein statt um bis zu eine halbe Stunde verschoben; die Prognose selbst hat wie immer 96 Wanduhr-Slots.',
+        'Am Tageswechsel werden die gespeicherten Tage um Mitternacht weitergeschoben, sodass auch direkte Leser der Prognose-Variablen nicht mehr die Kurve von gestern als „heute" sehen.',
     ];
 
     // ----------------------------------------------------------------
@@ -127,6 +130,10 @@ class Lastprognose extends IPSModule
         $this->RegisterPropertyInteger('LFC_PowerUnit',      2);
         // Optional abzuziehende Verbraucher (WP, Wallbox …) als Liste.
         $this->RegisterPropertyString('ExcludeVars',         '[]');
+        // Opt-in: Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) über deren Vertrag erkennen und
+        // ihre Ladeleistung von der Hauslast abziehen (zusätzlich zur manuellen Liste). Standard AUS:
+        // Ob die Verbrauchsvariable die Ladeleistung enthält, weiß nur der Nutzer.
+        $this->RegisterPropertyBoolean('LFC_AutoWallboxes',  false);
         // Außentemperatur (Historie, °C).
         $this->RegisterPropertyInteger('VAR_TempHistory',    0);
         // Anwesenheit (bool/0..1), Historie.
@@ -484,6 +491,7 @@ class Lastprognose extends IPSModule
             if (count($stale) > 0) {
                 $status .= ' | ⚠️ ' . implode(' · ', $stale);
             }
+            $status .= $this->wallboxNotices();
             $this->SetValue('LFC_Status', $status);
             $this->SetStatus(102);
             $this->log(LFC_LOG_BASIC, 'Neuberechnung abgeschlossen');
@@ -1051,19 +1059,127 @@ class Lastprognose extends IPSModule
         $main = $this->dayProfile($this->ReadPropertyInteger('VAR_Consumption'), $ts);
         if ($main === null) { return null; }
 
-        $excludes = json_decode((string)$this->ReadPropertyString('ExcludeVars'), true);
-        if (is_array($excludes)) {
-            foreach ($excludes as $row) {
-                $vid = isset($row['VariableID']) ? (int)$row['VariableID'] : 0;
-                if ($vid <= 0) { continue; }
-                $sub = $this->dayProfile($vid, $ts);
-                if ($sub === null) { continue; }
-                for ($s = 0; $s < $slots; $s++) {
-                    $main[$s] = max(0.0, $main[$s] - $sub[$s]);
-                }
+        foreach ($this->excludeVarIds() as $vid) {
+            $sub = $this->dayProfile($vid, $ts);
+            if ($sub === null) { continue; }
+            for ($s = 0; $s < $slots; $s++) {
+                $main[$s] = max(0.0, $main[$s] - $sub[$s]);
             }
         }
         return $main;
+    }
+
+    /**
+     * Alle abzuziehenden Leistungsvariablen: die manuelle Liste (unverändert, Reihenfolge und
+     * Mehrfacheinträge wie eingetragen) plus — nur mit dem Opt-in-Schalter — die automatisch erkannten
+     * Wallboxen der NRG-Stack-Hubs, sofern ihre Variable nicht schon in der manuellen Liste steht.
+     */
+    private function excludeVarIds(): array
+    {
+        $ids = [];
+        foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
+            $vid = (int)($row['VariableID'] ?? 0);
+            if ($vid > 0) { $ids[] = $vid; }
+        }
+        foreach ($this->detectedWallboxes()['use'] as $wb) {
+            if (!in_array($wb['powerID'], $ids, true)) { $ids[] = $wb['powerID']; }
+        }
+        return $ids;
+    }
+
+    /**
+     * Wallboxen aus den Verträgen der NRG-Stack-Hubs (CHUB_GetFunctions, OHUB_GetFunctions; hinter
+     * function_exists — ohne die Hubs bleibt alles wie bisher). Nur mit Opt-in-Schalter.
+     * Dieselbe physische Wallbox erscheint bei Nutzung beider Hubs zweimal (gleiche deviceSerial,
+     * duplicateOf ist verbundweit bewusst null): je deviceSerial wird GENAU EINE Variable gewählt, sonst
+     * würde doppelt abgezogen. Wahl unter den gemessenen, archivierten Kandidaten: erst der aktive Weg
+     * (active=false zuletzt), dann die zuletzt aktualisierte Variable. Ohne deviceSerial gilt jede
+     * Hub-Instanz/Bezeichnung als eigene Box.
+     * Rückgabe: use = [{label, hub, powerID, ageDays}], skipped = [{label, reason}].
+     */
+    private function detectedWallboxes(): array
+    {
+        if ($this->wallboxCache !== null) { return $this->wallboxCache; }
+        $out = ['use' => [], 'skipped' => []];
+        if (!$this->ReadPropertyBoolean('LFC_AutoWallboxes')) { return $this->wallboxCache = $out; }
+
+        $aid = $this->getArchiveID();
+        $groups = [];
+        foreach ($this->hubChargers() as $f) {
+            $pid    = (int)($f['powerID'] ?? 0);
+            $serial = trim((string)($f['deviceSerial'] ?? ''));
+            $label  = trim((string)($f['label'] ?? '')) !== '' ? trim((string)$f['label']) : ($serial !== '' ? 'Wallbox ' . $serial : 'Wallbox');
+            $key    = ($serial !== '') ? 'sn:' . $serial : 'hub:' . $f['_hub'] . ':' . ($f['_instance'] ?? 0) . ':' . $label;
+            $exists = ($pid > 0 && IPS_VariableExists($pid));
+            $c = [
+                'label' => $label, 'hub' => $f['_hub'], 'powerID' => $pid, 'exists' => $exists,
+                'measured' => !empty($f['measured']), 'logged' => ($exists && $aid > 0 && $this->isLogged($aid, $pid)),
+                'active' => array_key_exists('active', $f) ? ($f['active'] === false ? 0 : 2) : 1, // false=0 < unbekannt=1 < true=2
+                'ageDays' => null,
+            ];
+            if ($exists) {
+                $v = IPS_GetVariable($pid);
+                $c['ageDays'] = (time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged'])) / 86400;
+            }
+            $groups[$key][] = $c;
+        }
+        foreach ($groups as $cands) {
+            $ok = array_values(array_filter($cands, function ($c) { return $c['exists'] && $c['measured'] && $c['logged']; }));
+            if (count($ok) === 0) {
+                $c = $cands[0];
+                $reason = !$c['exists'] ? 'Ladeleistung fehlt' : (!$c['measured'] ? 'Leistung nicht gemessen' : 'Ladeleistung nicht archiviert');
+                $out['skipped'][] = ['label' => $c['label'], 'reason' => $reason];
+                continue;
+            }
+            usort($ok, function ($a, $b) {
+                if ($a['active'] !== $b['active']) { return $b['active'] <=> $a['active']; }
+                return ($a['ageDays'] ?? 1e9) <=> ($b['ageDays'] ?? 1e9);
+            });
+            $out['use'][] = ['label' => $ok[0]['label'], 'hub' => $ok[0]['hub'], 'powerID' => $ok[0]['powerID'], 'ageDays' => $ok[0]['ageDays']];
+        }
+        return $this->wallboxCache = $out;
+    }
+
+    /**
+     * Alle Wallboxen der Hub-Verträge, ein Eintrag je Gerät mit '_hub' und '_instance' ergänzt.
+     * protected = Testnaht des Prüfstands. Ohne Hubs (Funktion fehlt) leer, kein Fehler.
+     */
+    protected function hubChargers(): array
+    {
+        $out = [];
+        foreach (['CHUB' => 'ChargerHub', 'OHUB' => 'OCPPHub'] as $prefix => $hub) {
+            $fn = $prefix . '_GetFunctions';
+            if (!function_exists($fn)) { continue; }
+            foreach (IPS_GetInstanceList() as $iid) {
+                $m = IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);
+                if (($m['Prefix'] ?? '') !== $prefix) { continue; }
+                $funcs = @$fn($iid);
+                if (!is_array($funcs)) { continue; }
+                foreach ($funcs as $f) {
+                    if (is_array($f) && ($f['function'] ?? '') === 'charger') { $f['_hub'] = $hub; $f['_instance'] = $iid; $out[] = $f; }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /** Status-Zeile zur automatischen Wallbox-Erkennung (leer ohne Opt-in). */
+    private function wallboxNotices(): string
+    {
+        if (!$this->ReadPropertyBoolean('LFC_AutoWallboxes')) { return ''; }
+        $w = $this->detectedWallboxes();
+        $out = '';
+        if (count($w['use']) > 0) {
+            $out .= ' | 🔌 Wallboxen automatisch abgezogen: ' . implode(', ', array_map(function ($x) { return $x['label'] . ' (' . $x['hub'] . ')'; }, $w['use']));
+            $stale = array_filter($w['use'], function ($x) { return ($x['ageDays'] ?? 0) > 7; });
+            foreach ($stale as $x) { $out .= sprintf(' | ⚠️ %s: seit %.1f Tagen ohne Aktualisierung', $x['label'], $x['ageDays']); }
+            $manual = array_filter((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true), function ($r) { return (int)($r['VariableID'] ?? 0) > 0; });
+            if (count($manual) > 0) { $out .= ' | ℹ️ Manuelle Abzugsliste zusätzlich aktiv — enthält sie dieselben Wallboxen, werden sie doppelt abgezogen'; }
+        } else {
+            $out .= ' | ℹ️ Automatische Wallbox-Erkennung: keine Wallbox mit archivierter Ladeleistung gefunden';
+        }
+        foreach ($w['skipped'] as $x) { $out .= sprintf(' | ⚠️ %s (%s) — ignoriert', $x['label'], $x['reason']); }
+        return $out;
     }
 
     /**

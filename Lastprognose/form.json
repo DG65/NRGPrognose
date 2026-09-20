@@ -150,6 +150,15 @@
                     ]
                 },
                 {
+                    "type": "CheckBox",
+                    "name": "LFC_AutoWallboxes",
+                    "caption": "🆕 Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) automatisch abziehen"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Erkennt die Wallboxen über die Hubs und zieht ihre archivierte Ladeleistung von der Hauslast ab (jede Wallbox nur einmal, auch wenn sie über beide Hubs erreichbar ist). Nur einschalten, wenn deine Hausverbrauch-Variable die Ladeleistung enthält. Wallboxen, die du oben schon von Hand eingetragen hast, dann aus der Liste entfernen — sonst wird doppelt abgezogen. Was erkannt wurde, steht in der Status-Zeile."
+                },
+                {
                     "type": "Label",
                     "caption": "── Einflussgrößen (Historie) ────────────────────────"
                 },

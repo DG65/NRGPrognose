@@ -6,6 +6,22 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Lastprognose): Wallboxen der NRG-Stack-Hubs automatisch abziehen, Opt-in (20.09.2026,
+  Anregung EMS-Sitzung zur toten Wallbox-Variable in der Abzugsliste, Freigabe Dietmar).** Neuer Schalter
+  `LFC_AutoWallboxes` (Standard **AUS**) unter „Datenquellen (Archiv)": Erkennt die Wallboxen über
+  `CHUB_GetFunctions`/`OHUB_GetFunctions` (hinter `function_exists`, ohne die Hubs unverändert) und
+  zieht ihre archivierte Ladeleistung zusätzlich zur manuellen Liste ab. Nur `measured` und
+  archivierte Variablen. **Dedupe über `deviceSerial`:** dieselbe physische Wallbox erscheint bei Nutzung
+  beider Hubs zweimal (`duplicateOf` ist verbundweit bewusst null), je Seriennummer wird genau EINE
+  Variable gewählt (aktiver Weg vor inaktivem, dann die zuletzt aktualisierte; nicht archivierte fallen
+  weg); ohne Seriennummer gilt jede Hub-Instanz/Bezeichnung als eigene Box. Variablen, die schon in der
+  manuellen Liste stehen, werden nicht doppelt abgezogen; andere Variablen derselben Box (z. B. ein
+  dritter Weg über die go-e-API) kann LFC nicht erkennen — deshalb Opt-in und Hinweis in Formular und
+  Status-Zeile. Status-Zeile: `🔌 Wallboxen automatisch abgezogen: WB 1 (ChargerHub), WB2 (OCPPHub)`,
+  ignorierte Boxen mit Grund, Wallboxen ohne Aktualisierung seit über 7 Tagen (bleiben aber abgezogen,
+  sonst flackerte die Historie), Hinweis bei zusätzlich aktiver manueller Liste. Kein Vertrag geändert.
+  Prüfstand `tools/pruefstand/wallboxen.php` (lokal, 20 Prüfungen, inkl. Wirkung auf das Lastprofil).
+  „Neu in Version"-Banner der Lastprognose (0.20, Build 122).
 - **Fix (Lastprognose, PVPrognose): Warnung „ohne neuen Messwert" nach letzter Aktualisierung
   (20.09.2026, Befund EMS-Sitzung zur Abzugsliste).** Die Plausibilitätsprüfung maß das Alter an
   `VariableChanged` (letzte Wert-ÄNDERUNG). Zwei Folgen: (1) Eine regulär gemeldete Leistung, die
