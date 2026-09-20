@@ -60,6 +60,8 @@ class PVPrognose extends IPSModule
     private $modelCache = null;
     /** Rohe (unkorrigierte) p50 je Offset aus computeForecast() — nur für saveSnapshot() im selben Rebuild. */
     private $lastRawP50 = [];
+    /** Ersatzwerte, die im aktuellen Rebuild benutzt wurden (Kalibrierfaktor aus dem Cache) — für die Status-Zeile. */
+    private $calibNotes = [];
     // Request-lokaler Cache der automatisch erkannten Einheiten je Variable
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
@@ -112,7 +114,7 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 117)';
+    private const NEWS_VERSION = '0.20 (Build 118)';
     private const NEWS_ITEMS = [
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
         '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
@@ -481,6 +483,7 @@ class PVPrognose extends IPSModule
 
         try {
             $this->modelCache = null;
+            $this->calibNotes = [];
             $model = $this->buildModel();
             $this->WriteAttributeInteger('PVF_ModelFailUntil', $model === null ? time() + 120 : 0);
             // Bisher blieb modelCache hier null, computeForecast() lud danach beim
@@ -495,6 +498,13 @@ class PVPrognose extends IPSModule
                 return $msg;
             }
 
+            // Prognosegüte/Residuen VOR den Prognosen lernen: evaluateAccuracy() liest nur abgeschlossene
+            // Vortage (d >= 1), hängt also nicht von den heutigen Prognosen ab. Bisher lief es danach, ein
+            // frisch berechnetes Übergangsband (bzw. die neuen Residuen) wirkte dadurch erst ab dem ZWEITEN
+            // Rebuild nach dem Update, also ca. 6 h später.
+            try { $this->evaluateAccuracy(); }
+            catch (\Throwable $e) { $this->log(PVF_LOG_BASIC, 'Prognosegüte-Auswertung fehlgeschlagen: ' . $e->getMessage()); }
+
             $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
             $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter', 'PVF_kWhDay3', 'PVF_kWhDay4'];
             $fcs = [];
@@ -506,7 +516,6 @@ class PVPrognose extends IPSModule
             }
             $this->saveSnapshot($fcs);
             $this->saveIntradaySnapshot($fcs);
-            $this->evaluateAccuracy();
 
             $this->SetValue('PVF_LastUpdate', time());
             $status = sprintf(
@@ -521,6 +530,7 @@ class PVPrognose extends IPSModule
             if (count($stale) > 0) {
                 $status .= ' | ⚠️ ' . implode(' · ', $stale);
             }
+            $status .= $this->statusNotices();
             $this->SetValue('PVF_Status', $status);
             $this->SetStatus(102);
             $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
@@ -1326,13 +1336,15 @@ class PVPrognose extends IPSModule
             $q10 = (float)$q10; $q50 = (float)$q50; $q90 = (float)$q90;
 
             if ($mode === 1) {
-                $lo = $q10 / $q50; $hi = $q90 / $q50;
+                $lo = min(1.0, $q10 / $q50); $hi = max(1.0, $q90 / $q50);
                 $nP10[$i] = $v * $lo; $nP90[$i] = $v * $hi;
                 continue;
             }
-            $nP10[$i] = $v * $q10;
             $nP50[$i] = $v * $q50;
-            $nP90[$i] = $v * $q90;
+            // q50 ist auf 0,5..2,0 begrenzt, q10/q90 auf 0,3..3,0 — ohne Nachziehen könnte P10 über p50
+            // (oder P90 darunter) liegen; Reihenfolge P10 <= p50 <= P90 ist Vertragsannahme der Konsumenten.
+            $nP10[$i] = min($v * $q10, $nP50[$i]);
+            $nP90[$i] = max($v * $q90, $nP50[$i]);
         }
         return [$nP10, $nP50, $nP90];
     }
@@ -1366,8 +1378,10 @@ class PVPrognose extends IPSModule
             $b  = $this->residualBucket($this->daylightFraction($i, $dStart, $dEnd));
             $lo = $band['lo'][$b] ?? null; $hi = $band['hi'][$b] ?? null;
             if ($lo === null || $hi === null) { continue; }
-            $nP10[$i] = $v * (float)$lo;
-            $nP90[$i] = $v * (float)$hi;
+            // Quellen mit eigenem Band (Solcast: echtes P10/P90) behalten es.
+            if ($p10[$i] != $v || $p90[$i] != $v) { continue; }
+            $nP10[$i] = $v * min(1.0, (float)$lo);   // Reihenfolge P10 <= p50 <= P90 garantiert
+            $nP90[$i] = $v * max(1.0, (float)$hi);
         }
         return [$nP10, $p50, $nP90];
     }
@@ -1612,6 +1626,26 @@ class PVPrognose extends IPSModule
     }
 
     /**
+     * Hinweise für die Status-Zeile: Ersatzwerte im aktuellen Rebuild (Kalibrierfaktor aus dem Cache) und
+     * die Lernphase (Übergangsband aktiv). Leer, wenn alles normal ist.
+     */
+    private function statusNotices(): string
+    {
+        $out = '';
+        if (count($this->calibNotes) > 0) {
+            $names = array_map(function ($n) { return $n['name']; }, $this->calibNotes);
+            $oldest = min(array_map(function ($n) { return $n['ts']; }, $this->calibNotes));
+            $out .= sprintf(' | ⚠️ Kalibrierung nicht abrufbar — Ersatzwert (letzter Faktor vom %s) für %s',
+                date('d.m. H:i', $oldest), implode(', ', $names));
+        }
+        if (!$this->residualsUsable(json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true))
+            && is_array(json_decode((string)$this->ReadAttributeString('PVF_TransitionBand'), true))) {
+            $out .= ' | ℹ️ Korrektur lernt neu — Unsicherheitsband aus den Tagen davor';
+        }
+        return $out;
+    }
+
+    /**
      * Fällt die Kalibrier-Abfrage aus (Timeout gegen die Wetter-API, zu wenig Daten), wird bisher still
      * Faktor 1,0 genommen — das Rohmodell sprang dadurch je nach Netz zwischen kalibriert und
      * unkalibriert (Fund 20.09.2026: ein Timeout bei der 21-Tage-Reihe im Rebuild). Jetzt: letzter guter
@@ -1629,8 +1663,10 @@ class PVPrognose extends IPSModule
             return $fresh;
         }
         if (isset($cache[$key]['f'], $cache[$key]['ts']) && (time() - (int)$cache[$key]['ts']) <= 3 * 86400) {
+            $name = $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']);
             $this->log(PVF_LOG_BASIC, sprintf('Kalibrierung für %s nicht verfügbar — letzter Faktor %.3f vom %s wird weiterverwendet',
-                $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']), (float)$cache[$key]['f'], date('d.m. H:i', (int)$cache[$key]['ts'])));
+                $name, (float)$cache[$key]['f'], date('d.m. H:i', (int)$cache[$key]['ts'])));
+            $this->calibNotes[] = ['name' => $name, 'ts' => (int)$cache[$key]['ts']];
             return (float)$cache[$key]['f'];
         }
         return null;
@@ -1640,7 +1676,8 @@ class PVPrognose extends IPSModule
     //  Quelle: Open-Meteo (geneigte Einstrahlung → Leistung)
     // ----------------------------------------------------------------
 
-    private function fetchOpenMeteo(array $g, int $pastDays = 0)
+    // protected = Testnaht des Prüfstands (Abruf-Ausfälle simulieren), sonst unverändert
+    protected function fetchOpenMeteo(array $g, int $pastDays = 0)
     {
         $lat = $this->ReadPropertyFloat('PVF_Latitude');
         $lon = $this->ReadPropertyFloat('PVF_Longitude');
@@ -1709,7 +1746,8 @@ class PVPrognose extends IPSModule
      * letzten Tage (aus echter, vergangener Einstrahlung). Liefert das
      * mittlere Verhältnis gemessen/modelliert (geklammert), sonst null.
      */
-    private function calibrate(array $g)
+    // protected = Testnaht des Prüfstands (Kalibrier-Ausfall simulieren), sonst unverändert
+    protected function calibrate(array $g)
     {
         $days = max(7, $this->ReadPropertyInteger('PVF_CalibDays'));
         // Open-Meteo mit past_days liefert auch vergangene Einstrahlung.

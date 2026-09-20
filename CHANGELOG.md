@@ -23,6 +23,24 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Faktor je Generator (Attribut `PVF_CalibCache`, PowerVar → {f, ts}) bis 3 Tage alt, sonst wie
   bisher keine Kalibrierung; jede erfolgreiche Kalibrierung frischt den Cache auf. Kein Feld,
   kein Vertrag geändert. Prüfstand `lernschleife.php` um 14 Prüfungen erweitert.
+  **Nachbesserung Build 118 (Wunsch EMS-Sitzung):** (1) Ersatzwerte sind sichtbar: Log-Meldung
+  „Kalibrierung für X nicht verfügbar — letzter Faktor … vom … wird weiterverwendet“ und in der
+  Status-Zeile `⚠️ Kalibrierung nicht abrufbar — Ersatzwert (letzter Faktor vom …) für <Generatoren>`;
+  in der Lernphase `ℹ️ Korrektur lernt neu — Unsicherheitsband aus den Tagen davor`. (2) **Ablauf im
+  Rebuild:** `evaluateAccuracy()` läuft jetzt VOR den Prognosen (liest nur abgeschlossene Vortage),
+  vorher danach — ein frisch berechnetes Übergangsband bzw. neu gelernte Residuen wirkten dadurch
+  erst ab dem ZWEITEN Rebuild nach dem Update (ca. 6 h später), jetzt schon im ersten. (3)
+  **Reihenfolge P10 ≤ p50 ≤ P90 garantiert:** Der Pegel q50 ist auf 0,5…2,0 begrenzt, die Band-Ränder
+  q10/q90 auf 0,3…3,0 — dadurch konnte P10 über p50 (oder P90 darunter) landen; jetzt wird nachgezogen
+  (Normalpfad Modus 1 und 2 und Übergangsband). Quellen mit eigenem Band (Solcast) behalten es, das
+  Übergangsband überschreibt nur gleiche P10 = p50 = P90. (4) `fetchOpenMeteo()`/`calibrate()` sind
+  `protected` statt `private` (Testnähte des Prüfstands, keine Verhaltensänderung). Neuer Prüfstand
+  `tools/pruefstand/ausfall.php` (lokal): Timeout bei einem von drei Generatoren / bei allen (Prognose-
+  und Kalibrier-Abruf), Cache 2,9 vs. 3,1 Tage, Status-Zeile, Log.
+  **Wirkung nach dem Update:** Ein Modul-Update lädt die Instanz nur neu (die `ApplyChanges` startet den
+  Timer, löst aber keinen Rebuild aus) — die gespeicherten Prognosen bleiben bis zum nächsten
+  Rebuild (bis zu 6 h) unverändert. Danach einmal `PVF_Rebuild` (Formular-Button „Prognose jetzt neu
+  berechnen“) → Band und Kalibrier-Cache wirken sofort.
   **Klarstellung zum Befund selbst:** Die zu niedrigen Werte (6,58 kWh statt ca. 34) stammten
   aus einem Rebuild des ALTEN Codes um 15:17 (Teilsumme, `generated` fehlte), nicht aus
   Build 116; ein Rebuild mit Build 116 lieferte heute 33,7 kWh.
