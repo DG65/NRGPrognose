@@ -6,6 +6,19 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Lastprognose, PVPrognose): Warnung „ohne neuen Messwert" nach letzter Aktualisierung
+  (20.09.2026, Befund EMS-Sitzung zur Abzugsliste).** Die Plausibilitätsprüfung maß das Alter an
+  `VariableChanged` (letzte Wert-ÄNDERUNG). Zwei Folgen: (1) Eine regulär gemeldete Leistung, die
+  wochenlang konstant 0 W ist (ungenutzte Wallbox, Schnee auf den Modulen), galt als „seit Monaten ohne
+  Messwert" — z. B. die frische Hub-Ladeleistung von WB 1 (Updated jetzt, Changed 01.01.) hätte „seit
+  262 Tagen" gemeldet. (2) Bei einer wirklich toten Variable stand die letzte Änderung (64,2 Tage,
+  18.07.) statt der letzten Aktualisierung (50 Tage, 01.08.) in der Meldung. Jetzt zählt
+  `max(VariableUpdated, VariableChanged)`. Prüfstand `tools/pruefstand/veraltet.php` (lokal).
+  **Zum Befund selbst:** Die Abzugsliste der Lastprognose enthält bei Dietmar die tote Variable #36468
+  (WB 1, alter go-e-API-Zweig, letztes Update 01.08.2026 22:39). Das ist ein Konfigurationsmangel;
+  Prognosedaten hat er bisher nicht verfälscht, weil WB 1 laut Hub-Energiezähler (#16417, unverändert
+  27 437,7 kWh seit mindestens 28.07.) nicht geladen hat. Sobald WB 1 wieder lädt, würde die Ladeleistung
+  nicht abgezogen. Behebung: Variable durch die frische Hub-Ladeleistung ersetzen.
 - **Fix (Lastprognose): Umstellungstage in der Historie zeitlich korrekt (20.09.2026, Punkt (c) der
   Zeitumstellungs-Prüfung, durch den Ende-zu-Ende-Test für die EMS-Anfrage vom 25.10.2026 messbar
   geworden).** Bei 15/30 min wurden historische Umstellungstage in `integratedProfile()` im Raster

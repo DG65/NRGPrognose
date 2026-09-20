@@ -1403,7 +1403,13 @@ class Lastprognose extends IPSModule
         $warnings = [];
         $check = function (int $vid, string $label, int $staleSec) use (&$warnings) {
             if ($vid <= 0 || !IPS_VariableExists($vid)) { return; }
-            $age = time() - IPS_GetVariable($vid)['VariableChanged'];
+            // Letztes Lebenszeichen = letzte AKTUALISIERUNG, nicht letzte Wertänderung: eine Ladeleistung, die
+            // wochenlang regulär gemeldet 0 W ist (Wallbox ungenutzt), ändert ihren Wert nie und wäre sonst
+            // fälschlich "seit Monaten ohne Messwert" (Fund 20.09.2026: frische Hub-Variable mit
+            // VariableChanged = 01.01.). Umgekehrt zeigte die alte Angabe bei einer wirklich toten Variable
+            // die letzte Wertänderung (64 Tage) statt der letzten Aktualisierung (50 Tage).
+            $v   = IPS_GetVariable($vid);
+            $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
             if ($age > $staleSec) {
                 $warnings[] = sprintf('%s: seit %.1f Tagen ohne neuen Messwert', $label, $age / 86400);
             }

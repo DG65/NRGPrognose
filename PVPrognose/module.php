@@ -567,7 +567,10 @@ class PVPrognose extends IPSModule
         $staleSec = 48 * 3600;
         foreach ($this->pvGenerators() as $g) {
             if ($g['powervar'] <= 0 || !IPS_VariableExists($g['powervar'])) { continue; }
-            $age = time() - IPS_GetVariable($g['powervar'])['VariableChanged'];
+            // Letzte AKTUALISIERUNG statt letzter Wertänderung (siehe Lastprognose): eine regulär gemeldete
+            // Leistung, die 48 h konstant 0 W ist (z. B. Schnee auf den Modulen), ist nicht "ohne Messwert".
+            $v   = IPS_GetVariable($g['powervar']);
+            $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
             if ($age > $staleSec) {
                 $warnings[] = sprintf('%s: PowerVar seit %.1f Tagen ohne neuen Messwert', $g['name'], $age / 86400);
             }
