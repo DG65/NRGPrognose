@@ -6,6 +6,21 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (Lastprognose): Umstellungstage in der Historie zeitlich korrekt (20.09.2026, Punkt (c) der
+  Zeitumstellungs-Prüfung, durch den Ende-zu-Ende-Test für die EMS-Anfrage vom 25.10.2026 messbar
+  geworden).** Bei 15/30 min wurden historische Umstellungstage in `integratedProfile()` im Raster
+  „reale Taglänge / Slots“ statt nach Wanduhr abgebildet (Slot 38 = 09:25 statt 09:30, abends bis
+  35 min verschoben). Der Standard-Lookback von 365 Tagen enthält aktuell beide Umstellungstage
+  (26.10.2025, 25 h, und 29.03.2026, 23 h, beides Sonntage und saisonal nahe am Prognosetag), sie
+  landen als Nachbarn in der Sonntagsprognose. Gemessen mit gestelltem Archiv (Last nur von
+  Wanduhrzeit und Tagtyp abhängig): Prognose für den 25.10.2026 wich bis 43,9 W (ca. 4 % des Slots)
+  vom normalen Sonntag ab, für den 28.03.2027 bis 45,9 W und die Abendspitze lag einen Slot zu früh
+  (18:45 statt 19:00). Jetzt wird jeder Zeitpunkt über seine Wanduhrzeit dem Slot zugeordnet: die
+  doppelte Stunde im Oktober fließt gewichtet in dieselben Slots (Mittel), die fehlende im März bleibt
+  leer und wird wie im 60-min-Pfad vorwärts gefüllt. Abweichung danach 0,0 W (25-h-Tag) bzw. 0,9 W
+  (23-h-Tag), Spitze bei 19:00. Die 60-min-Auflösung war schon exakt. Kein Feld/Raster/Vertrag
+  geändert. Neuer Prüfstand `tools/pruefstand/lastprognose_sommerzeit.php` (lokal, Ende-zu-Ende über
+  `computeForecast`, Archiv gestellt) und ein PV-Ende-zu-Ende-Lauf in `sommerzeit.php`.
 - **Fix (PVPrognose): Plausibilitätsdeckel für die Prognose (20.09.2026, Fund EMS-Sitzung/Prognose
   beim Kontrollieren des Übergangsbands, Freigabe EMS/Dietmar).** Das relative Band (P90 = ca. 3 × p50)
   ergab mittags 16 602 W bei 9,18 kWp — physikalisch unmöglich. Jetzt wird jeder Slot von p10/p50/p90

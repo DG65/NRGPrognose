@@ -1141,11 +1141,15 @@ class Lastprognose extends IPSModule
      */
     private function integratedProfile(int $aid, int $varID, int $start, int $end, int $slots)
     {
-        // Reale Taglänge (DST-sicher), NICHT aus $end abgeleitet — $end kann
-        // für den heutigen (unvollständigen) Tag auf time() gekappt sein,
-        // die Slot-Breite muss aber unabhängig davon immer die volle
-        // Taglänge in $slots gleiche Stücke teilen.
-        $slotSec = ($this->dayEndExclusive($start) - $start) / $slots;
+        // Slots sind WANDUHR-Slots (Slot i = i-te Viertelstunde/Halbstunde nach Wanduhr), unabhängig
+        // von der realen Taglänge. Bis Build 119 wurde die reale Taglänge (25 h/23 h an Umstellungstagen)
+        // durch $slots geteilt: ein historischer Umstellungstag stand dann als Nachbar in einem
+        // "verstrichene Zeit"-Raster (Slot 38 = 09:25 statt 09:30, Abend um bis zu 35 min verschoben) und
+        // verfälschte die Prognose um bis zu ca. 6 % je Slot, am 28.03.2027 die Abendspitze um einen Slot
+        // (Fund: Prüfstand für EMS-Anfrage, 20.09.2026). Jetzt: jeder Zeitpunkt wird über seine Wanduhrzeit
+        // dem Slot zugeordnet. Die doppelte Stunde im Oktober fließt gewichtet in dieselben Slots (Mittel),
+        // die fehlende im März bleibt leer und wird von finishProfile() vorwärts gefüllt — wie im 60-min-Pfad.
+        $slotSec = 86400 / $slots;
 
         // Wert, der zu Tagesbeginn aktiv ist (letzter Wechsel davor).
         $carry = null;
@@ -1175,11 +1179,13 @@ class Lastprognose extends IPSModule
             $t0 = $points[$p]['t'];
             $t1 = ($p + 1 < $cnt) ? $points[$p + 1]['t'] : ($end + 1);
             while ($t0 < $t1) {
-                $slot    = (int)(($t0 - $start) / $slotSec);
+                $wall    = (int)date('G', $t0) * 3600 + (int)date('i', $t0) * 60 + (int)date('s', $t0); // Sekunden seit Wanduhr-Mitternacht
+                $slot    = (int)floor($wall / $slotSec);
                 if ($slot < 0 || $slot >= $slots) { break; }
-                $slotEnd = $start + ($slot + 1) * $slotSec;
-                $segEnd  = min($t1, $slotEnd);
+                // Slotgrenzen liegen an vollen Minuten; Umstellungen an vollen Stunden, also nie innerhalb eines Slots.
+                $segEnd  = min($t1, $t0 + (int)ceil(($slot + 1) * $slotSec - $wall));
                 $dur     = $segEnd - $t0;
+                if ($dur <= 0) { break; }
                 $sumW[$slot]   += $v * $dur;
                 $sumSec[$slot] += $dur;
                 $t0 = $segEnd;
