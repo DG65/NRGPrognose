@@ -42,7 +42,7 @@ define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 // Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
 // Prognosegüte-Kennzahlen statt der bisherigen reinen Textausgabe in PVF_Accuracy.
-define('PVF_CONTRACT_ACCURACY', '1.0'); // GetAccuracy
+define('PVF_CONTRACT_ACCURACY', '1.1'); // GetAccuracy (1.1: +curveShape/slotLevelDays/slotLevelLegacyDays)
 
 // Horizont: gültige Offsets für GetForecast() sind 0..PVF_MAX_OFFSET (0=heute).
 // Von der kostenlosen Open-Meteo-/Forecast.Solar-/Solcast-Anbindung her wären
@@ -79,6 +79,11 @@ class PVPrognose extends IPSModule
     // Achse verschiebt, auf der Tagesanteil-Achse aber stabil bleibt.
     private const PVF_RESIDUAL_BUCKETS = 8;
     private const PVF_RESIDUAL_MIN_PER_BUCKET = 20;
+    // Kurvenform der stündlich→feiner hochgerechneten Prognose: 1 = Stundenwert auf den
+    // Stundenbeginn gelegt (bis Build 114), 2 = Intervallmittel auf die Stundenmitte (ab Build 115,
+    // nur Open-Meteo). Snapshots und Residuen tragen die Kennung, damit Lernwerte aus einer
+    // anderen Kurvenform nicht auf die heutige angewendet werden.
+    private const PVF_CURVE_SHAPE_MEANS = 2;
 
     // Untertägige Zusatz-Snapshots (Day-Ahead-Snapshot in PVF_Snapshots
     // bleibt unberührt) — feste Tageszeiten, zu denen je Tag EINMAL der
@@ -98,12 +103,12 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 100)';
+    private const NEWS_VERSION = '0.20 (Build 115)';
     private const NEWS_ITEMS = [
-        'Solcast-Abfragen werden jetzt zwischengespeichert und bei erreichtem Tageslimit automatisch gedrosselt, statt bei Kontingent-Erschöpfung leer zu bleiben.',
-        'Prognosegüte-Auswertung deutlich robuster: externe Sondereffekte und Archivstörungen (z. B. gehaltene Messwerte nach einer Datenlücke) werden jetzt zuverlässig erkannt und ausgeschlossen statt die Auswertung stillschweigend zu verfälschen.',
-        '„Immer genauer werden"-Korrektur berücksichtigt jetzt den Tagesverlauf (Vormittag/Mittag/Nachmittag/Abend getrennt) statt eines einzigen Faktors für den ganzen Tag.',
-        'Neue Funktionen `PVF_GetAccuracy()` (strukturierte Prognosegüte) und `PVF_GetIntradaySnapshot()` (untertägige Prognosestände) für externe Auswertungen (z. B. EMS-Integration).',
+        '☀️ PV-Kurve zeitlich korrigiert (Quelle Open-Meteo): Die 15-/30-Minuten-Kurve lag bisher etwa 30 Minuten zu früh, weil der Stundenmittelwert auf den Stundenbeginn statt auf die Stundenmitte gelegt wurde. Die Werte verschieben sich dadurch um ca. 30 Minuten nach hinten (Morgen später, Abend später), die Tagesenergie bleibt gleich.',
+        'Die „Immer genauer werden"-Korrektur lernt deshalb neu: Sie ist für einige Tage ausgesetzt (Prognose ohne Tagesgang-Korrektur) und schaltet sich mit den neuen Tagen schrittweise wieder zu. Bias und Fehlerquote der Prognosegüte laufen unverändert durch.',
+        'Zeitumstellung (25.10. / 28.03.): Wetterzeiten werden jetzt eindeutig gelesen, Energiefenster für das EMS rechnen nach Wanduhr.',
+        'Robuster bei Netzausfall und am Tageswechsel: Fällt ein Wetter-Abruf teilweise aus, bleibt die letzte gültige Prognose erhalten (statt einer zu niedrigen Teilsumme), und die gespeicherten Tage werden um Mitternacht weitergeschoben.',
     ];
 
     // ----------------------------------------------------------------
@@ -601,9 +606,10 @@ class PVPrognose extends IPSModule
 
         // Stündliches Modell auf die gewählte Auflösung bringen (Interpolation).
         $slots = $this->slots();
-        $p10 = $this->resample($h10, $slots);
-        $p50 = $this->resample($h50, $slots);
-        $p90 = $this->resample($h90, $slots);
+        $means = $this->sourceIsIntervalMean();
+        $p10 = $this->resample($h10, $slots, $means);
+        $p50 = $this->resample($h50, $slots, $means);
+        $p90 = $this->resample($h90, $slots, $means);
 
         // Band (und optional Pegel) aus den gemessenen Prognosefehlern ableiten.
         list($p10, $p50, $p90) = $this->applyResiduals($p10, $p50, $p90);
@@ -643,20 +649,75 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Stündliche Werte (24, je Stundenmarke h:00) linear auf $slots Slots
-     * interpolieren. Bei 60 min unverändert; feiner = geglätteter Verlauf.
+     * Ob die stündlichen Modellwerte MITTELWERTE über das Intervall [h, h+1) sind
+     * (Open-Meteo: Einstrahlung = Mittel der Stunde, siehe omSlot) oder
+     * PUNKTWERTE auf der Stundenmarke (Forecast.Solar: Momentanleistung hh:00;
+     * Solcast: zwei Halbstunden-Mittel gruppiert um hh:00, also ebenfalls auf der
+     * Marke zentriert).
      */
-    private function resample(array $hourly, int $slots): array
+    private function sourceIsIntervalMean(): bool
+    {
+        $src = $this->ReadPropertyInteger('PVF_Source');
+        return $src !== PVF_SRC_FORECASTSOLAR && $src !== PVF_SRC_SOLCAST;
+    }
+
+    /** Kurvenform-Kennung der aktuell erzeugten Prognose (siehe PVF_CURVE_SHAPE_MEANS). */
+    private function curveShape(): int
+    {
+        return $this->sourceIsIntervalMean() ? self::PVF_CURVE_SHAPE_MEANS : 1;
+    }
+
+    /**
+     * Stündliche Werte (24) auf $slots Slots hochrechnen. Bei 60 min unverändert.
+     *
+     * $intervalMeans=false (Punktwerte auf der Stundenmarke h:00): lineare
+     * Interpolation zwischen den Marken, wie immer.
+     *
+     * $intervalMeans=true (Mittelwert über [h, h+1)): der Wert gehört zur
+     * Stundenmitte h+0,5 — bis Build 114 wurde er auf h:00 gelegt, die Kurve
+     * lief der Wahrheit dadurch ca. 30 min voraus (bis ca. 11 % Abweichung in
+     * Vormittagsfenstern, Fund EMS/Dietmar 20.09.2026). Jetzt: Interpolation
+     * zwischen den Stundenmitten und anschließend je Stunde auf den Stundenmittel-
+     * wert normiert, damit die Energie JEDER Stunde exakt erhalten bleibt und
+     * eine Stunde mit Mittel 0 (vor Sonnenaufgang/nach Sonnenuntergang) auch in
+     * allen ihren Slots 0 bleibt statt Leistung aus der Nachbarstunde zu erben.
+     */
+    private function resample(array $hourly, int $slots, bool $intervalMeans = false): array
     {
         if ($slots === 24) { return array_values($hourly); }
         $out = [];
         $step = 24.0 / $slots; // Stunden je Slot
+
+        if (!$intervalMeans) {
+            for ($s = 0; $s < $slots; $s++) {
+                $hf = $s * $step;          // Position in Stunden
+                $h0 = (int)floor($hf);
+                $h1 = min(23, $h0 + 1);
+                $f  = $hf - $h0;
+                $out[$s] = $hourly[$h0] * (1.0 - $f) + $hourly[$h1] * $f;
+            }
+            return $out;
+        }
+
+        $k = (int)round($slots / 24); // Slots je Stunde
         for ($s = 0; $s < $slots; $s++) {
-            $hf = $s * $step;          // Position in Stunden
-            $h0 = (int)floor($hf);
-            $h1 = min(23, $h0 + 1);
-            $f  = $hf - $h0;
-            $out[$s] = $hourly[$h0] * (1.0 - $f) + $hourly[$h1] * $f;
+            $p  = ($s + 0.5) * $step - 0.5;   // Slotmitte, gemessen ab der Mitte der Stunde 0
+            $h0 = (int)floor($p);
+            $f  = $p - $h0;
+            $a  = $hourly[max(0, min(23, $h0))];
+            $b  = $hourly[max(0, min(23, $h0 + 1))];
+            $out[$s] = $a * (1.0 - $f) + $b * $f;
+        }
+        for ($h = 0; $h < 24; $h++) {
+            $sum = 0.0;
+            for ($j = 0; $j < $k; $j++) { $sum += $out[$h * $k + $j]; }
+            $target = (float)$hourly[$h] * $k;   // Summe der Slotwerte = k × Stundenmittel
+            for ($j = 0; $j < $k; $j++) {
+                $i = $h * $k + $j;
+                if ($target <= 0.0)  { $out[$i] = 0.0; }
+                elseif ($sum > 0.0)  { $out[$i] *= $target / $sum; }
+                else                 { $out[$i] = (float)$hourly[$h]; }
+            }
         }
         return $out;
     }
@@ -878,6 +939,8 @@ class PVPrognose extends IPSModule
         }
 
         $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
+        // Faktoren aus einer anderen Kurvenform (Übergang Build 115) nicht melden.
+        if (is_array($res) && (int)($res['shape'] ?? 1) !== $this->curveShape()) { $res = null; }
         $buckets = self::PVF_RESIDUAL_BUCKETS;
         $byDaylightFraction = [];
         for ($b = 0; $b < $buckets; $b++) {
@@ -903,6 +966,14 @@ class PVPrognose extends IPSModule
             'mape'                 => $detail['mape'] ?? null,
             'updated'              => $detail['updated'] ?? 0,
             'byDaylightFraction'   => $byDaylightFraction,
+            // Übergangs-Marker (additiv, Vertrag 1.1): Kurvenform der aktuellen Prognose (2 = seit
+            // Build 115 Stundenmittel auf Stundenmitte; 1 = Stundenbeginn / Punktwert-Quellen), Tage,
+            // aus denen byDaylightFraction gelernt wurde, und Tage mit älterer Kurvenform, die dafür
+            // (nicht aber für bias/mape) ausgeschlossen sind. Solange slotLevelLegacyDays > 0 oder
+            // slotLevelDays < 14, ist byDaylightFraction noch im Einschwingen.
+            'curveShape'           => $this->curveShape(),
+            'slotLevelDays'        => $detail['slotLevelDays'] ?? 0,
+            'slotLevelLegacyDays'  => $detail['slotLevelLegacyDays'] ?? 0,
         ];
     }
 
@@ -931,6 +1002,7 @@ class PVPrognose extends IPSModule
         $rDays  = 0;
         $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
         $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
+        $legacyDays = 0; // Tage mit älterer Kurvenform: zählen für Bias/MAPE, nicht für Slot-Residuen
 
         $specialEvents = $this->fetchSpecialEvents(14);
 
@@ -957,6 +1029,12 @@ class PVPrognose extends IPSModule
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
             if ($prof === null) { continue; }
+            // Slot-Ebene (Residuen/byDaylightFraction) nur aus Snapshots mit der HEUTIGEN
+            // Kurvenform: Ältere Snapshots (Stundenwert auf Stundenbeginn) hätten eine um
+            // ca. 30 min versetzte Form, würden die Tagesgang-Faktoren verfälschen und
+            // bleiben deshalb bis zu 14 Tage nur für Bias/Fehlerquote (Tagesenergie, davon
+            // unberührt) zählend. Zähler wandert als Übergangs-Marker in GetAccuracy.
+            if ((int)($snaps[$date]['shape'] ?? 1) !== $this->curveShape()) { $legacyDays++; continue; }
             $maxS = max($sp);
             if ($maxS <= 0) { continue; }
             // Schwelle blendet Nacht/Dämmerung aus — dort ist Soll≈0 und das
@@ -995,6 +1073,7 @@ class PVPrognose extends IPSModule
             $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
                 'days' => 0, 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
                 'bias' => null, 'mape' => null, 'updated' => time(),
+                'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays,
             ]));
             return;
         }
@@ -1004,6 +1083,7 @@ class PVPrognose extends IPSModule
         $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
             'days' => count($errs), 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
             'bias' => round($bias, 2), 'mape' => round($mape, 2), 'updated' => time(),
+            'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays,
         ]));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
@@ -1094,7 +1174,7 @@ class PVPrognose extends IPSModule
         }
         $this->WriteAttributeString('PVF_Residuals', json_encode([
             'buckets' => self::PVF_RESIDUAL_BUCKETS, 'q10' => $q10, 'q50' => $q50, 'q90' => $q90, 'n' => $n,
-            'days' => $days, 'samples' => $total, 'updated' => time(),
+            'days' => $days, 'samples' => $total, 'updated' => time(), 'shape' => $this->curveShape(),
         ]));
     }
 
@@ -1129,6 +1209,12 @@ class PVPrognose extends IPSModule
 
         $r = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90']) || !is_array($r['q10'])) {
+            return [$p10, $p50, $p90];
+        }
+        // Residuen aus einer anderen Kurvenform (vor Build 115: Stundenwert auf Stundenbeginn)
+        // passen nicht zur heutigen Kurve — sofort ignorieren statt doppelt zu korrigieren;
+        // sie werden mit den neuen Tagen neu gelernt (evaluateAccuracy überschreibt sie).
+        if ((int)($r['shape'] ?? 1) !== $this->curveShape()) {
             return [$p10, $p50, $p90];
         }
         $q10arr = $r['q10']; $q50arr = $r['q50']; $q90arr = $r['q90'];
@@ -1181,6 +1267,7 @@ class PVPrognose extends IPSModule
                 'resolution' => $fc['resolution'],
                 'p50'        => $fc['p50'],
                 'kwh'        => $fc['kwh'],
+                'shape'      => $this->curveShape(),
             ];
         }
 
@@ -1220,6 +1307,7 @@ class PVPrognose extends IPSModule
                 'resolution' => $fc['resolution'],
                 'p50'        => $fc['p50'],
                 'kwh'        => $fc['kwh'],
+                'shape'      => $this->curveShape(),
             ];
             $changed = true;
         }

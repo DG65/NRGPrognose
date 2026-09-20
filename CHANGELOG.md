@@ -6,6 +6,34 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose): 15-/30-Minuten-PV-Kurve lag ca. 30 min zu früh (20.09.2026, Fund beim
+  Prüfstand zur Zeitumstellung, Freigabe Dietmar über EMS).** `resample()` legte den
+  Stunden-MITTELwert der Open-Meteo-Einstrahlung (Mittel über [h, h+1)) auf den Stunden-
+  BEGINN h:00 und interpolierte dazwischen — die Kurve lief der Wahrheit dadurch ca. 30 min
+  voraus (bis ca. 11 % Abweichung in Vormittagsfenstern) und erbte vor Sonnenaufgang Leistung
+  aus der Nachbarstunde. Jetzt (nur Open-Meteo): Interpolation zwischen den Stundenmitten,
+  danach je Stunde auf den Stundenmittelwert normiert — die Energie JEDER Stunde bleibt exakt
+  erhalten (Abweichung 1e-13 W), eine Stunde mit Mittel 0 bleibt in allen Slots 0.
+  Punktwert-Quellen bleiben unverändert (Forecast.Solar: Momentanleistung auf hh:00, 0 W zum
+  Sonnenaufgangs-Zeitstempel; Solcast: zwei Halbstundenmittel um hh:00 gruppiert, also auf der
+  Marke zentriert). 60 min unverändert. Prüfstand mit echten Kurven (beide Umstellungen,
+  96 und 48 Slots): Schwerpunkt der Tageskurve gegen die Wahrheit 0,1 min statt 22,5 min
+  (15 min) bzw. 15 min (30 min); Fenster 06-12 h Herbst 12,5 % → 0,0 %, Frühjahr 36,1 % →
+  0,0 %; Tagesenergie unverändert. Die Tageskurve verschiebt sich sichtbar um ca. 30 min nach
+  hinten (Morgen später, Abend später) — Hinweis im „Neu in Version"-Banner (0.20, Build 115).
+  **Übergang der Prognosegüte:** Bias/Fehlerquote hängen an der Tagesenergie und laufen
+  ohne Sprung durch. Die Tagesgang-Korrektur („Immer genauer werden") und
+  `byDaylightFraction` werden aus Slot-Verhältnissen gelernt und waren auf die alte Kurvenform
+  eingestellt: Snapshots und Residuen tragen jetzt eine Kurvenform-Kennung (`shape`); Residuen
+  ohne/anderer Kennung werden sofort ignoriert (Prognose ohne Tagesgang-Korrektur statt
+  doppelter Korrektur), Snapshots der alten Form zählen nur noch für Bias/MAPE. Neu lernen
+  braucht mindestens 3 Tage mit neuer Form und je Bucket 20 Werte: bei 15 min ca. 5-7 Tage
+  nach dem Update (der erste Snapshot in neuer Form ist der von Tag 2 nach dem Update), bei
+  60 min entsprechend länger; vollständig nach 14 Tagen. `PVF_GetAccuracy()` additiv
+  (Vertrag 1.0 → 1.1): `curveShape`, `slotLevelDays`, `slotLevelLegacyDays` als
+  Übergangs-Marker (solange `slotLevelLegacyDays` > 0 oder `slotLevelDays` < 14, schwingt
+  `byDaylightFraction` noch ein). Lastprognose ist nicht betroffen (keine Hochrechnung aus
+  Stundenwerten).
 - **Fix (PVPrognose, Lastprognose): Zeitumstellung — Wetterzeitstempel eindeutig, Energiefenster
   nach Wanduhr (20.09.2026, EMS-Anfrage zu 25.10.2026 = 100 und 28.03.2027 = 92
   Viertelstunden; kein Vertrags- und kein Rasterwechsel, `slots`/Array-Länge bleiben fest

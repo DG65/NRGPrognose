@@ -127,6 +127,10 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
   `factor` ist unabhängig davon `null`, wenn genau dieser Bucket zu wenig Daten hat (< 20 Werte).
   Rein lesend, kein Wetter-Abruf — Rückgabe ist der Stand der letzten `evaluateAccuracy()`
   (läuft bei jedem Rebuild).
+  Ab Vertrag 1.1 (Build 115) additiv: `curveShape` (2 = Stundenmittel auf Stundenmitte, nur
+  Open-Meteo; 1 = sonst), `slotLevelDays` (Tage, aus denen `byDaylightFraction` gelernt wurde),
+  `slotLevelLegacyDays` (Tage älterer Kurvenform, nur für bias/mape, nicht für die Faktoren).
+  Solange `slotLevelLegacyDays` > 0 oder `slotLevelDays` < 14, schwingt `byDaylightFraction` ein.
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.
