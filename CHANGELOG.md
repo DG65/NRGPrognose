@@ -6,6 +6,31 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose): Lernfehler der Residuen-Korrektur, Modus „Pegel" (20.09.2026, Fund beim
+  Nachrechnen der Kurvenform-Umstellung, Freigabe Dietmar über EMS).** Der Tages-Snapshot
+  speicherte die bereits KORRIGIERTE Prognose, gelernt wurde Ist/Snapshot, dieses Verhältnis
+  wurde danach aber wieder auf die ROHE Modellprognose multipliziert. Folge: Der Pegel glich
+  einen konstanten Fehler nie voll aus. Die geschlossene Simulation mit den echten
+  Modulfunktionen zeigt kein stabiles Halb-Ergebnis, sondern ein Kippen von Tag zu Tag
+  zwischen „voll korrigiert" (1,00) und „unkorrigiert" (1/r); im Mittel Prognose/Ist =
+  1/√r (Rohmodell 1,3 zu niedrig: Mittel 0,885, live bei Dietmar Bias −13 %). Jetzt: der
+  Snapshot legt zusätzlich die rohe p50 ab (`p50raw`, intern, nicht im Vertrag von
+  `GetSnapshot`), die Residuen werden gegen die rohe Prognose gelernt (Kennung `raw` an den
+  Residuen) — Prognose/Ist bleibt danach ab Tag 10 stabil bei 1,000 (r = 0,5 / 0,7 / 1,3 /
+  2,0). Der ausgelieferte Snapshot `p50` und `bias`/`mape` bleiben gegen die ausgelieferte
+  Prognose. **Sicherheitsgeländer:** Pegel (q50) je Bucket auf 0,5…2,0 begrenzt (Band-Ränder
+  q10/q90 weiter 0,3…3,0); Tage mit Wechselwetter (Interquartilsverhältnis p75/p25 der
+  Slot-Verhältnisse > 3,0; an echten Daten: normale Tage 1,2-2,4, ein sehr dunkler Tag 4,2)
+  zählen nur fürs Band, nicht für den Pegel (Median war schon robust, das Geländer schließt
+  den Rest). **Übergang:** Residuen ohne `raw` (auch die aus Build ≤ 115) werden sofort
+  ignoriert, Snapshots ohne `p50raw` zählen nur noch für Bias/MAPE (kein Rückgriff auf die
+  korrigierte Kurve); die Korrektur lernt neu (erste Faktoren nach ca. 5-7 Tagen bei 15 min).
+  Die PV-Prognose wird dadurch bei einem bisher zu niedrigen Rohmodell im Mittel höher (bei
+  Dietmar ca. 13 %). `PVF_GetAccuracy()` additiv, Vertrag 1.1 → 1.2: `factorBasis` =
+  `rawModel` (`factor` ist Ist / ROHE Modellprognose = die angewendete Korrektur, nicht
+  Ist / ausgelieferte Prognose) und `levelCorrectionApplied` (true bei Modus 2: die
+  ausgelieferte p50 enthält die Faktoren schon, nicht ein zweites Mal anwenden). Prüfstand
+  `tools/pruefstand/lernschleife.php` (lokal). Banner „Neu in Version 0.20 (Build 116)".
 - **Fix (PVPrognose): 15-/30-Minuten-PV-Kurve lag ca. 30 min zu früh (20.09.2026, Fund beim
   Prüfstand zur Zeitumstellung, Freigabe Dietmar über EMS).** `resample()` legte den
   Stunden-MITTELwert der Open-Meteo-Einstrahlung (Mittel über [h, h+1)) auf den Stunden-

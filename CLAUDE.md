@@ -121,7 +121,8 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
 - `PVF_CONTRACT_ACCURACY` (`GetAccuracy`) — strukturierte Prognosegüte, ab 13.09.2026 für EMS'
   netzdienlichen Baustein B1 gebaut. **Vorzeichen-Falle, bewusst dokumentiert (EMS' Wunsch):**
   `bias` (aus (Soll-Ist)/Ist) ist POSITIV bei zu HOHER Prognose; `byDaylightFraction[].factor`
-  (Ist/Soll-Median je Tagesanteil-Bucket, dieselben Buckets wie die Residuen-Korrektur) ist
+  (Ist/Soll-Median je Tagesanteil-Bucket, dieselben Buckets wie die Residuen-Korrektur; seit 1.2
+  „Soll“ = ROHE Modellprognose, siehe unten) ist
   GRÖSSER ALS 1 bei zu NIEDRIGER Prognose — entgegengesetzte Zählrichtung, nicht verwechseln.
   `days`/`bias`/`mape` sind `null`/`0`, solange keine auswertbaren Tage vorliegen; ein einzelnes
   `factor` ist unabhängig davon `null`, wenn genau dieser Bucket zu wenig Daten hat (< 20 Werte).
@@ -131,6 +132,10 @@ nur innerhalb derselben Major (blue'Log-Prinzip); fehlt das Feld, gilt `1.0`. Ge
   Open-Meteo; 1 = sonst), `slotLevelDays` (Tage, aus denen `byDaylightFraction` gelernt wurde),
   `slotLevelLegacyDays` (Tage älterer Kurvenform, nur für bias/mape, nicht für die Faktoren).
   Solange `slotLevelLegacyDays` > 0 oder `slotLevelDays` < 14, schwingt `byDaylightFraction` ein.
+  Ab Vertrag 1.2 (Build 116): `factor` ist Ist / ROHE Modellprognose (= die vom Modul angewendete
+  Korrektur, NICHT Ist / ausgelieferte Prognose; `factorBasis` = `rawModel`), `levelCorrectionApplied`
+  = true bei Residuen-Modus 2 (ausgelieferte p50 enthält die Faktoren schon). Die Restabweichung
+  der ausgelieferten Prognose steht in `bias`/`mape`. Pegel je Bucket auf 0,5…2,0 begrenzt.
 
 Getrennte Familien sind Absicht: Ein Bruch von `GetForecast` darf InverterHub (nutzt `GetGenerators`)
 nicht fälschlich zur Deaktivierung zwingen.

@@ -42,7 +42,7 @@ define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 // Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
 // Prognosegüte-Kennzahlen statt der bisherigen reinen Textausgabe in PVF_Accuracy.
-define('PVF_CONTRACT_ACCURACY', '1.1'); // GetAccuracy (1.1: +curveShape/slotLevelDays/slotLevelLegacyDays)
+define('PVF_CONTRACT_ACCURACY', '1.2'); // GetAccuracy (1.1: +curveShape/slotLevelDays/slotLevelLegacyDays; 1.2: +factorBasis/levelCorrectionApplied)
 
 // Horizont: gültige Offsets für GetForecast() sind 0..PVF_MAX_OFFSET (0=heute).
 // Von der kostenlosen Open-Meteo-/Forecast.Solar-/Solcast-Anbindung her wären
@@ -58,6 +58,8 @@ class PVPrognose extends IPSModule
 {
     // Request-lokales Modell: [offset => 24×{p10,p50,p90} in W]
     private $modelCache = null;
+    /** Rohe (unkorrigierte) p50 je Offset aus computeForecast() — nur für saveSnapshot() im selben Rebuild. */
+    private $lastRawP50 = [];
     // Request-lokaler Cache der automatisch erkannten Einheiten je Variable
     private $unitCache = [];
     // Request-lokaler Cache des Archiv-Logging-Status je Variable
@@ -84,6 +86,13 @@ class PVPrognose extends IPSModule
     // nur Open-Meteo). Snapshots und Residuen tragen die Kennung, damit Lernwerte aus einer
     // anderen Kurvenform nicht auf die heutige angewendet werden.
     private const PVF_CURVE_SHAPE_MEANS = 2;
+    // Pegel-Korrektur (q50) je Bucket begrenzen; Band-Ränder (q10/q90) dürfen weiter (clampFactor).
+    private const PVF_LEVEL_MIN = 0.5;
+    private const PVF_LEVEL_MAX = 2.0;
+    // Wechselwetter: Interquartilsverhältnis (p75/p25) der Slot-Verhältnisse EINES Tages darüber →
+    // Tag zählt nicht für den Pegel (q50), nur fürs Band. Live-Daten Dietmar 20.09.2026: normale
+    // Tage 1,2-2,4, der eine extreme (3,9 kWh, sehr dunkel) 4,2.
+    private const PVF_RESIDUAL_MAX_DAY_SPREAD = 3.0;
 
     // Untertägige Zusatz-Snapshots (Day-Ahead-Snapshot in PVF_Snapshots
     // bleibt unberührt) — feste Tageszeiten, zu denen je Tag EINMAL der
@@ -103,12 +112,13 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 115)';
+    private const NEWS_VERSION = '0.20 (Build 116)';
     private const NEWS_ITEMS = [
+        '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
+        'Neu dabei: Der Korrekturfaktor je Tagesabschnitt ist auf 0,5 bis 2,0 begrenzt, und ausgesprochene Wechselwetter-Tage (stark schwankendes Verhältnis Ist/Prognose) zählen nicht für den Pegel.',
         '☀️ PV-Kurve zeitlich korrigiert (Quelle Open-Meteo): Die 15-/30-Minuten-Kurve lag bisher etwa 30 Minuten zu früh, weil der Stundenmittelwert auf den Stundenbeginn statt auf die Stundenmitte gelegt wurde. Die Werte verschieben sich dadurch um ca. 30 Minuten nach hinten (Morgen später, Abend später), die Tagesenergie bleibt gleich.',
-        'Die „Immer genauer werden"-Korrektur lernt deshalb neu: Sie ist für einige Tage ausgesetzt (Prognose ohne Tagesgang-Korrektur) und schaltet sich mit den neuen Tagen schrittweise wieder zu. Bias und Fehlerquote der Prognosegüte laufen unverändert durch.',
-        'Zeitumstellung (25.10. / 28.03.): Wetterzeiten werden jetzt eindeutig gelesen, Energiefenster für das EMS rechnen nach Wanduhr.',
-        'Robuster bei Netzausfall und am Tageswechsel: Fällt ein Wetter-Abruf teilweise aus, bleibt die letzte gültige Prognose erhalten (statt einer zu niedrigen Teilsumme), und die gespeicherten Tage werden um Mitternacht weitergeschoben.',
+        'Bias und Fehlerquote der Prognosegüte laufen unverändert durch; die Tagesgang-Korrektur schaltet sich mit den neuen Tagen schrittweise wieder zu.',
+        'Zeitumstellung (25.10. / 28.03.): Wetterzeiten werden jetzt eindeutig gelesen, Energiefenster für das EMS rechnen nach Wanduhr. Robuster bei Netzausfall und am Tageswechsel: Fällt ein Wetter-Abruf teilweise aus, bleibt die letzte gültige Prognose erhalten, und die gespeicherten Tage werden um Mitternacht weitergeschoben.',
     ];
 
     // ----------------------------------------------------------------
@@ -611,6 +621,11 @@ class PVPrognose extends IPSModule
         $p50 = $this->resample($h50, $slots, $means);
         $p90 = $this->resample($h90, $slots, $means);
 
+        // Rohe p50 fürs Lernen merken (nicht im Rückgabewert — Vertrag unverändert): Die Residuen
+        // müssen gegen die ROHE Modellprognose gelernt werden, sonst konvergiert der Pegel nur gegen
+        // die Wurzel des Fehlers (Snapshot = korrigierte Prognose, wird wieder auf Roh multipliziert).
+        $this->lastRawP50[$offset] = $p50;
+
         // Band (und optional Pegel) aus den gemessenen Prognosefehlern ableiten.
         list($p10, $p50, $p90) = $this->applyResiduals($p10, $p50, $p90);
 
@@ -888,7 +903,10 @@ class PVPrognose extends IPSModule
     {
         $snaps = json_decode((string)$this->ReadAttributeString('PVF_Snapshots'), true);
         if (!is_array($snaps) || !isset($snaps[$date])) { return []; }
-        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snaps[$date]);
+        // shape/p50raw sind interne Lernfelder (Prognosegüte) und nicht Teil des Vertrags.
+        $snap = $snaps[$date];
+        unset($snap['shape'], $snap['p50raw']);
+        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snap);
     }
 
     /**
@@ -902,7 +920,9 @@ class PVPrognose extends IPSModule
     {
         $store = json_decode((string)$this->ReadAttributeString('PVF_IntradaySnapshots'), true);
         if (!is_array($store) || !isset($store[$date][$checkpoint])) { return []; }
-        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $store[$date][$checkpoint]);
+        $snap = $store[$date][$checkpoint];
+        unset($snap['shape']); // interne Kennung, nicht Teil des Vertrags
+        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snap);
     }
 
     /**
@@ -940,7 +960,7 @@ class PVPrognose extends IPSModule
 
         $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         // Faktoren aus einer anderen Kurvenform (Übergang Build 115) nicht melden.
-        if (is_array($res) && (int)($res['shape'] ?? 1) !== $this->curveShape()) { $res = null; }
+        if (is_array($res) && ((int)($res['shape'] ?? 1) !== $this->curveShape() || empty($res['raw']))) { $res = null; }
         $buckets = self::PVF_RESIDUAL_BUCKETS;
         $byDaylightFraction = [];
         for ($b = 0; $b < $buckets; $b++) {
@@ -974,6 +994,12 @@ class PVPrognose extends IPSModule
             'curveShape'           => $this->curveShape(),
             'slotLevelDays'        => $detail['slotLevelDays'] ?? 0,
             'slotLevelLegacyDays'  => $detail['slotLevelLegacyDays'] ?? 0,
+            // Vertrag 1.2: `factor` ist Ist / ROHE Modellprognose (= die Korrektur, die das Modul anwendet),
+            // NICHT Ist / ausgelieferte Prognose. levelCorrectionApplied=true: die ausgelieferte p50
+            // enthält diese Faktoren schon — nicht ein zweites Mal anwenden; die Restabweichung der
+            // ausgelieferten Prognose steht in bias/mape.
+            'factorBasis'          => 'rawModel',
+            'levelCorrectionApplied' => ($this->ReadPropertyInteger('PVF_ResidualMode') === 2),
         ];
     }
 
@@ -998,8 +1024,10 @@ class PVPrognose extends IPSModule
 
         $slots  = $this->slots();
         $errs   = [];   // Tages-kWh-Fehler (%) → Bias/MAPE
-        $bucketRatios = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // je Tagesanteil-Bucket
+        $bucketRatios = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // je Tagesanteil-Bucket, alle Tage (Band)
+        $levelRatios  = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // nur ruhige Tage (Pegel q50)
         $rDays  = 0;
+        $noisyDays = 0; // Wechselwetter-Tage: zählen fürs Band, nicht für den Pegel
         $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
         $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
         $legacyDays = 0; // Tage mit älterer Kurvenform: zählen für Bias/MAPE, nicht für Slot-Residuen
@@ -1029,34 +1057,24 @@ class PVPrognose extends IPSModule
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
             if ($prof === null) { continue; }
-            // Slot-Ebene (Residuen/byDaylightFraction) nur aus Snapshots mit der HEUTIGEN
-            // Kurvenform: Ältere Snapshots (Stundenwert auf Stundenbeginn) hätten eine um
-            // ca. 30 min versetzte Form, würden die Tagesgang-Faktoren verfälschen und
-            // bleiben deshalb bis zu 14 Tage nur für Bias/Fehlerquote (Tagesenergie, davon
-            // unberührt) zählend. Zähler wandert als Übergangs-Marker in GetAccuracy.
-            if ((int)($snaps[$date]['shape'] ?? 1) !== $this->curveShape()) { $legacyDays++; continue; }
-            $maxS = max($sp);
-            if ($maxS <= 0) { continue; }
-            // Schwelle blendet Nacht/Dämmerung aus — dort ist Soll≈0 und das
-            // Verhältnis Ist/Soll wäre bedeutungslos bzw. explodiert.
-            $floor  = max(10.0, 0.02 * $maxS);
-            $bounds = $this->daylightBounds($sp, $floor);
-            $used   = 0;
-            if ($bounds !== null) {
-                [$dStart, $dEnd] = $bounds;
-                for ($i = $dStart; $i <= $dEnd; $i++) {
-                    $s = (float)$sp[$i];
-                    if ($s < $floor) { continue; }
-                    $frac = $this->daylightFraction($i, $dStart, $dEnd);
-                    $b    = $this->residualBucket($frac);
-                    $bucketRatios[$b][] = ((float)$prof[$i]) / $s;
-                    $used++;
+            // Slot-Ebene (Residuen/byDaylightFraction) nur aus Snapshots mit der HEUTIGEN Kurvenform
+            // UND mit roher Modellkurve (p50raw): ältere Snapshots (Stundenwert auf Stundenbeginn bzw.
+            // nur die korrigierte Prognose) würden die Faktoren verfälschen und zählen nur noch für
+            // Bias/Fehlerquote (Tagesenergie). Zähler = Übergangs-Marker in GetAccuracy.
+            if (!$this->slotLevelEligible($snaps[$date], $slots)) { $legacyDays++; continue; }
+            $day = $this->daySlotRatios($snaps[$date]['p50raw'], $prof);
+            if ($day === null) { continue; }
+            foreach ($day['ratios'] as $b => $vals) {
+                foreach ($vals as $v) {
+                    $bucketRatios[$b][] = $v;
+                    if ($day['calm']) { $levelRatios[$b][] = $v; }
                 }
             }
-            if ($used > 0) { $rDays++; }
+            if (!$day['calm']) { $noisyDays++; }
+            $rDays++;
         }
 
-        $this->storeResiduals($bucketRatios, $rDays);
+        $this->storeResiduals($bucketRatios, $levelRatios, $rDays, $noisyDays);
 
         if (count($errs) === 0) {
             // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
@@ -1073,7 +1091,7 @@ class PVPrognose extends IPSModule
             $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
                 'days' => 0, 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
                 'bias' => null, 'mape' => null, 'updated' => time(),
-                'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays,
+                'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays, 'slotLevelNoisyDays' => $noisyDays,
             ]));
             return;
         }
@@ -1083,7 +1101,7 @@ class PVPrognose extends IPSModule
         $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
             'days' => count($errs), 'excludedSpecialEvent' => $excluded, 'excludedArchiveFault' => $corrupted,
             'bias' => round($bias, 2), 'mape' => round($mape, 2), 'updated' => time(),
-            'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays,
+            'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays, 'slotLevelNoisyDays' => $noisyDays,
         ]));
         $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
@@ -1099,6 +1117,9 @@ class PVPrognose extends IPSModule
         }
         if ($corrupted > 0) {
             $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
+        }
+        if ($noisyDays > 0) {
+            $txt .= sprintf(' | %d Wechselwetter-Tag(e) zählen nicht für den Pegel', $noisyDays);
         }
         if ($this->specialEventsVersionMismatch !== null) {
             $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
@@ -1145,13 +1166,63 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Empirische Quantile der Prognosefehler (Ist/Soll je Slot) ablegen —
+     * Darf dieser Snapshot in die Slot-Ebene (Residuen, byDaylightFraction) einfließen?
+     * Nur mit heutiger Kurvenform UND roher Modellkurve (p50raw) in passender Auflösung.
+     */
+    private function slotLevelEligible(array $snap, int $slots): bool
+    {
+        return (int)($snap['shape'] ?? 1) === $this->curveShape()
+            && isset($snap['p50raw']) && is_array($snap['p50raw']) && count($snap['p50raw']) === $slots;
+    }
+
+    /**
+     * Slot-Verhältnisse Ist/ROH-Prognose eines Tages je Tagesanteil-Bucket. Gelernt wird bewusst
+     * gegen die rohe Modellprognose (nicht gegen die ausgelieferte, bereits korrigierte): nur so
+     * konvergiert der Pegel gegen den vollen Ausgleich statt gegen die Wurzel des Fehlers.
+     * 'calm' = false bei Wechselwetter (Interquartilsverhältnis p75/p25 der Slot-Verhältnisse über
+     * PVF_RESIDUAL_MAX_DAY_SPREAD): solche Tage sagen nichts über einen systematischen Pegelfehler.
+     * Rückgabe null, wenn nichts auswertbar ist.
+     */
+    private function daySlotRatios(array $rawSp, array $prof): ?array
+    {
+        $maxS = (count($rawSp) > 0) ? max($rawSp) : 0.0;
+        if ($maxS <= 0) { return null; }
+        // Schwelle blendet Nacht/Dämmerung aus — dort ist Soll≈0 und das
+        // Verhältnis Ist/Soll wäre bedeutungslos bzw. explodiert.
+        $floor  = max(10.0, 0.02 * $maxS);
+        $bounds = $this->daylightBounds($rawSp, $floor);
+        if ($bounds === null) { return null; }
+        [$dStart, $dEnd] = $bounds;
+        $ratios = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []);
+        $all = [];
+        for ($i = $dStart; $i <= $dEnd; $i++) {
+            $s = (float)$rawSp[$i];
+            if ($s < $floor) { continue; }
+            $r = ((float)$prof[$i]) / $s;
+            $ratios[$this->residualBucket($this->daylightFraction($i, $dStart, $dEnd))][] = $r;
+            $all[] = $r;
+        }
+        if (count($all) === 0) { return null; }
+        $calm = true;
+        if (count($all) >= 8) {
+            sort($all);
+            $q25 = $this->percentileOf($all, 0.25); $q75 = $this->percentileOf($all, 0.75);
+            $calm = ($q25 <= 0.0) ? false : (($q75 / $q25) <= self::PVF_RESIDUAL_MAX_DAY_SPREAD);
+        }
+        return ['ratios' => $ratios, 'calm' => $calm];
+    }
+
+    /**
+     * Empirische Quantile der Prognosefehler (Ist/ROH-Soll je Slot) ablegen —
      * je Tagesanteil-Bucket getrennt (Tagesgang-Profil, s. PVF_RESIDUAL_BUCKETS),
      * damit sich morgens/abends unterschiedliche Fehler nicht gegenseitig
      * weg mitteln. Ein Bucket ohne ausreichende Datenbasis bleibt null
      * (Passthrough, keine Korrektur) statt aus zu wenigen Werten zu raten.
+     * q10/q90 (Band) aus allen Tagen, q50 (Pegel) aus den ruhigen Tagen, sofern
+     * dort genug Werte vorliegen, sonst aus allen; q50 zusätzlich auf
+     * PVF_LEVEL_MIN…MAX begrenzt.
      */
-    private function storeResiduals(array $bucketRatios, int $days)
+    private function storeResiduals(array $bucketRatios, array $levelRatios, int $days, int $noisyDays = 0)
     {
         $total = 0;
         foreach ($bucketRatios as $arr) { $total += count($arr); }
@@ -1168,13 +1239,16 @@ class PVPrognose extends IPSModule
                 continue;
             }
             sort($arr);
+            $lvl = $levelRatios[$b] ?? [];
+            if (count($lvl) >= self::PVF_RESIDUAL_MIN_PER_BUCKET) { sort($lvl); } else { $lvl = $arr; }
             $q10[$b] = round($this->clampFactor($this->percentileOf($arr, 0.10)), 3);
-            $q50[$b] = round($this->clampFactor($this->percentileOf($arr, 0.50)), 3);
+            $q50[$b] = round(max(self::PVF_LEVEL_MIN, min(self::PVF_LEVEL_MAX, $this->percentileOf($lvl, 0.50))), 3);
             $q90[$b] = round($this->clampFactor($this->percentileOf($arr, 0.90)), 3);
         }
         $this->WriteAttributeString('PVF_Residuals', json_encode([
             'buckets' => self::PVF_RESIDUAL_BUCKETS, 'q10' => $q10, 'q50' => $q50, 'q90' => $q90, 'n' => $n,
-            'days' => $days, 'samples' => $total, 'updated' => time(), 'shape' => $this->curveShape(),
+            'days' => $days, 'noisyDays' => $noisyDays, 'samples' => $total, 'updated' => time(),
+            'shape' => $this->curveShape(), 'raw' => true, // 'raw' = gegen die ROHE Prognose gelernt (ab Build 116)
         ]));
     }
 
@@ -1215,6 +1289,12 @@ class PVPrognose extends IPSModule
         // passen nicht zur heutigen Kurve — sofort ignorieren statt doppelt zu korrigieren;
         // sie werden mit den neuen Tagen neu gelernt (evaluateAccuracy überschreibt sie).
         if ((int)($r['shape'] ?? 1) !== $this->curveShape()) {
+            return [$p10, $p50, $p90];
+        }
+        // Residuen ohne 'raw' wurden gegen die bereits KORRIGIERTE Prognose gelernt (Fehler bis Build 115:
+        // der Pegel blieb bei der Wurzel des Fehlers stehen) — auf die rohe Kurve angewendet wären sie
+        // falsch, also ignorieren, bis sie neu gelernt sind.
+        if (empty($r['raw'])) {
             return [$p10, $p50, $p90];
         }
         $q10arr = $r['q10']; $q50arr = $r['q50']; $q90arr = $r['q90'];
@@ -1269,6 +1349,9 @@ class PVPrognose extends IPSModule
                 'kwh'        => $fc['kwh'],
                 'shape'      => $this->curveShape(),
             ];
+            if (isset($this->lastRawP50[$offset]) && count($this->lastRawP50[$offset]) === count($fc['p50'])) {
+                $snaps[$date]['p50raw'] = array_map(function ($x) { return round($x, 1); }, $this->lastRawP50[$offset]);
+            }
         }
 
         krsort($snaps);
