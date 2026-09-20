@@ -55,6 +55,10 @@ Idents waren durchgehend unangetastet.
   Klarstellung in der Beschriftung bei Lastprognose (dort geringeres Risiko, nur Tageslänge-Proxy).
   Lehre für künftige Durchgänge: "generischer Default" allein reicht als Prüfkriterium nicht —
   zusätzlich prüfen, ob überhaupt sichtbar ist, DASS der Wert personenbezogen angepasst werden muss.
+- **Prüfstand Zeitumstellung:** Vor Änderungen an Zeitraster, Tagesgrenzen, Wetter-Zeitstempeln
+  oder `GetEnergyWindow` `php tools/pruefstand/sommerzeit.php` laufen lassen (ohne IP-Symcon,
+  echte Kurven beider Umstellungen; muss „ALLES GRÜN“ melden). Liegt lokal in `tools/` (per
+  `.gitignore` bewusst nicht im Repo); Fixtures trotzdem nur mit generischen Koordinaten.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "7.0"}`.

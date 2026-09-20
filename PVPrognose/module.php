@@ -693,37 +693,61 @@ class PVPrognose extends IPSModule
         if ($toTs <= $fromTs) { return $result; }
         if (count($this->pvGenerators()) === 0) { return $result; }
 
-        $slotSec = $this->slotMinutes() * 60;
-        $kwh = 0.0;
-        $coveredSec = 0;
-
-        for ($offset = 0; $offset <= PVF_MAX_OFFSET; $offset++) {
-            $dayStart = strtotime('today +' . $offset . ' days');
-            $fc = $this->GetForecast($offset);
-            // "Echte Daten" an der Prognose selbst festmachen: emptyForecast() (Quelle
-            // fehlgeschlagen, kein Cache-Treffer) liefert exakt 0 kWh, jede reale
-            // Tagesprognose > 0. Früher stand hier ($this->modelCache !== null) — das
-            // ist aber auch bei gültigem Cache-Treffer null (es wurde ja nichts neu
-            // gebaut) und meldete dann fälschlich coverage 0.
-            $realData = (($fc['kwh'] ?? 0) > 0);
-            $mean = $fc['mean'] ?? null;
-            if (!is_array($mean)) { continue; }
-
-            foreach ($mean as $i => $w) {
-                $slotStart = $dayStart + $i * $slotSec;
-                $slotEnd   = $slotStart + $slotSec;
-                $ovStart = max($slotStart, $fromTs);
-                $ovEnd   = min($slotEnd, $toTs);
-                if ($ovEnd <= $ovStart) { continue; }
-                $ovSec = $ovEnd - $ovStart;
-                $kwh += ((float)$w) * ($ovSec / 3600.0) / 1000.0; // W * h / 1000 = kWh
-                if ($realData) { $coveredSec += $ovSec; }
-            }
-        }
+        list($kwh, $coveredSec) = $this->integrateWindow(
+            $fromTs, $toTs, $this->slotMinutes(), strtotime('today'),
+            function (int $offset) { return $this->GetForecast($offset); }
+        );
 
         $result['kwh'] = round($kwh, 3);
         $result['coverage'] = round($coveredSec / ($toTs - $fromTs), 3);
         return $result;
+    }
+
+    /**
+     * Energie (kWh) und abgedeckte Sekunden eines Zeitfensters aus den
+     * Tagesprofilen. Läuft über die REALE Zeit und ordnet jeden Zeitpunkt seinem
+     * WANDUHR-Slot zu (Slot i = i-te Viertelstunde/Halbstunde/Stunde nach
+     * Wanduhr, wie in GetForecast). Damit stimmen Zeitumstellungstage: die
+     * doppelte Stunde im Oktober (25-h-Tag) zählt zweimal mit dem Slot-Wert,
+     * die fehlende Stunde im März (23-h-Tag) gar nicht. Früher wurde
+     * "Mitternacht + i * Slotsekunden" gerechnet, das ab 02:00 Wanduhr an diesen
+     * zwei Tagen um 1 h versetzt lag (Fund: EMS-Anfrage zur Zeitumstellung,
+     * 20.09.2026).
+     *
+     * $forecastFor(int $offset): array|null liefert die Prognose je Tag-Offset,
+     * $todayTs ist die lokale Mitternacht von Offset 0 (Parameter statt time(),
+     * damit der Prüfstand beliebige Tage simulieren kann).
+     * Rückgabe [kWh, abgedeckteSekunden].
+     */
+    private function integrateWindow(int $fromTs, int $toTs, int $slotMin, int $todayTs, callable $forecastFor): array
+    {
+        $kwh = 0.0;
+        $coveredSec = 0;
+        $cache = [];
+        $t = $fromTs;
+        while ($t < $toTs) {
+            $dayStart = strtotime('today', $t);
+            $offset   = (int)round(($dayStart - $todayTs) / 86400);
+            $minutes  = (int)date('G', $t) * 60 + (int)date('i', $t);
+            $slot     = intdiv($minutes, $slotMin);
+            // Nächste Slotgrenze in realer Zeit (Zeitumstellungen sind volle
+            // Stunden, Slotgrenzen liegen also weiter auf ganzen Minuten).
+            $intoSlot = ($minutes % $slotMin) * 60 + (int)date('s', $t);
+            $segEnd   = min($toTs, $t - $intoSlot + $slotMin * 60);
+            if ($segEnd <= $t) { $segEnd = min($toTs, $t + 1); }
+            if ($offset >= 0 && $offset <= PVF_MAX_OFFSET) {
+                if (!array_key_exists($offset, $cache)) { $cache[$offset] = $forecastFor($offset); }
+                $fc = $cache[$offset];
+                $mean = is_array($fc) ? ($fc['mean'] ?? null) : null;
+                if (is_array($mean) && isset($mean[$slot])) {
+                    $sec = $segEnd - $t;
+                    $kwh += ((float)$mean[$slot]) * ($sec / 3600.0) / 1000.0; // W * h / 1000 = kWh
+                    if (($fc['kwh'] ?? 0) > 0) { $coveredSec += $sec; }
+                }
+            }
+            $t = $segEnd;
+        }
+        return [$kwh, $coveredSec];
     }
 
     /**
@@ -1339,7 +1363,7 @@ class PVPrognose extends IPSModule
         $url = sprintf(
             'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s'
             . '&hourly=global_tilted_irradiance,temperature_2m&tilt=%s&azimuth=%s'
-            . '&forecast_days=%d&past_days=%d&timezone=auto',
+            . '&forecast_days=%d&past_days=%d&timezone=auto&timeformat=unixtime',
             rawurlencode((string)$lat), rawurlencode((string)$lon),
             rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']),
             PVF_MAX_OFFSET + 1, $pastDays
@@ -1360,7 +1384,7 @@ class PVPrognose extends IPSModule
         for ($i = 0; $i < $n; $i++) {
             // Open-Meteo: Strahlung = Mittel der VORANGEHENDEN Stunde →
             // dem Stundenbeginn zuordnen (deckt sich mit dem IPS-Stundenaggregat).
-            list($date, $hour) = $this->omSlot($time[$i]);
+            list($date, $hour) = $this->omSlot((int)$time[$i]);
             $irr  = (float)($gti[$i] ?? 0);
             $ta   = (float)($temp[$i] ?? 20);
             $derate = 1.0;
@@ -1376,16 +1400,24 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Open-Meteo-Zeitstempel ("Y-m-d\TH:i") auf [Datum, Stunde] des
-     * Mittelungsintervall-BEGINNS abbilden (eine Stunde zurück), damit
-     * Prognose und gemessenes Stundenaggregat zeitlich deckungsgleich sind.
+     * Open-Meteo-Zeitstempel (Unix-Sekunden, Ende des Mittelungsintervalls) auf
+     * [Datum, Wanduhr-Stunde] des Intervall-BEGINNS abbilden (eine Stunde
+     * zurück), damit Prognose und gemessenes Stundenaggregat zeitlich
+     * deckungsgleich sind.
+     *
+     * Bewusst Unix-Zeit statt der Standard-Beschriftung ("Y-m-d\TH:i"): Open-Meteo
+     * beschriftet ALLE Stunden einer Antwort mit EINEM festen UTC-Offset (dem
+     * zum Abrufzeitpunkt). Reicht das 5-Tage-Fenster über eine Zeitumstellung,
+     * wäre jeder Tag danach um 1 h versetzt gelesen worden (Oktober zu spät,
+     * März zu früh) — an der Archiv-API belegt: der Sonnenaufgang läuft über
+     * den Wechsel glatt weiter statt um 1 h zu springen. Die Umrechnung in
+     * Ortszeit übernimmt hier PHP (Zeitzonen-Datenbank, DST-korrekt).
+     * Fund: Sitzung Prognose für EMS-Anfrage zur Zeitumstellung, 20.09.2026.
      */
-    private function omSlot(string $t): array
+    private function omSlot(int $ts): array
     {
-        $date = substr($t, 0, 10);
-        $hour = (int)substr($t, 11, 2) - 1;
-        if ($hour < 0) { $hour = 23; $date = date('Y-m-d', strtotime($date . ' -1 day')); }
-        return [$date, $hour];
+        $start = $ts - 3600;
+        return [date('Y-m-d', $start), (int)date('G', $start)];
     }
 
     /**
@@ -1423,7 +1455,7 @@ class PVPrognose extends IPSModule
         $url = sprintf(
             'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s'
             . '&hourly=global_tilted_irradiance,temperature_2m&tilt=%s&azimuth=%s'
-            . '&forecast_days=0&past_days=%d&timezone=auto',
+            . '&forecast_days=0&past_days=%d&timezone=auto&timeformat=unixtime',
             rawurlencode((string)$lat), rawurlencode((string)$lon),
             rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']), $pastDays
         );
@@ -1441,7 +1473,7 @@ class PVPrognose extends IPSModule
         $byDate = [];
         $n = count($time);
         for ($i = 0; $i < $n; $i++) {
-            list($date, $hour) = $this->omSlot($time[$i]); // Stundenbeginn (siehe fetchOpenMeteo)
+            list($date, $hour) = $this->omSlot((int)$time[$i]); // Stundenbeginn (siehe fetchOpenMeteo)
             if ($date >= $today) { continue; }             // nur abgeschlossene Tage
             $irr = (float)($gti[$i] ?? 0);
             $ta  = (float)($temp[$i] ?? 20);
@@ -1470,7 +1502,7 @@ class PVPrognose extends IPSModule
         $lat = $this->ReadPropertyFloat('PVF_Latitude');
         $lon = $this->ReadPropertyFloat('PVF_Longitude');
         $url = sprintf(
-            'https://api.forecast.solar/estimate/%s/%s/%s/%s/%s?limit=%d',
+            'https://api.forecast.solar/estimate/%s/%s/%s/%s/%s?limit=%d&time=utc',
             rawurlencode((string)$lat), rawurlencode((string)$lon),
             rawurlencode((string)$g['tilt']), rawurlencode((string)$g['az']),
             rawurlencode((string)$g['kwp']), PVF_MAX_OFFSET + 1
@@ -1483,8 +1515,12 @@ class PVPrognose extends IPSModule
 
         $byDate = [];
         foreach ($j['result']['watts'] as $ts => $w) {
-            $date = substr($ts, 0, 10);
-            $hour = (int)substr($ts, 11, 2);
+            // time=utc: eindeutige ISO-Zeit; die Standard-Schlüssel sind lokale
+            // Zeitstrings ohne Offset (bei Zeitumstellung mehrdeutig/lückenhaft).
+            $t = strtotime((string)$ts);
+            if ($t === false) { continue; }
+            $date = date('Y-m-d', $t);
+            $hour = (int)date('G', $t);
             if (!isset($byDate[$date])) { $byDate[$date] = array_fill(0, 24, 0.0); }
             $byDate[$date][$hour] = (float)$w;            // Stundenwert (volle Stunde gewinnt)
         }

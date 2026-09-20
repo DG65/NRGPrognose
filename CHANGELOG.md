@@ -6,6 +6,41 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose, Lastprognose): Zeitumstellung — Wetterzeitstempel eindeutig, Energiefenster
+  nach Wanduhr (20.09.2026, EMS-Anfrage zu 25.10.2026 = 100 und 28.03.2027 = 92
+  Viertelstunden; kein Vertrags- und kein Rasterwechsel, `slots`/Array-Länge bleiben fest
+  1440/Auflösung).** Code-Durchsicht ergab zwei echte Fehler, beide vor der ersten
+  Umstellung (Abrufe ab ca. 22.10.2026) behoben:
+  1. **Open-Meteo-Zeitstempel (PVPrognose).** Open-Meteo beschriftet ALLE Stunden einer Antwort
+     mit einem festen UTC-Offset (dem zum Abrufzeitpunkt) — an der Archiv-API belegt: der
+     Sonnenaufgang läuft über den Wechsel glatt weiter statt um 1 h zu springen. `omSlot()` las
+     die Beschriftung als Wanduhr, ein 5-Tage-Fenster über die Umstellung hätte für die Tage
+     danach eine um 1 h versetzte PV-Kurve geliefert (Oktober zu spät, März zu früh, ca. 4 Tage
+     je Umstellung, auch im Day-Ahead-Snapshot der Prognosegüte). Jetzt `timeformat=unixtime`
+     und Umrechnung in Ortszeit durch PHP (`omSlot(int $ts)`), für Prognose- und
+     Kalibrier-Abruf. **Forecast.Solar:** Standard-Schlüssel sind lokale Zeitstrings ohne
+     Offset (bei Umstellung mehrdeutig/lückenhaft, das Verhalten dort ist nicht prüfbar) —
+     jetzt `time=utc` (ISO-Zeit mit Zone, `estimate/`-Pfad live geprüft, Zuordnung
+     (Datum, Stunde) identisch zur bisherigen). Solcast lieferte schon Zeitzonen-Zeiten.
+  2. **`GetEnergyWindow` (PVPrognose und Lastprognose).** Slotzeiten wurden als „Mitternacht +
+     i · Slotsekunden“ in realen Sekunden gerechnet, die Slots sind aber Wanduhr-Slots: am
+     Umstellungstag lag jeder Slot ab 02:00 um 1 h daneben (Fenster „Vorabend bis Morgen“ zählte
+     die falschen Slots). Neu `integrateWindow()`: läuft über die reale Zeit und ordnet jeden
+     Zeitpunkt seinem Wanduhr-Slot zu — die doppelte Stunde (25-h-Tag) zählt zweimal, die
+     fehlende (23-h-Tag) gar nicht. Ein Nullprofil zählt weiter nicht als abgedeckt.
+  **Prüfstand** neu, lokal (`tools/pruefstand/sommerzeit.php`, `tools/` ist bewusst nicht im
+  Repo; ohne IP-Symcon lauffähig, echte Open-Meteo-Kurven beider Umstellungen als Fixtures):
+  Sonnenaufgang-/untergangs-Slot an jedem Tag um den Wechsel gegen die echte Ortszeit; Fenster
+  an 25.10.2026 (100 Viertelstunden) und 28.03.2027 (92) exakt gegen eine minutengenaue
+  Wanduhr-Referenz, beide Module, 15 und 60 min, inkl. Fenster über die Umstellung; gegen die
+  physikalische Wahrheit am Wechseltag (Vormittagsfenster Herbst 22,7 % → 4,7 % Fehler).
+  **Bekannt, nicht behoben (unabhängig von der Umstellung):** `resample()` legt den
+  Stundenmittelwert auf den Stundenbeginn statt die Stundenmitte, die 15-min-PV-Kurve läuft
+  der Wahrheit dadurch ca. 30 min voraus (bis ca. 11 % Abweichung in Vormittagsfenstern) —
+  Änderung würde jede Prognose verschieben, braucht eine eigene Entscheidung.
+  **Offen (niedrige Priorität):** Lastprognose `integratedProfile()` bildet historische
+  Umstellungstage bei 30/15 min im Raster „reale Taglänge / Slots“ statt nach Wanduhr ab
+  (nur als einer von k Nachbarn wirksam).
 - **Fix + Vertrag (PVPrognose, Lastprognose): Tageswechsel verschiebt jetzt die gespeicherten
   Tage selbst, Vertrag um `generated` ergänzt (19.09.2026, Nachtrag EMS-Sitzung).**
   Build 112 ließ `GetForecast()` nach Mitternacht das richtige Datum finden — wer die

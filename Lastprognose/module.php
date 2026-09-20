@@ -647,34 +647,62 @@ class Lastprognose extends IPSModule
         ];
         if ($toTs <= $fromTs) { return $result; }
 
-        $slotSec = $this->slotMinutes() * 60;
-        $kwh = 0.0;
-        $coveredSec = 0;
-
-        for ($offset = 0; $offset <= LFC_MAX_OFFSET; $offset++) {
-            $dayStart = strtotime('today +' . $offset . ' days');
-            $fc = $this->GetForecast($offset);
-            $mean = $fc['mean'] ?? null;
-            if (!is_array($mean)) { continue; }
-            // Kein echter Nachbar gefunden -> emptyForecast()-Fallback (Nullprofil).
-            // Zählt für 'coverage' als NICHT abgedeckt, auch wenn strukturell gültig.
-            $realData = (($fc['neighbors'] ?? 0) > 0);
-
-            foreach ($mean as $i => $w) {
-                $slotStart = $dayStart + $i * $slotSec;
-                $slotEnd   = $slotStart + $slotSec;
-                $ovStart = max($slotStart, $fromTs);
-                $ovEnd   = min($slotEnd, $toTs);
-                if ($ovEnd <= $ovStart) { continue; }
-                $ovSec = $ovEnd - $ovStart;
-                $kwh += ((float)$w) * ($ovSec / 3600.0) / 1000.0; // W * h / 1000 = kWh
-                if ($realData) { $coveredSec += $ovSec; }
-            }
-        }
+        list($kwh, $coveredSec) = $this->integrateWindow(
+            $fromTs, $toTs, $this->slotMinutes(), strtotime('today'),
+            function (int $offset) { return $this->GetForecast($offset); }
+        );
 
         $result['kwh'] = round($kwh, 3);
         $result['coverage'] = round($coveredSec / ($toTs - $fromTs), 3);
         return $result;
+    }
+
+    /**
+     * Energie (kWh) und abgedeckte Sekunden eines Zeitfensters aus den
+     * Tagesprofilen. Läuft über die REALE Zeit und ordnet jeden Zeitpunkt seinem
+     * WANDUHR-Slot zu (Slot i = i-te Viertelstunde/Halbstunde/Stunde nach
+     * Wanduhr, wie in GetForecast). Damit stimmen Zeitumstellungstage: die
+     * doppelte Stunde im Oktober (25-h-Tag) zählt zweimal mit dem Slot-Wert,
+     * die fehlende Stunde im März (23-h-Tag) gar nicht. Früher wurde
+     * "Mitternacht + i * Slotsekunden" gerechnet, das ab 02:00 Wanduhr an diesen
+     * zwei Tagen um 1 h versetzt lag (Fund: EMS-Anfrage zur Zeitumstellung,
+     * 20.09.2026).
+     *
+     * $forecastFor(int $offset): array|null liefert die Prognose je Tag-Offset,
+     * $todayTs ist die lokale Mitternacht von Offset 0 (Parameter statt time(),
+     * damit der Prüfstand beliebige Tage simulieren kann).
+     * Rückgabe [kWh, abgedeckteSekunden]. "Abgedeckt" nur bei echten Nachbarn —
+     * ein emptyForecast()-Nullprofil zählt nicht.
+     */
+    private function integrateWindow(int $fromTs, int $toTs, int $slotMin, int $todayTs, callable $forecastFor): array
+    {
+        $kwh = 0.0;
+        $coveredSec = 0;
+        $cache = [];
+        $t = $fromTs;
+        while ($t < $toTs) {
+            $dayStart = strtotime('today', $t);
+            $offset   = (int)round(($dayStart - $todayTs) / 86400);
+            $minutes  = (int)date('G', $t) * 60 + (int)date('i', $t);
+            $slot     = intdiv($minutes, $slotMin);
+            // Nächste Slotgrenze in realer Zeit (Zeitumstellungen sind volle
+            // Stunden, Slotgrenzen liegen also weiter auf ganzen Minuten).
+            $intoSlot = ($minutes % $slotMin) * 60 + (int)date('s', $t);
+            $segEnd   = min($toTs, $t - $intoSlot + $slotMin * 60);
+            if ($segEnd <= $t) { $segEnd = min($toTs, $t + 1); }
+            if ($offset >= 0 && $offset <= LFC_MAX_OFFSET) {
+                if (!array_key_exists($offset, $cache)) { $cache[$offset] = $forecastFor($offset); }
+                $fc   = $cache[$offset];
+                $mean = is_array($fc) ? ($fc['mean'] ?? null) : null;
+                if (is_array($mean) && isset($mean[$slot])) {
+                    $sec = $segEnd - $t;
+                    $kwh += ((float)$mean[$slot]) * ($sec / 3600.0) / 1000.0; // W * h / 1000 = kWh
+                    if (($fc['neighbors'] ?? 0) > 0) { $coveredSec += $sec; }
+                }
+            }
+            $t = $segEnd;
+        }
+        return [$kwh, $coveredSec];
     }
 
     /**
