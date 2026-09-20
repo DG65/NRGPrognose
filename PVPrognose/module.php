@@ -112,9 +112,10 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 116)';
+    private const NEWS_VERSION = '0.20 (Build 117)';
     private const NEWS_ITEMS = [
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
+        '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
         'Neu dabei: Der Korrekturfaktor je Tagesabschnitt ist auf 0,5 bis 2,0 begrenzt, und ausgesprochene Wechselwetter-Tage (stark schwankendes Verhältnis Ist/Prognose) zählen nicht für den Pegel.',
         '☀️ PV-Kurve zeitlich korrigiert (Quelle Open-Meteo): Die 15-/30-Minuten-Kurve lag bisher etwa 30 Minuten zu früh, weil der Stundenmittelwert auf den Stundenbeginn statt auf die Stundenmitte gelegt wurde. Die Werte verschieben sich dadurch um ca. 30 Minuten nach hinten (Morgen später, Abend später), die Tagesenergie bleibt gleich.',
         'Bias und Fehlerquote der Prognosegüte laufen unverändert durch; die Tagesgang-Korrektur schaltet sich mit den neuen Tagen schrittweise wieder zu.',
@@ -223,6 +224,12 @@ class PVPrognose extends IPSModule
         // Abruf-Pause nach fehlgeschlagenem Modellaufbau (alle Quellen): Bis dahin
         // löst GetForecast() keinen weiteren Live-Abruf aus (siehe computeForecast()).
         $this->RegisterAttributeInteger('PVF_ModelFailUntil', 0);
+
+        // Übergangsband: relatives Unsicherheitsband (P10/P90 zu P50, ohne Pegel) aus den Tagen
+        // VOR der Kurvenform-/Lernumstellung (Build 115/116), solange die Residuen neu lernen.
+        $this->RegisterAttributeString('PVF_TransitionBand', '');
+        // Letzter guter Kalibrierfaktor je Generator (PowerVar-ID → {f, ts}), Rückfall bei Abruf-Ausfall.
+        $this->RegisterAttributeString('PVF_CalibCache', '');
     }
 
     public function Destroy()
@@ -1028,6 +1035,8 @@ class PVPrognose extends IPSModule
         $levelRatios  = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // nur ruhige Tage (Pegel q50)
         $rDays  = 0;
         $noisyDays = 0; // Wechselwetter-Tage: zählen fürs Band, nicht für den Pegel
+        $legacyBucket = array_fill(0, self::PVF_RESIDUAL_BUCKETS, []); // Tage vor der Umstellung → Übergangsband
+        $legacyUsed = 0;
         $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
         $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
         $legacyDays = 0; // Tage mit älterer Kurvenform: zählen für Bias/MAPE, nicht für Slot-Residuen
@@ -1061,7 +1070,16 @@ class PVPrognose extends IPSModule
             // UND mit roher Modellkurve (p50raw): ältere Snapshots (Stundenwert auf Stundenbeginn bzw.
             // nur die korrigierte Prognose) würden die Faktoren verfälschen und zählen nur noch für
             // Bias/Fehlerquote (Tagesenergie). Zähler = Übergangs-Marker in GetAccuracy.
-            if (!$this->slotLevelEligible($snaps[$date], $slots)) { $legacyDays++; continue; }
+            if (!$this->slotLevelEligible($snaps[$date], $slots)) {
+                $legacyDays++;
+                // Nur fürs Übergangsband: Ist / ausgelieferte Prognose (alte Form), nur das relative Band zählt.
+                $ld = $this->daySlotRatios($sp, $prof);
+                if ($ld !== null) {
+                    foreach ($ld['ratios'] as $b => $vals) { foreach ($vals as $v) { $legacyBucket[$b][] = $v; } }
+                    $legacyUsed++;
+                }
+                continue;
+            }
             $day = $this->daySlotRatios($snaps[$date]['p50raw'], $prof);
             if ($day === null) { continue; }
             foreach ($day['ratios'] as $b => $vals) {
@@ -1075,6 +1093,7 @@ class PVPrognose extends IPSModule
         }
 
         $this->storeResiduals($bucketRatios, $levelRatios, $rDays, $noisyDays);
+        $this->updateTransitionBand($legacyBucket, $legacyUsed);
 
         if (count($errs) === 0) {
             // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
@@ -1282,20 +1301,12 @@ class PVPrognose extends IPSModule
         if ($mode === 0) { return [$p10, $p50, $p90]; }
 
         $r = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
-        if (!is_array($r) || !isset($r['q10'], $r['q50'], $r['q90']) || !is_array($r['q10'])) {
-            return [$p10, $p50, $p90];
-        }
-        // Residuen aus einer anderen Kurvenform (vor Build 115: Stundenwert auf Stundenbeginn)
-        // passen nicht zur heutigen Kurve — sofort ignorieren statt doppelt zu korrigieren;
-        // sie werden mit den neuen Tagen neu gelernt (evaluateAccuracy überschreibt sie).
-        if ((int)($r['shape'] ?? 1) !== $this->curveShape()) {
-            return [$p10, $p50, $p90];
-        }
-        // Residuen ohne 'raw' wurden gegen die bereits KORRIGIERTE Prognose gelernt (Fehler bis Build 115:
-        // der Pegel blieb bei der Wurzel des Fehlers stehen) — auf die rohe Kurve angewendet wären sie
-        // falsch, also ignorieren, bis sie neu gelernt sind.
-        if (empty($r['raw'])) {
-            return [$p10, $p50, $p90];
+        // Residuen aus einer anderen Kurvenform (vor Build 115: Stundenwert auf Stundenbeginn) oder ohne
+        // 'raw' (gegen die bereits KORRIGIERTE Prognose gelernt, Fehler bis Build 115) passen nicht zur
+        // heutigen Rohkurve — nicht anwenden. Statt komplett ohne Korrektur zu liefern (p10 = p50 = p90),
+        // bleibt in dieser Übergangsphase das relative Band aus den Tagen davor erhalten, mit Pegel 1,0.
+        if (!$this->residualsUsable($r)) {
+            return $this->applyTransitionBand($p10, $p50, $p90);
         }
         $q10arr = $r['q10']; $q50arr = $r['q50']; $q90arr = $r['q90'];
 
@@ -1324,6 +1335,83 @@ class PVPrognose extends IPSModule
             $nP90[$i] = $v * $q90;
         }
         return [$nP10, $nP50, $nP90];
+    }
+
+    /** Sind die gespeicherten Residuen zur heutigen Rohkurve passend (Struktur, Kurvenform, 'raw')? */
+    private function residualsUsable($r): bool
+    {
+        return is_array($r) && isset($r['q10'], $r['q50'], $r['q90']) && is_array($r['q10'])
+            && (int)($r['shape'] ?? 1) === $this->curveShape() && !empty($r['raw']);
+    }
+
+    /**
+     * Übergangsphase (Residuen lernen neu): nur das RELATIVE Band anwenden (P10 = p50·lo, P90 = p50·hi,
+     * lo ≤ 1 ≤ hi), p50 bleibt die Rohkurve. Fund (EMS, 20.09.2026): ohne das lieferte PVF ca. 5-7 Tage
+     * p10 = p50 = p90, für die konservative Planung (B1) also kein Band.
+     */
+    private function applyTransitionBand(array $p10, array $p50, array $p90): array
+    {
+        $band = json_decode((string)$this->ReadAttributeString('PVF_TransitionBand'), true);
+        if (!is_array($band) || !isset($band['lo'], $band['hi']) || !is_array($band['lo'])) {
+            return [$p10, $p50, $p90];
+        }
+        $maxS = (count($p50) > 0) ? max($p50) : 0.0;
+        if ($maxS <= 0) { return [$p10, $p50, $p90]; }
+        $bounds = $this->daylightBounds($p50, max(10.0, 0.02 * $maxS));
+        if ($bounds === null) { return [$p10, $p50, $p90]; }
+        [$dStart, $dEnd] = $bounds;
+        $nP10 = $p10; $nP90 = $p90;
+        foreach ($p50 as $i => $v) {
+            if ($i < $dStart || $i > $dEnd) { continue; }
+            $b  = $this->residualBucket($this->daylightFraction($i, $dStart, $dEnd));
+            $lo = $band['lo'][$b] ?? null; $hi = $band['hi'][$b] ?? null;
+            if ($lo === null || $hi === null) { continue; }
+            $nP10[$i] = $v * (float)$lo;
+            $nP90[$i] = $v * (float)$hi;
+        }
+        return [$nP10, $p50, $nP90];
+    }
+
+    /**
+     * Relatives Band je Bucket aus Slot-Verhältnissen (Ist / ausgelieferte Prognose der Tage vor der
+     * Umstellung). Nur das Verhältnis der Quantile zum Median zählt (lo = q10/q50 ≤ 1, hi = q90/q50 ≥ 1),
+     * der ungeeignete alte Pegel fällt heraus. Bucket ohne genug Werte bleibt null; null ohne Datenbasis.
+     */
+    private function transitionBand(array $bucketRatios, int $days): ?array
+    {
+        $total = 0;
+        foreach ($bucketRatios as $arr) { $total += count($arr); }
+        if ($days < 3 || $total < 50) { return null; }
+        $lo = []; $hi = []; $any = false;
+        for ($b = 0; $b < self::PVF_RESIDUAL_BUCKETS; $b++) {
+            $arr = $bucketRatios[$b] ?? [];
+            if (count($arr) < self::PVF_RESIDUAL_MIN_PER_BUCKET) { $lo[$b] = null; $hi[$b] = null; continue; }
+            sort($arr);
+            $q50 = $this->percentileOf($arr, 0.50);
+            if ($q50 <= 0.0) { $lo[$b] = null; $hi[$b] = null; continue; }
+            $lo[$b] = round(min(1.0, $this->clampFactor($this->percentileOf($arr, 0.10) / $q50)), 3);
+            $hi[$b] = round(max(1.0, $this->clampFactor($this->percentileOf($arr, 0.90) / $q50)), 3);
+            $any = true;
+        }
+        return $any ? ['lo' => $lo, 'hi' => $hi, 'days' => $days, 'samples' => $total, 'updated' => time()] : null;
+    }
+
+    /**
+     * Übergangsband pflegen: sobald brauchbare (neu gelernte) Residuen vorliegen, wird es geleert; solange
+     * nicht, wird es aus den Vor-Umstellungs-Tagen berechnet und aufgehoben (bleibt bei zu wenig Daten
+     * stehen statt gelöscht zu werden).
+     */
+    private function updateTransitionBand(array $legacyBucketRatios, int $legacyDays)
+    {
+        $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
+        if ($this->residualsUsable($res)) {
+            $this->WriteAttributeString('PVF_TransitionBand', '');
+            return;
+        }
+        $band = $this->transitionBand($legacyBucketRatios, $legacyDays);
+        if ($band !== null) {
+            $this->WriteAttributeString('PVF_TransitionBand', json_encode($band));
+        }
     }
 
     /**
@@ -1517,10 +1605,35 @@ class PVPrognose extends IPSModule
         // → sie liefern das reine Wetter-Potenzial statt der gedrosselten Messung.
         if ($src === PVF_SRC_OPENMETEO && $this->ReadPropertyBoolean('PVF_Calibrate')
             && $g['calibrate'] && $g['powervar'] > 0) {
-            $cal = $this->calibrate($g);
+            $cal = $this->calibrationOrCached($g, $this->calibrate($g));
             if ($cal !== null) { $f *= $cal; }
         }
         return $f;
+    }
+
+    /**
+     * Fällt die Kalibrier-Abfrage aus (Timeout gegen die Wetter-API, zu wenig Daten), wird bisher still
+     * Faktor 1,0 genommen — das Rohmodell sprang dadurch je nach Netz zwischen kalibriert und
+     * unkalibriert (Fund 20.09.2026: ein Timeout bei der 21-Tage-Reihe im Rebuild). Jetzt: letzter guter
+     * Faktor je Generator (PowerVar) bis 3 Tage alt; gelingt die Kalibrierung, wird er aufgefrischt.
+     * $fresh = Ergebnis von calibrate() (null bei Ausfall). Rückgabe null = gar keine Kalibrierung.
+     */
+    private function calibrationOrCached(array $g, ?float $fresh): ?float
+    {
+        $cache = json_decode((string)$this->ReadAttributeString('PVF_CalibCache'), true);
+        if (!is_array($cache)) { $cache = []; }
+        $key = (string)$g['powervar'];
+        if ($fresh !== null) {
+            $cache[$key] = ['f' => round($fresh, 4), 'ts' => time()];
+            $this->WriteAttributeString('PVF_CalibCache', json_encode($cache));
+            return $fresh;
+        }
+        if (isset($cache[$key]['f'], $cache[$key]['ts']) && (time() - (int)$cache[$key]['ts']) <= 3 * 86400) {
+            $this->log(PVF_LOG_BASIC, sprintf('Kalibrierung für %s nicht verfügbar — letzter Faktor %.3f vom %s wird weiterverwendet',
+                $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']), (float)$cache[$key]['f'], date('d.m. H:i', (int)$cache[$key]['ts'])));
+            return (float)$cache[$key]['f'];
+        }
+        return null;
     }
 
     // ----------------------------------------------------------------

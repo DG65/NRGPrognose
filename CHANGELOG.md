@@ -6,6 +6,26 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose): Unsicherheitsband in der Lernphase erhalten + Kalibrierfaktor-Cache
+  (20.09.2026, Befund EMS-Sitzung an Dietmars Anlage nach dem Update auf Build 116, Freigabe
+  Dietmar).** (A) Während die Residuen nach der Umstellung (Build 115/116) neu lernen, lieferte
+  PVF ca. 5-7 Tage `p10 = p50 = p90` (heute 5467/5467/5467 W): kein Band für die
+  konservative Planung (EMS B1). Jetzt bleibt in dieser Phase das RELATIVE Band der Tage vor der
+  Umstellung erhalten (`P10 = p50·lo`, `P90 = p50·hi`, `lo ≤ 1 ≤ hi`, je Bucket aus
+  Ist / ausgelieferter Prognose, nur das Verhältnis der Quantile zum Median, der unbrauchbare
+  alte Pegel fällt heraus), der Pegel bleibt 1,0. Berechnet in `evaluateAccuracy()` aus den
+  Snapshots der alten Form (Attribut `PVF_TransitionBand`), weil die alten Residuen beim ersten
+  Rebuild nach dem Update schon überschrieben sind; geleert, sobald brauchbare neue Residuen
+  vorliegen, bleibt bei zu wenig Daten stehen. Aus Dietmars echten 10 Tagen: lo 0,30-0,66,
+  hi 1,98-2,90, deckt sich mit dem Band vor dem Update. (B) Fällt die Kalibrier-Abfrage aus
+  (Timeout gegen Open-Meteo, heute im Rebuild beobachtet), wurde still Faktor 1,0 genommen — das
+  Rohmodell sprang je nach Netz zwischen kalibriert und unkalibriert. Jetzt letzter guter
+  Faktor je Generator (Attribut `PVF_CalibCache`, PowerVar → {f, ts}) bis 3 Tage alt, sonst wie
+  bisher keine Kalibrierung; jede erfolgreiche Kalibrierung frischt den Cache auf. Kein Feld,
+  kein Vertrag geändert. Prüfstand `lernschleife.php` um 14 Prüfungen erweitert.
+  **Klarstellung zum Befund selbst:** Die zu niedrigen Werte (6,58 kWh statt ca. 34) stammten
+  aus einem Rebuild des ALTEN Codes um 15:17 (Teilsumme, `generated` fehlte), nicht aus
+  Build 116; ein Rebuild mit Build 116 lieferte heute 33,7 kWh.
 - **Fix (PVPrognose): Lernfehler der Residuen-Korrektur, Modus „Pegel" (20.09.2026, Fund beim
   Nachrechnen der Kurvenform-Umstellung, Freigabe Dietmar über EMS).** Der Tages-Snapshot
   speicherte die bereits KORRIGIERTE Prognose, gelernt wurde Ist/Snapshot, dieses Verhältnis
