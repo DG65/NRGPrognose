@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Fix (PVPrognose): Plausibilitätsdeckel für die Prognose (20.09.2026, Fund EMS-Sitzung/Prognose
+  beim Kontrollieren des Übergangsbands, Freigabe EMS/Dietmar).** Das relative Band (P90 = ca. 3 × p50)
+  ergab mittags 16 602 W bei 9,18 kWp — physikalisch unmöglich. Jetzt wird jeder Slot von p10/p50/p90
+  (alle Quellen, auch Solcast mit eigenem Band) auf installierte Modulleistung × 1000 W × 1,1 begrenzt
+  (Reserve für kurze Spitzen bei kaltem, klarem Himmel mit Reflexion; exakt 1,0 würde die reale Spitze
+  abschneiden; bei 9,18 kWp 10 098 W). Cap je Wert erhält P10 ≤ p50 ≤ P90; `kwh` und `GetEnergyWindow`
+  folgen dem gedeckelten p50; ohne konfigurierte kWp kein Deckel. Kein Feld/Raster/Vertrag geändert.
+  Prüfstand `ausfall.php` um 7 Prüfungen erweitert (u. a. Fall 16 602 → 10 098 W und Ende-zu-Ende über
+  `computeForecast`). Banner „Neu in Version 0.20 (Build 119)".
 - **Fix (PVPrognose): Unsicherheitsband in der Lernphase erhalten + Kalibrierfaktor-Cache
   (20.09.2026, Befund EMS-Sitzung an Dietmars Anlage nach dem Update auf Build 116, Freigabe
   Dietmar).** (A) Während die Residuen nach der Umstellung (Build 115/116) neu lernen, lieferte

@@ -89,6 +89,9 @@ class PVPrognose extends IPSModule
     // anderen Kurvenform nicht auf die heutige angewendet werden.
     private const PVF_CURVE_SHAPE_MEANS = 2;
     // Pegel-Korrektur (q50) je Bucket begrenzen; Band-Ränder (q10/q90) dürfen weiter (clampFactor).
+    // Plausibilitätsdeckel je Slot: installierte Modulleistung x 1000 W x 1,1 (kalter, klarer Himmel mit Reflexion
+    // kann die DC-Leistung kurz über die STC-Nennleistung heben, mit exakt 1,0 würde die reale Spitze abgeschnitten).
+    private const PVF_PEAK_CAP_FACTOR = 1.1;
     private const PVF_LEVEL_MIN = 0.5;
     private const PVF_LEVEL_MAX = 2.0;
     // Wechselwetter: Interquartilsverhältnis (p75/p25) der Slot-Verhältnisse EINES Tages darüber →
@@ -114,10 +117,11 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 118)';
+    private const NEWS_VERSION = '0.20 (Build 119)';
     private const NEWS_ITEMS = [
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
         '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
+        'Plausibilitätsgrenze: Kein Wert der Prognose (P10/P50/P90) liegt mehr über der installierten Modulleistung (mit 10 % Reserve für kurze Spitzen) — das Unsicherheitsband konnte mittags sonst weit darüber liegen.',
         'Neu dabei: Der Korrekturfaktor je Tagesabschnitt ist auf 0,5 bis 2,0 begrenzt, und ausgesprochene Wechselwetter-Tage (stark schwankendes Verhältnis Ist/Prognose) zählen nicht für den Pegel.',
         '☀️ PV-Kurve zeitlich korrigiert (Quelle Open-Meteo): Die 15-/30-Minuten-Kurve lag bisher etwa 30 Minuten zu früh, weil der Stundenmittelwert auf den Stundenbeginn statt auf die Stundenmitte gelegt wurde. Die Werte verschieben sich dadurch um ca. 30 Minuten nach hinten (Morgen später, Abend später), die Tagesenergie bleibt gleich.',
         'Bias und Fehlerquote der Prognosegüte laufen unverändert durch; die Tagesgang-Korrektur schaltet sich mit den neuen Tagen schrittweise wieder zu.',
@@ -645,6 +649,7 @@ class PVPrognose extends IPSModule
 
         // Band (und optional Pegel) aus den gemessenen Prognosefehlern ableiten.
         list($p10, $p50, $p90) = $this->applyResiduals($p10, $p50, $p90);
+        list($p10, $p50, $p90) = $this->applyPeakCap($p10, $p50, $p90);
 
         $kwh = array_sum($p50) * $this->slotHours() / 1000.0;
 
@@ -1347,6 +1352,22 @@ class PVPrognose extends IPSModule
             $nP90[$i] = max($v * $q90, $nP50[$i]);
         }
         return [$nP10, $nP50, $nP90];
+    }
+
+    /**
+     * Plausibilitätsdeckel: kein Slot (p10/p50/p90) über installierter Modulleistung x 1000 W x
+     * PVF_PEAK_CAP_FACTOR. Fund 20.09.2026: Das relative Band (p90 = ca. 3 x p50) ergab mittags 16,6 kW bei
+     * 9,18 kWp — physikalisch unmöglich. Gilt für alle Quellen (auch Solcast mit eigenem Band); Cap je Wert
+     * (min) erhält die Reihenfolge P10 <= p50 <= P90. Ohne konfigurierte kWp kein Deckel.
+     */
+    private function applyPeakCap(array $p10, array $p50, array $p90): array
+    {
+        $kwp = 0.0;
+        foreach ($this->pvGenerators() as $g) { $kwp += max(0.0, (float)$g['kwp']); }
+        if ($kwp <= 0.0) { return [$p10, $p50, $p90]; }
+        $cap = $kwp * 1000.0 * self::PVF_PEAK_CAP_FACTOR;
+        $c = function (array $a) use ($cap) { foreach ($a as $i => $v) { if ($v > $cap) { $a[$i] = $cap; } } return $a; };
+        return [$c($p10), $c($p50), $c($p90)];
     }
 
     /** Sind die gespeicherten Residuen zur heutigen Rohkurve passend (Struktur, Kurvenform, 'raw')? */
