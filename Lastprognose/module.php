@@ -471,6 +471,10 @@ class Lastprognose extends IPSModule
                 $reason = 'Leistungsvariable fehlt';
             } elseif (array_key_exists('measured', $a) && $a['measured'] === false) {
                 $reason = 'Leistung nicht gemessen';
+            } elseif (array_key_exists('energyMeasured', $a) && $a['energyMeasured'] === false) {
+                // Nur der echte MeterHub liefert es (Zählerstand aus der Leistung hochgerechnet, z. B. blue'Log): laut
+                // Vertragsbesitzer nicht als Hausverbrauch-Lernmaterial nehmen. Fehlt das Feld, gilt „gemessen“.
+                $reason = 'Zählerstand hochgerechnet, nicht gemessen';
             } elseif ($aid <= 0 || !$this->isLogged($aid, $pid)) {
                 $reason = 'Leistung nicht archiviert';
             } else {
@@ -516,8 +520,13 @@ class Lastprognose extends IPSModule
         sort($vals);
         $median = ($n % 2) ? $vals[intdiv($n, 2)] : ($vals[$n / 2 - 1] + $vals[$n / 2]) / 2;
         $negShare = count(array_filter($vals, function ($x) { return $x < 0; })) / $n;
-        if ($median <= 0) {
-            return 'Vorzeichen unklar: Median der letzten 7 Tage ' . number_format($median, 1, ',', '') . ' (eine Hauslast müsste im Mittel positiv sein)';
+        if ($median < 0) {
+            // Vertrag (MeterHub-Sitzung, SUITE.md „Vorzeichen-Konvention MHUB/MHUBV“): für function='house' gilt + = Verbrauch.
+            // Dauerhaft negativ ist eine falsch gestellte Richtung am Zähler, kein Messwert — nicht still umdrehen, melden.
+            return 'Hausverbrauch dauerhaft negativ (Median der letzten 7 Tage ' . number_format($median, 1, ',', '') . '), Richtung am Zähler prüfen';
+        }
+        if ($median == 0) {
+            return 'Vorzeichen unklar: Median der letzten 7 Tage ist 0 (eine Hauslast müsste im Mittel positiv sein)';
         }
         if ($negShare > 0.2) {
             return 'Vorzeichen unklar: ' . round($negShare * 100) . ' % der Stundenwerte sind negativ';

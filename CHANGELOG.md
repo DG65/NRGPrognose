@@ -6,6 +6,15 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Lastprognose): MeterHub-Vorzeichen- und Messart-Regeln übernommen (21.09.2026, Antwort MeterHub-Sitzung als
+  Vertragsbesitzer, SUITE.md „Vorzeichen-Konvention MHUB/MHUBV“, Build 129).** Für `function='house'` gilt verbindlich
+  + = Verbrauch. Ein dauerhaft negativer Hausverbrauch (Median der letzten 7 Tage < 0) ist eine falsch gestellte Richtung am
+  Zähler, kein Messwert: er wird nicht still umgedreht, sondern als Konfigurationsfehler gemeldet („⚠️ Hausverbrauch dauerhaft
+  negativ, Richtung am Zähler prüfen“). Die Plausibilitätsprüfung aus Build 128 bleibt (Median 0, mehr als 20 % negative Werte,
+  zu wenig Archivdaten → „Vorzeichen unklar“ bzw. „nicht prüfbar“). Zusätzlich: `energyMeasured === false` (nur echter MeterHub;
+  Zählerstand aus der Leistung hochgerechnet) → Zähler wird nicht als Hausverbrauch-Lernmaterial genommen; fehlt das Feld, gilt
+  „gemessen“. `measured` (nur MeterHubVirtual) wird nur geprüft, wenn vorhanden. Prüfstände `hausverbrauch.php` und
+  `formularstatus.php` angepasst/erweitert. Kein Banner.
 - **Neu (Lastprognose): Vorzeichen-Sicherheitsnetz für den automatischen Hausverbrauch (21.09.2026, Vorschlag EMS-Sitzung,
   Build 128).** Der MeterHub-Vertrag legt für `function='house'` nicht fest, ob Verbrauch positiv oder negativ geführt wird;
   ein verkehrtes Vorzeichen hätte das 365-Tage-Lernmaterial still verkehrt. Ein Zähler wird jetzt nur automatisch genommen,
