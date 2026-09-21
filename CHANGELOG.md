@@ -6,6 +6,14 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Lastprognose): Vorzeichen-Sicherheitsnetz für den automatischen Hausverbrauch (21.09.2026, Vorschlag EMS-Sitzung,
+  Build 128).** Der MeterHub-Vertrag legt für `function='house'` nicht fest, ob Verbrauch positiv oder negativ geführt wird;
+  ein verkehrtes Vorzeichen hätte das 365-Tage-Lernmaterial still verkehrt. Ein Zähler wird jetzt nur automatisch genommen,
+  wenn seine Stundenwerte der letzten 7 Tage wie eine Hauslast aussehen: Median über 0 und höchstens 20 % negative Werte.
+  Sonst ⚠️ „Vorzeichen unklar“ (mit Median bzw. Anteil) und die Variable muss selbst gewählt werden; bei weniger als 12
+  Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
+  später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
+  8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
 - **Neu (alle drei Module): Statuszeilen farbig (21.09.2026, SUITE.md „Wert kommt automatisch", Farbregel, Build 127).**
   🔗-Zeilen (automatisch übernommen) werden grün dargestellt (Label-Eigenschaft `color` = `0x2E8B3D`), ⛔ rot (`0xFF0000`), alle
   anderen in der Standardfarbe (`-1`). Beim Aufbau über `lineColor()` gesetzt, bei `onChange` per

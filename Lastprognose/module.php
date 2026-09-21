@@ -477,6 +477,7 @@ class Lastprognose extends IPSModule
                 $v = IPS_GetVariable($pid);
                 $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
                 $reason = ($age > 48 * 3600) ? sprintf('seit %s Tagen ohne neuen Messwert', number_format($age / 86400, 1, ',', '')) : '';
+                if ($reason === '') { $reason = $this->consumptionSignReason($aid, $pid); }
             }
             if ($reason !== '') { $e['reason'] = $reason; $out['issues'][] = $e; continue; }
             if (isset($seen[$pid])) { continue; }    // dieselbe Variable über zwei Wege gemeldet
@@ -492,6 +493,36 @@ class Lastprognose extends IPSModule
             $out['state'] = 'unusable';
         }
         return $this->consumptionCache = $out;
+    }
+
+    /**
+     * Sicherheitsnetz gegen ein falsch geführtes Vorzeichen: Der Vertrag legt für function='house' nicht fest,
+     * ob Verbrauch positiv oder negativ ist. Ein verkehrtes Vorzeichen würde das Lernmaterial (365 Tage) still
+     * verkehren. Deshalb wird ein Zähler nur automatisch genommen, wenn seine Stundenwerte der letzten 7 Tage wie
+     * eine Hauslast aussehen: Median deutlich über 0 und höchstens ein Fünftel der Werte negativ. Zu wenige
+     * Archivdaten (< 12 Stundenwerte) gelten als „nicht prüfbar“ — dann nicht raten. '' = plausibel.
+     */
+    private function consumptionSignReason(int $aid, int $pid): string
+    {
+        $rows = @AC_GetAggregatedValues($aid, $pid, 0, strtotime('-7 days'), $this->clampEnd(time()), 0);
+        $vals = [];
+        if (is_array($rows)) {
+            foreach ($rows as $r) { if (isset($r['Avg'])) { $vals[] = (float)$r['Avg']; } }
+        }
+        $n = count($vals);
+        if ($n < 12) {
+            return 'Vorzeichen nicht prüfbar: weniger als 12 Stundenwerte der letzten 7 Tage im Archiv';
+        }
+        sort($vals);
+        $median = ($n % 2) ? $vals[intdiv($n, 2)] : ($vals[$n / 2 - 1] + $vals[$n / 2]) / 2;
+        $negShare = count(array_filter($vals, function ($x) { return $x < 0; })) / $n;
+        if ($median <= 0) {
+            return 'Vorzeichen unklar: Median der letzten 7 Tage ' . number_format($median, 1, ',', '') . ' (eine Hauslast müsste im Mittel positiv sein)';
+        }
+        if ($negShare > 0.2) {
+            return 'Vorzeichen unklar: ' . round($negShare * 100) . ' % der Stundenwerte sind negativ';
+        }
+        return '';
     }
 
     /** Hausverbrauch: eigene Variable (✏️), automatisch von einem MeterHub-Zähler (🔗) oder nichts (⚠️/⛔). */
