@@ -111,28 +111,37 @@
                     "caption": "Hausverbrauch — LEISTUNG (muss archiviert sein)"
                 },
                 {
-                    "type": "Select",
-                    "name": "LFC_PowerUnit",
-                    "caption": "Einheit der Leistungsvariablen (Hausverbrauch, Abzugsliste, Geräte)",
-                    "options": [
-                        {
-                            "caption": "Automatisch erkennen (Profil/Größenordnung, je Variable)",
-                            "value": 2
-                        },
-                        {
-                            "caption": "W (Watt)",
-                            "value": 0
-                        },
-                        {
-                            "caption": "kW (Kilowatt)",
-                            "value": 1
-                        }
-                    ]
-                },
-                {
                     "type": "Label",
                     "name": "ConnStatusUnit",
                     "caption": "Einheit: wird beim Öffnen des Formulars geprüft …"
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "name": "UnitOverridePanel",
+                    "caption": "✏️ Einheit selbst festlegen (überschreibt die Automatik)",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Select",
+                            "name": "LFC_PowerUnit",
+                            "caption": "Einheit der Leistungsvariablen (Hausverbrauch, Abzugsliste, Geräte)",
+                            "options": [
+                                {
+                                    "caption": "Automatisch erkennen (Profil/Größenordnung, je Variable)",
+                                    "value": 2
+                                },
+                                {
+                                    "caption": "W (Watt)",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "kW (Kilowatt)",
+                                    "value": 1
+                                }
+                            ],
+                            "onChange": "LFC_PreviewSelection($id, 'LFC_PowerUnit', $LFC_PowerUnit);"
+                        }
+                    ]
                 },
                 {
                     "type": "Label",
@@ -231,7 +240,8 @@
                 {
                     "type": "SelectInstance",
                     "name": "LFC_OwmInstance",
-                    "caption": "OpenWeatherData-Instanz (Auto) — leer = erste automatisch"
+                    "caption": "OpenWeatherData-Instanz (leer = automatisch, nur bei mehreren nötig)",
+                    "onChange": "LFC_PreviewSelection($id, 'LFC_OwmInstance', $LFC_OwmInstance);"
                 },
                 {
                     "type": "Label",

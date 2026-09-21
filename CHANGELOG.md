@@ -6,6 +6,24 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (alle drei Module): automatisch ermittelte Werte ersetzen das Eingabefeld (21.09.2026, Auftrag Dietmar über
+  EMS-Sitzung, SUITE.md „Wert kommt automatisch: Eingabefeld ersetzen", Build 125).** Die Statuszeile allein reichte
+  nicht, solange darunter das Feld leer stehen blieb. Jetzt: Liefert die Verbindung den Wert und ist das Feld leer,
+  beginnt die Zeile mit 🔗 („automatisch übernommen von …“) und das Eingabefeld hat `visible: false`; eine eigene
+  Angabe bleibt sichtbar und hat Vorrang (✏️); nichts Automatisches → Feld sichtbar (ℹ️/⚠️). Der automatische Wert
+  wird nie ins Feld geschrieben. **Energiebilanz:** `PVSource`/`LoadSource` (bei genau einer Instanz und leerem Feld
+  ausgeblendet). **Lastprognose:** `LFC_OwmInstance` (dito); `LFC_PowerUnit`. **PVPrognose:** `PVF_PowerUnit`.
+  **Einheit bewusst mit Überschreib-Panel statt hartem Ausblenden:** die Erkennung über Größenordnung kann bei großen
+  kW-Anlagen (Tagesmaximum ≥ 100 kW) irren; das Feld liegt deshalb in einem eingeklappten Panel „Einheit selbst
+  festlegen" (`UnitOverridePanel`) und klappt nur bei ⚠️ (Automatik unsicher) oder ✏️ (eigene Angabe) auf.
+  Der Hausverbrauch der Lastprognose hat keinen automatischen Weg und bleibt immer Eingabefeld (die Pflicht-Zeile sagt
+  das ehrlich). **Zeile folgt der Auswahl** (SUITE.md, MeterHub-Fund): `onChange` an allen fünf Auswahlfeldern ruft
+  `EFTILE_PreviewSource()` bzw. `LFC_/PVF_PreviewSelection()` und zieht die Statuszeile per `UpdateFormField` nach —
+  auch vor dem Speichern. Weitere Zustände: gewählte, nicht mehr vorhandene Instanz → ⚠️; Auswahl verweist auf eine
+  Nicht-OpenWeatherData-Instanz → ⚠️ „wird ignoriert". Hilfsfunktion je Modul jetzt `patchElementByName()`
+  (rekursiv, setzt beliebige Eigenschaften wie `visible`/`expanded`). Prüfstand `formularstatus.php` prüft je Zustand
+  Statuszeile **und** Sichtbarkeit/Aufgeklapptsein des Felds sowie die onChange-Nachführung (59 Prüfungen).
+  „Neu in Version"-Banner aller drei Module (Build 125).
 - **Neu (Lastprognose, PVPrognose): Sondereffekte auch aus dem Lernmaterial (21.09.2026, Rückfrage EMS-Sitzung
   zur Absprache „lernende Module schließen externe Regeleingriffe vom Training aus", Freigabe Dietmar, Build 124).**
   Bisher wirkte `EMS_GetSpecialEvents` nur in `evaluateAccuracy()` (Bias/MAPE und Fehler-Residuen für Band und

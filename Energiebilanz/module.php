@@ -20,6 +20,9 @@ class Energiebilanz extends IPSModule
     // gegenseitig überschreiben.
     private $legacyConfigCache = null;
 
+    /** Im Formular gewählte, noch nicht gespeicherte Werte (Name => Wert), nur während PreviewSource(). */
+    private $formOverride = [];
+
     private const SOURCE_PV   = '{257DD4E8-9705-462E-89FC-56D0A1038353}'; // PVForecast
     private const SOURCE_LOAD = '{DC5AD508-507F-40EA-8630-0959AED83050}'; // LoadForecast
 
@@ -57,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.20 (Build 123)';
+    private const NEWS_VERSION = '0.20 (Build 125)';
     private const NEWS_ITEMS = [
+        '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Findet die Kachel genau eine PV- bzw. Lastprognose-Instanz und ist das Feld leer, ist das Auswahlfeld ausgeblendet und eine Zeile „🔗 … automatisch übernommen“ zeigt Instanz, Nummer und Werte. Eine eigene Auswahl (✏️) bleibt sichtbar und hat Vorrang; die Zeile folgt der Auswahl sofort, auch vor dem Speichern.',
         '🔎 Neu im Formular: Zwei Statuszeilen zeigen live, mit welcher PV- und welcher Lastprognose-Instanz die Kachel verbunden ist (Name, Nummer, Vertragsversion) und welche Werte sie daraus übernimmt — oder warum nichts Brauchbares ankommt (z. B. mehrere Instanzen ohne Auswahl).',
         'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage) — bei mehr als 3 Tagen lässt sich das Diagramm horizontal scrollen, Legende und Y-Achse bleiben dabei sichtbar.',
         'Alle Darstellungseinstellungen (Farben, Schriftart, Diagramm-Engine, Tage, Ist-Anzeige, Gitter, Y-Achse fest …) sind jetzt direkt im WebFront einstellbar — Kachel über den Doppelpfeil aufziehen, statt in der Konsole zu suchen.',
@@ -458,9 +462,18 @@ class Energiebilanz extends IPSModule
 
         // Verbund-Verbindungen live sichtbar machen (SUITE.md „Formular-Konvention",
         // Statuszeilen): je automatisch erkannter Quelle eine live berechnete Zeile.
-        [$pvLine, $loadLine] = $this->connectionStatusLines();
-        $this->replaceLabelByName($form['elements'], 'ConnStatusPV', $pvLine);
-        $this->replaceLabelByName($form['elements'], 'ConnStatusLoad', $loadLine);
+        $lines = $this->connectionStatusLines();
+        foreach ($lines as $name => $caption) {
+            $this->patchElementByName($form['elements'], $name, ['caption' => $caption]);
+        }
+        // Wert kommt automatisch (🔗) und das Feld ist leer: Eingabefeld ausblenden statt leer stehen
+        // lassen (SUITE.md „Eingabefeld ersetzen"). Eine eigene Auswahl (✏️) bleibt sichtbar und hat
+        // Vorrang; der automatische Wert wird nie ins Feld geschrieben.
+        foreach (['ConnStatusPV' => 'PVSource', 'ConnStatusLoad' => 'LoadSource'] as $line => $field) {
+            if (strpos($lines[$line], '🔗') === 0 && $this->ReadPropertyInteger($field) === 0) {
+                $this->patchElementByName($form['elements'], $field, ['visible' => false]);
+            }
+        }
 
         if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
@@ -490,26 +503,45 @@ class Energiebilanz extends IPSModule
     }
 
     /**
-     * Ersetzt die Beschriftung eines benannten Labels an beliebiger Tiefe im
-     * Formular (ExpansionPanel/RowLayout/… verschachteln). Nur oberste Ebene
+     * Setzt Eigenschaften (caption, visible, expanded …) eines benannten Elements an beliebiger
+     * Tiefe im Formular (ExpansionPanel/RowLayout/… verschachteln). Nur die oberste Ebene
      * abzusuchen war der Fehler im Szenariorechner — deshalb rekursiv.
      * Liefert false, wenn das Element nicht gefunden wurde.
      */
-    private function replaceLabelByName(array &$elements, string $name, string $caption): bool
+    private function patchElementByName(array &$elements, string $name, array $patch): bool
     {
         foreach ($elements as &$el) {
             if (!is_array($el)) { continue; }
             if (($el['name'] ?? '') === $name) {
-                $el['caption'] = $caption;
+                $el = array_merge($el, $patch);
                 return true;
             }
             foreach (['items', 'elements'] as $child) {
-                if (isset($el[$child]) && is_array($el[$child]) && $this->replaceLabelByName($el[$child], $name, $caption)) {
+                if (isset($el[$child]) && is_array($el[$child]) && $this->patchElementByName($el[$child], $name, $patch)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /**
+     * Wert einer Instanz-Auswahl: der gerade im Formular gewählte (onChange, noch nicht gespeichert)
+     * oder — beim Öffnen — der gespeicherte. So folgt die Statuszeile der Auswahl, nicht dem Speicherstand.
+     */
+    private function selectedInstance(string $prop): int
+    {
+        return array_key_exists($prop, $this->formOverride) ? (int)$this->formOverride[$prop] : $this->ReadPropertyInteger($prop);
+    }
+
+    /** onChange der beiden Quell-Auswahlfelder: Statuszeilen live nachziehen (SUITE.md „Zeile folgt der Auswahl"). */
+    public function PreviewSource(string $prop, int $value): void
+    {
+        if (!in_array($prop, ['PVSource', 'LoadSource'], true)) { return; }
+        $this->formOverride[$prop] = $value;
+        foreach ($this->connectionStatusLines() as $name => $caption) {
+            $this->UpdateFormField($name, 'caption', $caption);
+        }
     }
 
     /**
@@ -534,7 +566,7 @@ class Energiebilanz extends IPSModule
         } elseif ($load['state'] === 'missing') {
             $load['line'] = 'ℹ️ Lastprognose: keine Instanz gefunden (optional) – die Kachel zeigt nur die PV-Erzeugung.';
         }
-        return [$pv['line'], $load['line']];
+        return ['ConnStatusPV' => $pv['line'], 'ConnStatusLoad' => $load['line']];
     }
 
     /**
@@ -544,7 +576,7 @@ class Energiebilanz extends IPSModule
      */
     private function sourceStatus(string $label, string $guid, string $prop, string $todayIdent, string $contractFn, string $prefix): array
     {
-        $configured = $this->ReadPropertyInteger($prop);
+        $configured = $this->selectedInstance($prop);
         $list = IPS_GetInstanceListByModuleID($guid);
         $list = is_array($list) ? array_values($list) : [];
 
@@ -579,7 +611,12 @@ class Energiebilanz extends IPSModule
                 $contract = ', Vertrag ' . $prefix . ' ' . $c['contractVersion'];
             }
         }
-        $head = $label . ': verbunden mit “' . IPS_GetName($id) . '” (#' . $id . ', ' . $how . $contract . ')';
+        // 🔗 = automatisch übernommen (Feld leer), ✏️ = eigene Auswahl (hat Vorrang), ⚠️ = gewählte Instanz gibt es nicht mehr.
+        $src = '“' . IPS_GetName($id) . '” (#' . $id . $contract . ')';
+        $head = ($how === 'fest gewählt')
+            ? $label . ': eigene Auswahl ' . $src . ', hat Vorrang vor der Automatik'
+            : $label . ': automatisch übernommen von ' . $src;
+        $icon = ($stale !== '') ? '⚠️' : (($how === 'fest gewählt') ? '✏️' : '🔗');
 
         // Welche Werte tatsächlich übernommen werden: Tagesprognose heute.
         $vid = @IPS_GetObjectIDByIdent($todayIdent, $id);
@@ -592,7 +629,7 @@ class Energiebilanz extends IPSModule
             return ['state' => 'warn', 'line' => '⚠️ ' . $head . ', aber ohne brauchbare Prognose für heute (Variable „' . $todayIdent . '“ leer). Die Quelle rechnet vermutlich noch oder ist gestört.' . $stale];
         }
         $slots = count($fc['p50']);
-        return ['state' => 'ok', 'line' => '✅ ' . $head . '. Übernommen: Tagesprognose heute ' . number_format((float) ($fc['kwh'] ?? 0), 1, ',', '') . ' kWh mit Band (P10/P50/P90), '
+        return ['state' => 'ok', 'line' => $icon . ' ' . $head . '. Werte: Tagesprognose heute ' . number_format((float) ($fc['kwh'] ?? 0), 1, ',', '') . ' kWh mit Band (P10/P50/P90), '
             . $slots . ' Zeitpunkte je Tag, bis zu 5 Tage (Variablen „' . $prefix . '_Today“ … „' . $prefix . '_Day4“).' . $stale];
     }
 

@@ -75,6 +75,8 @@ class PVPrognose extends IPSModule
     // Vertragsversion, mit der EMS_GetSpecialEvents zuletzt geantwortet hat (null = keine Antwort) — für die Formular-Statuszeile.
     private $specialEventsContract = null;
     // Ereignisse für die Selbstkalibrierung (Kalibrier-Zeitraum), request-lokal — calibrate() läuft je Generator.
+    // Im Formular gewählte, noch nicht gespeicherte Werte (Name => Wert), nur während PreviewSelection().
+    private $formOverride = [];
     private $calibEvents = null;
 
     // Residuen-Korrektur ("Immer genauer werden"): Tagesgang-Profil statt
@@ -121,8 +123,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 124)';
+    private const NEWS_VERSION = '0.20 (Build 125)';
     private const NEWS_ITEMS = [
+        '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die Einheit (W/kW) der gemessenen Leistung zeigt je Generator, woher sie stammt („🔗 automatisch übernommen“); das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eine eigene Angabe (✏️) hat Vorrang, die Zeile folgt der Auswahl sofort.',
         '🧹 Abgeregelte Tage bleiben aus der Selbstkalibrierung: Mit einem NRG-Stack-EMS werden Tage, an denen die Erzeugung abgeregelt war (Netzbetreiber-Dimmung, negativer Börsenpreis), nicht mehr für den Kalibrierfaktor verwendet — sonst würde die gedrosselte Messung als „Modell zu hoch“ gelernt und die Prognose zu niedrig ausfallen. Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), zählen hier nicht. Ohne EMS ändert sich nichts.',
         '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde — Archiv und Archivierung der gemessenen Leistung, die Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung) und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
@@ -269,9 +272,17 @@ class PVPrognose extends IPSModule
 
         // Verbund-Verbindungen live sichtbar machen (SUITE.md „Formular-Konvention",
         // Statuszeilen): je automatischer Erkennung eine live berechnete Zeile.
-        foreach ($this->connectionStatusLines() as $name => $caption) {
-            $this->replaceLabelByName($form['elements'], $name, $caption);
+        $lines = $this->connectionStatusLines();
+        foreach ($lines as $name => $caption) {
+            $this->patchElementByName($form['elements'], $name, ['caption' => $caption]);
         }
+        // Einheit kommt automatisch (🔗): Eingabefeld nicht leer stehen lassen (SUITE.md „Eingabefeld
+        // ersetzen"). Die Erkennung über Größenordnung kann bei großen kW-Anlagen irren, deshalb bleibt
+        // ein bewusstes Überschreiben möglich — das Feld liegt in einem eingeklappten Panel „Einheit selbst
+        // festlegen"; nur wo die Automatik nichts Sicheres liefert (⚠️) oder eine eigene Angabe gilt (✏️),
+        // ist es aufgeklappt. Der automatische Wert wird nie ins Feld geschrieben.
+        $unitOpen = (strpos($lines['ConnStatusUnit'], '⚠️') === 0 || strpos($lines['ConnStatusUnit'], '✏️') === 0);
+        $this->patchElementByName($form['elements'], 'UnitOverridePanel', ['expanded' => $unitOpen]);
 
         if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
@@ -301,26 +312,44 @@ class PVPrognose extends IPSModule
     }
 
     /**
-     * Ersetzt die Beschriftung eines benannten Labels an beliebiger Tiefe im
-     * Formular (ExpansionPanel/RowLayout/… verschachteln). Nur die oberste
-     * Ebene abzusuchen war der Fehler im Szenariorechner — deshalb rekursiv.
+     * Setzt Eigenschaften (caption, visible, expanded …) eines benannten Elements an beliebiger
+     * Tiefe im Formular (ExpansionPanel/RowLayout/… verschachteln). Nur die oberste Ebene
+     * abzusuchen war der Fehler im Szenariorechner — deshalb rekursiv.
      * Liefert false, wenn das Element nicht gefunden wurde.
      */
-    private function replaceLabelByName(array &$elements, string $name, string $caption): bool
+    private function patchElementByName(array &$elements, string $name, array $patch): bool
     {
         foreach ($elements as &$el) {
             if (!is_array($el)) { continue; }
             if (($el['name'] ?? '') === $name) {
-                $el['caption'] = $caption;
+                $el = array_merge($el, $patch);
                 return true;
             }
             foreach (['items', 'elements'] as $child) {
-                if (isset($el[$child]) && is_array($el[$child]) && $this->replaceLabelByName($el[$child], $name, $caption)) {
+                if (isset($el[$child]) && is_array($el[$child]) && $this->patchElementByName($el[$child], $name, $patch)) {
                     return true;
                 }
             }
         }
         return false;
+    }
+
+    /**
+     * Wert eines Auswahlfelds: der gerade im Formular gewählte (onChange, noch nicht gespeichert)
+     * oder — beim Öffnen — der gespeicherte. So folgt die Statuszeile der Auswahl, nicht dem Speicherstand.
+     */
+    private function selectedInt(string $prop): int
+    {
+        return array_key_exists($prop, $this->formOverride) ? (int)$this->formOverride[$prop] : $this->ReadPropertyInteger($prop);
+    }
+
+    /** onChange der Einheit: Statuszeile live nachziehen (SUITE.md „Zeile folgt der Auswahl"). */
+    public function PreviewSelection(string $prop, int $value): void
+    {
+        if ($prop !== 'PVF_PowerUnit') { return; }
+        $this->formOverride[$prop] = $value;
+        $lines = $this->connectionStatusLines();
+        $this->UpdateFormField('ConnStatusUnit', 'caption', $lines['ConnStatusUnit']);
     }
 
     /**
@@ -386,9 +415,9 @@ class PVPrognose extends IPSModule
     /** Einheit (W/kW) je gemessener Leistungsvariable, mit Quelle der Erkennung. */
     private function unitStatusLine(): string
     {
-        $mode = $this->ReadPropertyInteger('PVF_PowerUnit');
+        $mode = $this->selectedInt('PVF_PowerUnit');
         if ($mode === 0 || $mode === 1) {
-            return 'ℹ️ Einheit: fest auf ' . ($mode === 1 ? 'kW' : 'W') . ' eingestellt (nicht automatisch) – gilt für alle gemessenen Leistungsvariablen.';
+            return '✏️ Einheit: fest auf ' . ($mode === 1 ? 'kW' : 'W') . ' eingestellt (eigene Angabe, überschreibt die Automatik) – gilt für alle gemessenen Leistungsvariablen.';
         }
         $vars = $this->powerVarsByGenerator();
         if (count($vars) === 0) {
@@ -414,7 +443,7 @@ class PVPrognose extends IPSModule
                 $unsure = true;
             }
         }
-        return ($unsure ? '⚠️' : '✅') . " Einheit (automatisch erkannt):\n" . implode("\n", $lines);
+        return ($unsure ? '⚠️' : '🔗') . " Einheit (automatisch übernommen):\n" . implode("\n", $lines);
     }
 
     /** EMS-Kopplung für Sondereffekte: Prognosegüte, Fehler-Korrektur und Selbstkalibrierung. */

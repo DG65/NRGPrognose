@@ -60,12 +60,14 @@
         {
             "type": "SelectInstance",
             "name": "PVSource",
-            "caption": "PV-Prognose-Instanz (leer = automatisch, nur bei mehreren Instanzen nötig)"
+            "caption": "PV-Prognose-Instanz (leer = automatisch, nur bei mehreren Instanzen nötig)",
+            "onChange": "EFTILE_PreviewSource($id, 'PVSource', $PVSource);"
         },
         {
             "type": "SelectInstance",
             "name": "LoadSource",
-            "caption": "Last-Prognose-Instanz (leer = automatisch, optional)"
+            "caption": "Last-Prognose-Instanz (leer = automatisch, optional)",
+            "onChange": "EFTILE_PreviewSource($id, 'LoadSource', $LoadSource);"
         },
         {
             "type": "Label",

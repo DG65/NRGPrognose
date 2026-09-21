@@ -398,28 +398,37 @@
                     "suffix": " d"
                 },
                 {
-                    "type": "Select",
-                    "name": "PVF_PowerUnit",
-                    "caption": "Einheit der gemessenen Leistungsvariablen (PowerVar)",
-                    "options": [
-                        {
-                            "caption": "Automatisch erkennen (Profil/Größenordnung)",
-                            "value": 2
-                        },
-                        {
-                            "caption": "W (Watt)",
-                            "value": 0
-                        },
-                        {
-                            "caption": "kW (Kilowatt)",
-                            "value": 1
-                        }
-                    ]
-                },
-                {
                     "type": "Label",
                     "name": "ConnStatusUnit",
                     "caption": "Einheit: wird beim Öffnen des Formulars geprüft …"
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "name": "UnitOverridePanel",
+                    "caption": "✏️ Einheit selbst festlegen (überschreibt die Automatik)",
+                    "expanded": false,
+                    "items": [
+                        {
+                            "type": "Select",
+                            "name": "PVF_PowerUnit",
+                            "caption": "Einheit der gemessenen Leistungsvariablen (PowerVar)",
+                            "options": [
+                                {
+                                    "caption": "Automatisch erkennen (Profil/Größenordnung)",
+                                    "value": 2
+                                },
+                                {
+                                    "caption": "W (Watt)",
+                                    "value": 0
+                                },
+                                {
+                                    "caption": "kW (Kilowatt)",
+                                    "value": 1
+                                }
+                            ],
+                            "onChange": "PVF_PreviewSelection($id, 'PVF_PowerUnit', $PVF_PowerUnit);"
+                        }
+                    ]
                 },
                 {
                     "type": "Select",

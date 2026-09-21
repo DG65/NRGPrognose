@@ -61,7 +61,7 @@ Idents waren durchgehend unangetastet.
   vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`; vor Änderungen an
   Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
   „Verbund-Verbindungen im Formular sichtbar machen“) `formularstatus.php`. Neue automatische Verbindung =
-  neue benannte Label-Zeile in `form.json` + Builder in `connectionStatusLines()` + Prüfpunkt dort. Alle
+  neue benannte Label-Zeile in `form.json` + Builder in `connectionStatusLines()` + Prüfpunkt dort. Ersetzt die Zeile ein Eingabefeld (Wert kommt automatisch): 🔗 + `visible:false` bei leerem Feld, ✏️ bei eigener Angabe (sichtbar, Vorrang), nie den Auto-Wert ins Feld schreiben; `onChange` → `Preview…()` → `UpdateFormField`. Alle
   ohne IP-Symcon, müssen „ALLES GRÜN“ melden. Liegt lokal in `tools/` (per
   `.gitignore` bewusst nicht im Repo); Fixtures trotzdem nur mit generischen Koordinaten.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
