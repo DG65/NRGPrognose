@@ -267,7 +267,7 @@ class Lastprognose extends IPSModule
         // Statuszeilen): je automatischer Erkennung eine live berechnete Zeile.
         $lines = $this->connectionStatusLines();
         foreach ($lines as $name => $caption) {
-            $this->patchElementByName($form['elements'], $name, ['caption' => $caption]);
+            $this->patchElementByName($form['elements'], $name, ['caption' => $caption, 'color' => $this->lineColor($caption)]);
         }
         // Wert kommt automatisch (🔗) und das Feld ist leer: Eingabefeld ausblenden statt leer stehen
         // lassen (SUITE.md „Eingabefeld ersetzen"); eigene Angabe (✏️) bleibt sichtbar und hat Vorrang.
@@ -345,6 +345,17 @@ class Lastprognose extends IPSModule
         return array_key_exists($prop, $this->formOverride) ? (int)$this->formOverride[$prop] : $this->ReadPropertyInteger($prop);
     }
 
+    /**
+     * Farbe einer Statuszeile nach ihrem Symbol (SUITE.md „Wert kommt automatisch“): 🔗 automatisch übernommen
+     * grün, ⛔ Pflichtangabe fehlt rot, alles andere Standardfarbe (-1).
+     */
+    private function lineColor(string $line): int
+    {
+        if (strpos($line, '🔗') === 0) { return 0x2E8B3D; }
+        if (strpos($line, '⛔') === 0) { return 0xFF0000; }
+        return -1;
+    }
+
     /** onChange von Einheit und OpenWeatherData-Auswahl: Statuszeile live nachziehen (SUITE.md „Zeile folgt der Auswahl"). */
     public function PreviewSelection(string $prop, int $value): void
     {
@@ -359,6 +370,7 @@ class Lastprognose extends IPSModule
         $lines = $this->connectionStatusLines();
         foreach ($lineFor[$prop] as $name) {
             $this->UpdateFormField($name, 'caption', $lines[$name]);
+            $this->UpdateFormField($name, 'color', $this->lineColor($lines[$name]));
         }
     }
 

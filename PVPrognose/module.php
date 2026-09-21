@@ -274,7 +274,7 @@ class PVPrognose extends IPSModule
         // Statuszeilen): je automatischer Erkennung eine live berechnete Zeile.
         $lines = $this->connectionStatusLines();
         foreach ($lines as $name => $caption) {
-            $this->patchElementByName($form['elements'], $name, ['caption' => $caption]);
+            $this->patchElementByName($form['elements'], $name, ['caption' => $caption, 'color' => $this->lineColor($caption)]);
         }
         // Einheit kommt automatisch (🔗): Eingabefeld nicht leer stehen lassen (SUITE.md „Eingabefeld
         // ersetzen"). Die Erkennung über Größenordnung kann bei großen kW-Anlagen irren, deshalb bleibt
@@ -343,6 +343,17 @@ class PVPrognose extends IPSModule
         return array_key_exists($prop, $this->formOverride) ? (int)$this->formOverride[$prop] : $this->ReadPropertyInteger($prop);
     }
 
+    /**
+     * Farbe einer Statuszeile nach ihrem Symbol (SUITE.md „Wert kommt automatisch“): 🔗 automatisch übernommen
+     * grün, ⛔ Pflichtangabe fehlt rot, alles andere Standardfarbe (-1).
+     */
+    private function lineColor(string $line): int
+    {
+        if (strpos($line, '🔗') === 0) { return 0x2E8B3D; }
+        if (strpos($line, '⛔') === 0) { return 0xFF0000; }
+        return -1;
+    }
+
     /** onChange der Einheit: Statuszeile live nachziehen (SUITE.md „Zeile folgt der Auswahl"). */
     public function PreviewSelection(string $prop, int $value): void
     {
@@ -350,6 +361,7 @@ class PVPrognose extends IPSModule
         $this->formOverride[$prop] = $value;
         $lines = $this->connectionStatusLines();
         $this->UpdateFormField('ConnStatusUnit', 'caption', $lines['ConnStatusUnit']);
+        $this->UpdateFormField('ConnStatusUnit', 'color', $this->lineColor($lines['ConnStatusUnit']));
     }
 
     /**

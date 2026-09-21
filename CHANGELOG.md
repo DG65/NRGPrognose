@@ -6,6 +6,11 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (alle drei Module): Statuszeilen farbig (21.09.2026, SUITE.md „Wert kommt automatisch", Farbregel, Build 127).**
+  🔗-Zeilen (automatisch übernommen) werden grün dargestellt (Label-Eigenschaft `color` = `0x2E8B3D`), ⛔ rot (`0xFF0000`), alle
+  anderen in der Standardfarbe (`-1`). Beim Aufbau über `lineColor()` gesetzt, bei `onChange` per
+  `UpdateFormField('<Label>', 'color', …)` mitgeführt (springt eine Zeile von 🔗 auf ✏️/⚠️, geht die Farbe zurück auf -1).
+  Kein neuer „Neu in Version"-Banner (rein optisch). Prüfstand `formularstatus.php` prüft Farbe je Zustand und beim onChange.
 - **Neu (Lastprognose): Hausverbrauch automatisch aus dem MeterHub (21.09.2026, Vorschlag EMS-Sitzung, Freigabe Dietmar,
   Build 126).** Bleibt `VAR_Consumption` leer und meldet genau ein MeterHub-Zähler (`MHUB_GetFunctions` bzw.
   `MHUBV_GetFunctions`, Vertrag Major 1, JSON-String) eine Zuordnung mit Funktion `house`, wird dessen Leistungsvariable
