@@ -57,8 +57,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.20 (Build 100)';
+    private const NEWS_VERSION = '0.20 (Build 123)';
     private const NEWS_ITEMS = [
+        '🔎 Neu im Formular: Zwei Statuszeilen zeigen live, mit welcher PV- und welcher Lastprognose-Instanz die Kachel verbunden ist (Name, Nummer, Vertragsversion) und welche Werte sie daraus übernimmt — oder warum nichts Brauchbares ankommt (z. B. mehrere Instanzen ohne Auswahl).',
         'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage) — bei mehr als 3 Tagen lässt sich das Diagramm horizontal scrollen, Legende und Y-Achse bleiben dabei sichtbar.',
         'Alle Darstellungseinstellungen (Farben, Schriftart, Diagramm-Engine, Tage, Ist-Anzeige, Gitter, Y-Achse fest …) sind jetzt direkt im WebFront einstellbar — Kachel über den Doppelpfeil aufziehen, statt in der Konsole zu suchen.',
         'Tooltip zeigt beim Verbrauch zusätzlich die Unsicherheitsspanne (P10–P90).',
@@ -455,6 +456,12 @@ class Energiebilanz extends IPSModule
         }
         unset($el);
 
+        // Verbund-Verbindungen live sichtbar machen (SUITE.md „Formular-Konvention",
+        // Statuszeilen): je automatisch erkannter Quelle eine live berechnete Zeile.
+        [$pvLine, $loadLine] = $this->connectionStatusLines();
+        $this->replaceLabelByName($form['elements'], 'ConnStatusPV', $pvLine);
+        $this->replaceLabelByName($form['elements'], 'ConnStatusLoad', $loadLine);
+
         if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
                 'type' => 'RowLayout',
@@ -480,6 +487,113 @@ class Energiebilanz extends IPSModule
         }
 
         return json_encode($form);
+    }
+
+    /**
+     * Ersetzt die Beschriftung eines benannten Labels an beliebiger Tiefe im
+     * Formular (ExpansionPanel/RowLayout/… verschachteln). Nur oberste Ebene
+     * abzusuchen war der Fehler im Szenariorechner — deshalb rekursiv.
+     * Liefert false, wenn das Element nicht gefunden wurde.
+     */
+    private function replaceLabelByName(array &$elements, string $name, string $caption): bool
+    {
+        foreach ($elements as &$el) {
+            if (!is_array($el)) { continue; }
+            if (($el['name'] ?? '') === $name) {
+                $el['caption'] = $caption;
+                return true;
+            }
+            foreach (['items', 'elements'] as $child) {
+                if (isset($el[$child]) && is_array($el[$child]) && $this->replaceLabelByName($el[$child], $name, $caption)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Live berechnete Verbindungs-Statuszeilen für die beiden Quell-Instanzen
+     * (PV- und Lastprognose). Gleiche Auflösung wie ResolveSource(), damit die
+     * Zeile genau das zeigt, was die Kachel tatsächlich verwendet.
+     *
+     * @return array{0:string,1:string} [PV-Zeile, Last-Zeile]
+     */
+    private function connectionStatusLines(): array
+    {
+        $pv   = $this->sourceStatus('PV-Prognose', self::SOURCE_PV, 'PVSource', 'PVF_Today', 'PVF_GetForecast', 'PVF');
+        $load = $this->sourceStatus('Lastprognose', self::SOURCE_LOAD, 'LoadSource', 'LFC_Today', 'LFC_GetForecast', 'LFC');
+
+        // Ohne beide Quellen zeigt die Kachel nichts: das ist ein Pflichtfehler (⛔),
+        // mit nur einer Quelle dagegen ein normaler Betrieb (ℹ️).
+        if ($pv['state'] === 'missing' && $load['state'] === 'missing') {
+            $pv['line'] = '⛔ PV-Prognose: keine Instanz gefunden. Es wird mindestens eine PV- oder Lastprognose-Instanz benötigt, sonst bleibt die Kachel leer.';
+            $load['line'] = '⛔ Lastprognose: keine Instanz gefunden (siehe oben).';
+        } elseif ($pv['state'] === 'missing') {
+            $pv['line'] = 'ℹ️ PV-Prognose: keine Instanz gefunden – die Kachel zeigt nur den Verbrauch.';
+        } elseif ($load['state'] === 'missing') {
+            $load['line'] = 'ℹ️ Lastprognose: keine Instanz gefunden (optional) – die Kachel zeigt nur die PV-Erzeugung.';
+        }
+        return [$pv['line'], $load['line']];
+    }
+
+    /**
+     * Prüft eine Quelle wie ResolveSource() und beschreibt sie.
+     *
+     * @return array{state:string,line:string} state: ok | warn | missing
+     */
+    private function sourceStatus(string $label, string $guid, string $prop, string $todayIdent, string $contractFn, string $prefix): array
+    {
+        $configured = $this->ReadPropertyInteger($prop);
+        $list = IPS_GetInstanceListByModuleID($guid);
+        $list = is_array($list) ? array_values($list) : [];
+
+        $id = 0;
+        $how = '';
+        $stale = '';
+        if ($configured > 0 && IPS_InstanceExists($configured)) {
+            $id = $configured;
+            $how = 'fest gewählt';
+        } else {
+            if ($configured > 0) {
+                $stale = ' (die gewählte Instanz #' . $configured . ' existiert nicht mehr, es gilt die automatische Erkennung)';
+            }
+            if (count($list) === 1) {
+                $id = (int) $list[0];
+                $how = 'automatisch erkannt';
+            } elseif (count($list) > 1) {
+                $names = [];
+                foreach ($list as $lid) { $names[] = '“' . IPS_GetName((int) $lid) . '” (#' . (int) $lid . ')'; }
+                return ['state' => 'warn', 'line' => '⚠️ ' . $label . ': ' . count($list) . ' Instanzen gefunden (' . implode(', ', $names)
+                    . '), aber keine gewählt – deshalb wird keine verwendet. Bitte unten festlegen.' . $stale];
+            } else {
+                return ['state' => 'missing', 'line' => 'ℹ️ ' . $label . ': keine Instanz gefunden.' . $stale];
+            }
+        }
+
+        // Vertragsversion, falls die Quelle sie liefert (Vertrag *_GetForecast).
+        $contract = '';
+        if (function_exists($contractFn)) {
+            $c = @$contractFn($id, 0);
+            if (is_array($c) && isset($c['contractVersion'])) {
+                $contract = ', Vertrag ' . $prefix . ' ' . $c['contractVersion'];
+            }
+        }
+        $head = $label . ': verbunden mit “' . IPS_GetName($id) . '” (#' . $id . ', ' . $how . $contract . ')';
+
+        // Welche Werte tatsächlich übernommen werden: Tagesprognose heute.
+        $vid = @IPS_GetObjectIDByIdent($todayIdent, $id);
+        $fc = null;
+        if ($vid !== false && $vid > 0) {
+            $raw = GetValue($vid);
+            $fc = is_string($raw) ? json_decode($raw, true) : null;
+        }
+        if (!is_array($fc) || empty($fc['p50']) || !is_array($fc['p50'])) {
+            return ['state' => 'warn', 'line' => '⚠️ ' . $head . ', aber ohne brauchbare Prognose für heute (Variable „' . $todayIdent . '“ leer). Die Quelle rechnet vermutlich noch oder ist gestört.' . $stale];
+        }
+        $slots = count($fc['p50']);
+        return ['state' => 'ok', 'line' => '✅ ' . $head . '. Übernommen: Tagesprognose heute ' . number_format((float) ($fc['kwh'] ?? 0), 1, ',', '') . ' kWh mit Band (P10/P50/P90), '
+            . $slots . ' Zeitpunkte je Tag, bis zu 5 Tage (Variablen „' . $prefix . '_Today“ … „' . $prefix . '_Day4“).' . $stale];
     }
 
     /**

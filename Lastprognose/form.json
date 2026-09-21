@@ -83,6 +83,11 @@
                             "value": 2
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusEms",
+                    "caption": "EMS: wird beim Öffnen des Formulars geprüft …"
                 }
             ]
         },
@@ -91,6 +96,11 @@
             "caption": "📊 Datenquellen (Archiv)",
             "expanded": true,
             "items": [
+                {
+                    "type": "Label",
+                    "name": "ConnStatusArchive",
+                    "caption": "Archiv: wird beim Öffnen des Formulars geprüft …"
+                },
                 {
                     "type": "Label",
                     "caption": "── Hauptverbrauch (Pflicht) ─────────────────────────"
@@ -121,7 +131,8 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Automatik: nutzt das Variablenprofil (Suffix W/kW), sonst die Größenordnung der letzten Tage. Bei exotischen Variablen ohne Profil ggf. manuell festlegen."
+                    "name": "ConnStatusUnit",
+                    "caption": "Einheit: wird beim Öffnen des Formulars geprüft …"
                 },
                 {
                     "type": "Label",
@@ -157,6 +168,11 @@
                 {
                     "type": "Label",
                     "caption": "Erkennt die Wallboxen über die Hubs und zieht ihre archivierte Ladeleistung von der Hauslast ab (jede Wallbox nur einmal, auch wenn sie über beide Hubs erreichbar ist). Nur einschalten, wenn deine Hausverbrauch-Variable die Ladeleistung enthält. Wallboxen, die du oben schon von Hand eingetragen hast, dann aus der Liste entfernen — sonst wird doppelt abgezogen. Was erkannt wurde, steht in der Status-Zeile."
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusWallbox",
+                    "caption": "Wallboxen: wird beim Öffnen des Formulars geprüft …"
                 },
                 {
                     "type": "Label",
@@ -209,7 +225,8 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Auto: findet eine OpenWeatherData-Instanz (demel42) automatisch. Voraussetzung: dort die Stundenvorhersage aktivieren (hourly_forecast_count > 0, für den vollen 5-Tage-Horizont mind. 40 — die kostenlose OpenWeatherMap-Anbindung liefert ohnehin nicht mehr als 5 Tage). Ohne OWM/ohne Vorhersage wird das saisonale Normal aus dem Temperatur-Archiv genutzt."
+                    "name": "ConnStatusOwm",
+                    "caption": "Temperaturvorhersage: wird beim Öffnen des Formulars geprüft …"
                 },
                 {
                     "type": "SelectInstance",
@@ -335,9 +352,18 @@
                     "name": "LFC_ResidualMode",
                     "caption": "Unsicherheitsband (P10/P90) bilden aus",
                     "options": [
-                        { "caption": "Streuung der ähnlichen Tage (Standard)", "value": 0 },
-                        { "caption": "Tatsächlichen Prognosefehlern — nur Band", "value": 1 },
-                        { "caption": "Tatsächlichen Prognosefehlern — Band + Pegelkorrektur", "value": 2 }
+                        {
+                            "caption": "Streuung der ähnlichen Tage (Standard)",
+                            "value": 0
+                        },
+                        {
+                            "caption": "Tatsächlichen Prognosefehlern — nur Band",
+                            "value": 1
+                        },
+                        {
+                            "caption": "Tatsächlichen Prognosefehlern — Band + Pegelkorrektur",
+                            "value": 2
+                        }
                     ]
                 },
                 {

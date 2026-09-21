@@ -72,6 +72,8 @@ class PVPrognose extends IPSModule
     // Wird gesetzt, wenn ein Aufruf einen unbekannten Vertrags-Major lieferte
     // (Update-Meldepflicht) — für die Statuszeile in evaluateAccuracy().
     private $specialEventsVersionMismatch = null;
+    // Vertragsversion, mit der EMS_GetSpecialEvents zuletzt geantwortet hat (null = keine Antwort) — für die Formular-Statuszeile.
+    private $specialEventsContract = null;
 
     // Residuen-Korrektur ("Immer genauer werden"): Tagesgang-Profil statt
     // einem einzigen globalen Faktor (Fund EMS-Sitzung 12.09.2026: Morgens
@@ -117,8 +119,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 119)';
+    private const NEWS_VERSION = '0.20 (Build 123)';
     private const NEWS_ITEMS = [
+        '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde — Archiv und Archivierung der gemessenen Leistung, die Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung) und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
         '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
         'Plausibilitätsgrenze: Kein Wert der Prognose (P10/P50/P90) liegt mehr über der installierten Modulleistung (mit 10 % Reserve für kurze Spitzen) — das Unsicherheitsband konnte mittags sonst weit darüber liegen.',
@@ -261,6 +264,12 @@ class PVPrognose extends IPSModule
         }
         unset($el);
 
+        // Verbund-Verbindungen live sichtbar machen (SUITE.md „Formular-Konvention",
+        // Statuszeilen): je automatischer Erkennung eine live berechnete Zeile.
+        foreach ($this->connectionStatusLines() as $name => $caption) {
+            $this->replaceLabelByName($form['elements'], $name, $caption);
+        }
+
         if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
                 'type' => 'RowLayout',
@@ -286,6 +295,142 @@ class PVPrognose extends IPSModule
         }
 
         return json_encode($form);
+    }
+
+    /**
+     * Ersetzt die Beschriftung eines benannten Labels an beliebiger Tiefe im
+     * Formular (ExpansionPanel/RowLayout/… verschachteln). Nur die oberste
+     * Ebene abzusuchen war der Fehler im Szenariorechner — deshalb rekursiv.
+     * Liefert false, wenn das Element nicht gefunden wurde.
+     */
+    private function replaceLabelByName(array &$elements, string $name, string $caption): bool
+    {
+        foreach ($elements as &$el) {
+            if (!is_array($el)) { continue; }
+            if (($el['name'] ?? '') === $name) {
+                $el['caption'] = $caption;
+                return true;
+            }
+            foreach (['items', 'elements'] as $child) {
+                if (isset($el[$child]) && is_array($el[$child]) && $this->replaceLabelByName($el[$child], $name, $caption)) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Live berechnete Verbindungs-Statuszeilen (name des Labels => Text).
+     * Jede Zeile zeigt, was das Modul tatsächlich erkannt hat und welche Werte
+     * es daraus übernimmt — oder warum nichts Brauchbares dabei herauskam.
+     * Keine Zeile darf das Formular verhindern: jede Ermittlung ist einzeln
+     * abgesichert und meldet im Fehlerfall ⚠️ statt zu werfen.
+     */
+    private function connectionStatusLines(): array
+    {
+        $builders = [
+            'ConnStatusArchive' => 'archiveStatusLine',
+            'ConnStatusUnit'    => 'unitStatusLine',
+            'ConnStatusEms'     => 'emsStatusLine',
+        ];
+        $out = [];
+        foreach ($builders as $name => $method) {
+            try {
+                $out[$name] = $this->$method();
+            } catch (\Throwable $e) {
+                $out[$name] = '⚠️ Status konnte nicht ermittelt werden: ' . $e->getMessage();
+            }
+        }
+        return $out;
+    }
+
+    /** Gemessene Leistungsvariablen (PowerVar) der Generatoren: [ID => Generatorname]. */
+    private function powerVarsByGenerator(): array
+    {
+        $out = [];
+        foreach ($this->pvGenerators() as $g) {
+            if ($g['powervar'] > 0 && !isset($out[$g['powervar']])) {
+                $out[$g['powervar']] = ($g['name'] !== '') ? $g['name'] : 'Generator';
+            }
+        }
+        return $out;
+    }
+
+    /** Archiv-Control und Archivierung der gemessenen Leistung (für Kalibrierung und Prognosegüte). */
+    private function archiveStatusLine(): string
+    {
+        $vars = $this->powerVarsByGenerator();
+        $aid = $this->archiveID();
+        if (count($vars) === 0) {
+            return 'ℹ️ Archiv: keine gemessene Leistung (PowerVar) bei den Generatoren eingetragen – Selbstkalibrierung und Prognosegüte sind aus, die Prognose selbst läuft ohne.';
+        }
+        if ($aid <= 0) {
+            return '⚠️ Archiv: keine Archiv-Control-Instanz gefunden – Selbstkalibrierung und Prognosegüte können die gemessene Leistung nicht lesen.';
+        }
+        $head = 'Archiv: verbunden mit “' . IPS_GetName($aid) . '” (#' . $aid . ', automatisch erkannt)';
+        $missing = [];
+        foreach ($vars as $vid => $name) {
+            if (!IPS_VariableExists($vid)) { $missing[] = $name . ' (#' . $vid . ' existiert nicht)'; }
+            elseif (!$this->isLogged($aid, $vid)) { $missing[] = $name . ' (#' . $vid . ' nicht archiviert)'; }
+        }
+        if (count($missing) > 0) {
+            return '⚠️ ' . $head . ', aber ohne brauchbare Messwerte für: ' . implode(', ', $missing) . ' – dort Archivierung aktivieren, sonst wird dieser Generator nicht kalibriert.';
+        }
+        return '✅ ' . $head . '. Übernommen: gemessene Leistung von ' . count($vars) . ' Generator(en) für Selbstkalibrierung und Prognosegüte.';
+    }
+
+    /** Einheit (W/kW) je gemessener Leistungsvariable, mit Quelle der Erkennung. */
+    private function unitStatusLine(): string
+    {
+        $mode = $this->ReadPropertyInteger('PVF_PowerUnit');
+        if ($mode === 0 || $mode === 1) {
+            return 'ℹ️ Einheit: fest auf ' . ($mode === 1 ? 'kW' : 'W') . ' eingestellt (nicht automatisch) – gilt für alle gemessenen Leistungsvariablen.';
+        }
+        $vars = $this->powerVarsByGenerator();
+        if (count($vars) === 0) {
+            return 'ℹ️ Einheit: noch keine gemessene Leistung (PowerVar) gewählt – die Einheit (W/kW) wird je Variable automatisch erkannt, sobald eine gewählt ist.';
+        }
+        $lines = [];
+        $unsure = false;
+        foreach ($vars as $vid => $gen) {
+            $name = $gen . ' – „' . (IPS_VariableExists($vid) ? IPS_GetName($vid) : '?') . '“ (#' . $vid . ')';
+            if (!IPS_VariableExists($vid)) {
+                $lines[] = '• ' . $name . ': Variable existiert nicht';
+                $unsure = true;
+                continue;
+            }
+            $u = $this->autoPowerUnit($vid);
+            $unit = ($u['factor'] == 1000.0) ? 'kW' : (($u['factor'] == 1000000.0) ? 'MW' : 'W');
+            if ($u['source'] === 'profile') {
+                $lines[] = '• ' . $name . ': ' . $unit . ' – aus dem Profil-Suffix „' . $u['detail'] . '“';
+            } elseif ($u['source'] === 'magnitude') {
+                $lines[] = '• ' . $name . ': ' . $unit . ' – aus der Größenordnung (Tagesmaximum der letzten 7 Tage ' . $u['detail'] . ')';
+            } else {
+                $lines[] = '• ' . $name . ': W angenommen – weder Profil-Suffix noch auswertbare Archivdaten; bei einer kW-Variable bitte oben manuell festlegen';
+                $unsure = true;
+            }
+        }
+        return ($unsure ? '⚠️' : '✅') . " Einheit (automatisch erkannt):\n" . implode("\n", $lines);
+    }
+
+    /** EMS-Kopplung für Sondereffekte (nur Prognosegüte). */
+    private function emsStatusLine(): string
+    {
+        $ems = function_exists('EMS_GetSpecialEvents') ? $this->emsInstance() : 0;
+        if ($ems <= 0) {
+            return 'ℹ️ EMS: nicht gefunden – Tage mit Sondereffekten (Abregelung, §14a-Dimmung …) werden aus der Prognosegüte nicht herausgerechnet, alle Tage zählen.';
+        }
+        $events = $this->fetchSpecialEvents(14);
+        $head = 'EMS: verbunden mit “' . IPS_GetName($ems) . '” (#' . $ems . ', automatisch erkannt)';
+        if ($this->specialEventsVersionMismatch !== null) {
+            return '⚠️ ' . $head . ', aber der Vertrag EMS_GetSpecialEvents hat Version ' . $this->specialEventsVersionMismatch . ' (unterstützt: ' . self::EMS_EVENTS_MAJOR . '.x) – Kopplung bis zum Modul-Update aus.';
+        }
+        if ($this->specialEventsContract === null) {
+            return '⚠️ ' . $head . ', aber EMS_GetSpecialEvents liefert keine Ereignisliste – Sondereffekte werden nicht berücksichtigt.';
+        }
+        return '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
+            . ' Sonderereignis(se) der letzten 14 Tage – betroffene Tage werden aus der Prognosegüte herausgerechnet.';
     }
 
     /**
@@ -2075,6 +2220,7 @@ class PVPrognose extends IPSModule
     private function fetchSpecialEvents(int $lookbackDays): array
     {
         $this->specialEventsVersionMismatch = null;
+        $this->specialEventsContract = null;
         if (!function_exists('EMS_GetSpecialEvents')) { return []; }
         $emsId = $this->emsInstance();
         if ($emsId <= 0) { return []; }
@@ -2096,6 +2242,7 @@ class PVPrognose extends IPSModule
         // (falls eine künftige EMS-Version das Format wechselt) bleibt als
         // Rückfall lesbar.
         $verStr = (string)($events['contractVersion'] ?? '1.0');
+        $this->specialEventsContract = $verStr;
         $major  = (int)explode('.', $verStr)[0];
         if ($major !== self::EMS_EVENTS_MAJOR) {
             // Update-Meldepflicht (Verbund-Konvention, SUITE.md): volle
@@ -2289,13 +2436,26 @@ class PVPrognose extends IPSModule
      */
     private function autoPowerFactor(int $vid): float
     {
+        return $this->autoPowerUnit($vid)['factor'];
+    }
+
+    /**
+     * Wie autoPowerFactor(), liefert zusätzlich WOHER die Einheit stammt
+     * (für die Formular-Statuszeile): source = profile | magnitude | default,
+     * bei „profile" das Suffix, bei „magnitude" das Tagesmaximum (W bzw. kW).
+     *
+     * @return array{factor:float, source:string, detail:string}
+     */
+    private function autoPowerUnit(int $vid): array
+    {
         $v    = IPS_GetVariable($vid);
         $prof = ($v['VariableCustomProfile'] !== '') ? $v['VariableCustomProfile'] : $v['VariableProfile'];
         if ($prof !== '' && IPS_VariableProfileExists($prof)) {
-            $suffix = strtolower(trim(IPS_GetVariableProfile($prof)['Suffix']));
-            if ($suffix === 'kw') { return 1000.0; }
-            if ($suffix === 'w')  { return 1.0; }
-            if ($suffix === 'mw') { return 1000000.0; }
+            $rawSuffix = trim(IPS_GetVariableProfile($prof)['Suffix']);
+            $suffix = strtolower($rawSuffix);
+            if ($suffix === 'kw') { return ['factor' => 1000.0, 'source' => 'profile', 'detail' => $rawSuffix]; }
+            if ($suffix === 'w')  { return ['factor' => 1.0, 'source' => 'profile', 'detail' => $rawSuffix]; }
+            if ($suffix === 'mw') { return ['factor' => 1000000.0, 'source' => 'profile', 'detail' => $rawSuffix]; }
         }
         $aid = $this->archiveID();
         if ($this->isLogged($aid, $vid)) {
@@ -2303,10 +2463,11 @@ class PVPrognose extends IPSModule
             if (is_array($rows) && count($rows) > 0) {
                 $max = 0.0;
                 foreach ($rows as $r) { $max = max($max, (float)$r['Max']); }
-                if ($max > 0 && $max < 100) { return 1000.0; }
+                if ($max > 0 && $max < 100) { return ['factor' => 1000.0, 'source' => 'magnitude', 'detail' => (string)round($max, 1)]; }
+                if ($max >= 100) { return ['factor' => 1.0, 'source' => 'magnitude', 'detail' => (string)round($max)]; }
             }
         }
-        return 1.0;
+        return ['factor' => 1.0, 'source' => 'default', 'detail' => ''];
     }
 
     /** $httpCode (out): tatsächlicher HTTP-Status — für Aufrufer, die z. B. 429 gesondert behandeln (fetchSolcast). */

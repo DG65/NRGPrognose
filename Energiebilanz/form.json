@@ -49,12 +49,18 @@
         },
         {
             "type": "Label",
-            "caption": "Quellen werden automatisch erkannt (je eine PV- und Lastprognose-Instanz). Nur bei mehreren Instanzen hier festlegen."
+            "name": "ConnStatusPV",
+            "caption": "PV-Prognose: wird beim Öffnen des Formulars geprüft …"
+        },
+        {
+            "type": "Label",
+            "name": "ConnStatusLoad",
+            "caption": "Lastprognose: wird beim Öffnen des Formulars geprüft …"
         },
         {
             "type": "SelectInstance",
             "name": "PVSource",
-            "caption": "PV-Prognose-Instanz (leer = automatisch)"
+            "caption": "PV-Prognose-Instanz (leer = automatisch, nur bei mehreren Instanzen nötig)"
         },
         {
             "type": "SelectInstance",

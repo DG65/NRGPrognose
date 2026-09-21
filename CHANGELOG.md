@@ -6,6 +6,25 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (alle drei Module): live berechnete Verbindungs-Statuszeilen im Konfigurationsformular
+  (21.09.2026, Auftrag Dietmar über EMS-Sitzung, SUITE.md „Verbund-Verbindungen im Formular sichtbar
+  machen", Build 123).** Jede automatische Erkennung hat jetzt eine in `GetConfigurationForm()` berechnete
+  Zeile statt eines statischen „wird automatisch erkannt"-Satzes: ✅ verbunden (Instanz-ID, Name,
+  Vertragsversion und welche Werte mit Quelle übernommen werden), ⚠️ verbunden, aber nichts Brauchbares
+  (mit Ursache), ℹ️ nicht gefunden (und was dann gilt), ⛔ Pflicht fehlt. **Energiebilanz:** PV- und
+  Lastprognose-Quelle (auch „mehrere Instanzen ohne Auswahl", „gewählte Instanz existiert nicht mehr",
+  „Prognose heute leer"; ohne beide Quellen ⛔). **Lastprognose:** Archiv (und ob der Hausverbrauch
+  archiviert ist), Einheit je Leistungsvariable (Hausverbrauch, Abzugsliste, Geräte) samt Quelle
+  (Profil-Suffix / Größenordnung mit Tagesmaximum / „W angenommen"), OpenWeatherData-Instanz und die
+  tatsächlich erhaltenen Tagesmittel (bei mehreren Instanzen ohne Auswahl ⚠️ „die erste wird genommen"),
+  Wallboxen der Hubs, EMS-Kopplung mit Vertragsversion und Ereigniszahl. **PVPrognose:** Archiv und
+  Archivierung der PowerVars, Einheit je PowerVar, EMS-Kopplung. Die Labels werden rekursiv über ihren
+  `name` gefunden (ExpansionPanel-Verschachtelung; genau der Fehler im Szenariorechner), jede Zeile ist
+  einzeln abgesichert — ein Fehler dort zeigt ⚠️ in der Zeile, das Formular öffnet trotzdem. Die
+  Einheiten-Erkennung liefert dafür intern zusätzlich die Quelle (`autoPowerUnit()`), das Ergebnis der
+  Prognose ändert sich nicht. Kein Vertrag geändert. Prüfstand `tools/pruefstand/formularstatus.php`
+  (lokal, ruft die echte `GetConfigurationForm()` auf und prüft die Zeilen im ausgelieferten JSON je
+  Zustand). „Neu in Version"-Banner aller drei Module (Build 123).
 - **Neu (Lastprognose): Wallboxen der NRG-Stack-Hubs automatisch abziehen, Opt-in (20.09.2026,
   Anregung EMS-Sitzung zur toten Wallbox-Variable in der Abzugsliste, Freigabe Dietmar).** Neuer Schalter
   `LFC_AutoWallboxes` (Standard **AUS**) unter „Datenquellen (Archiv)": Erkennt die Wallboxen über

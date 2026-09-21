@@ -102,6 +102,11 @@
                             "value": 2
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusEms",
+                    "caption": "EMS: wird beim Öffnen des Formulars geprüft …"
                 }
             ]
         },
@@ -368,6 +373,11 @@
             "items": [
                 {
                     "type": "Label",
+                    "name": "ConnStatusArchive",
+                    "caption": "Archiv: wird beim Öffnen des Formulars geprüft …"
+                },
+                {
+                    "type": "Label",
                     "caption": "Vergleicht je Generator die gemessene mit der aus vergangener Einstrahlung modellierten Erzeugung und lernt einen Korrekturfaktor (Verschattung, Verschmutzung, reale Leistung). Benötigt die PowerVar je Generator."
                 },
                 {
@@ -405,6 +415,11 @@
                             "value": 1
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusUnit",
+                    "caption": "Einheit: wird beim Öffnen des Formulars geprüft …"
                 },
                 {
                     "type": "Select",
