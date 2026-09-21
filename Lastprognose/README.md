@@ -78,9 +78,13 @@ Laufzeit.
 
 **Sondereffekte werden ausgeschlossen** (NRG-Stack, sobald ein EMS mit `EMS_GetSpecialEvents`
 installiert ist): Tage mit externem Regeleingriff (§14a-Dimmung, Tibber-Regelenergie,
-Direktvermarktung, EMS-Schutzabschaltung) fließen weder in Bias/\|Ø-Fehler\| noch in die
-Residuen-Quantile ein — sie würden sonst eine gute Prognose fälschlich als Fehler werten. Ohne EMS
-(oder ohne diese Funktion) bleibt das Verhalten unverändert.
+Direktvermarktung, EMS-Schutzabschaltung, Grid-Rewards- oder Boost-Ladung) fließen weder in
+Bias/\|Ø-Fehler\| noch in die Residuen-Quantile noch in die Ähnliche-Tage-Suche (Lernmaterial) ein — sie
+würden sonst eine gute Prognose fälschlich als Fehler werten bzw. die Ladeleistung als normalen Verbrauch
+lernen. Maßgeblich ist, was ein Ereignis verfälscht (Feld `affects` im EMS-Vertrag 1.1): Es zählt, wenn es
+die Last betrifft; Ereignisse, die nur die PV-Erzeugung betreffen (z. B. Negativpreis), bleiben außen vor.
+Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten unverändert. Reicht die saubere Historie nicht für
+k Nachbarn, werden die nächsten Sondertage aufgefüllt.
 
 ## Öffentliche Funktionen
 

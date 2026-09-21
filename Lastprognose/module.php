@@ -85,6 +85,10 @@ class Lastprognose extends IPSModule
     private $specialEventsVersionMismatch = null;
     // Vertragsversion, mit der EMS_GetSpecialEvents zuletzt geantwortet hat (null = keine Antwort) — für die Formular-Statuszeile.
     private $specialEventsContract = null;
+    // Ereignisse für das k-NN-Lernmaterial (Lookback-Tiefe), request-lokal — computeForecast() läuft je Rebuild fünfmal.
+    private $poolEvents = null;
+    // Anzahl der im letzten computeForecast() wegen Sondereffekt zurückgestellten Kandidatentage — für die Status-Zeile.
+    private $poolExcluded = 0;
 
     // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
     // VersionLabel() im Doku-Panel (SUITE.md „Einheitliche Formular-Optik").
@@ -101,8 +105,9 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.20 (Build 123)';
+    private const NEWS_VERSION = '0.20 (Build 124)';
     private const NEWS_ITEMS = [
+        '🧹 Sondertage bleiben aus dem Lernmaterial: Mit einem NRG-Stack-EMS werden Tage, an denen ein externer Eingriff den Verbrauch verfälscht hat (z. B. Grid-Rewards- oder Boost-Ladung, §14a-Lastbegrenzung), nicht mehr für die Ähnliche-Tage-Suche verwendet, statt nur aus der Prognosegüte herausgerechnet zu werden. Ereignisse, die nur die PV-Erzeugung betreffen (Negativpreis), zählen hier nicht. Reicht die saubere Historie nicht für k Nachbarn, werden Sondertage aufgefüllt. Ohne EMS ändert sich nichts.',
         '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde und welche Werte übernommen werden — Archiv, Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung), OpenWeatherData-Instanz samt erhaltenen Tagesmitteln, erkannte Wallboxen und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
         '🔌 Neu, optional: Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) können jetzt automatisch von der Hauslast abgezogen werden — Schalter unter „Datenquellen (Archiv)", Standard aus. Jede Wallbox wird nur einmal abgezogen, auch wenn sie über beide Hubs erreichbar ist; was erkannt wurde, steht in der Status-Zeile. Bereits von Hand eingetragene Wallboxen dann aus der Liste entfernen.',
         'Die Warnung „ohne neuen Messwert" zählt jetzt ab der letzten Aktualisierung statt ab der letzten Wertänderung — eine regelmäßig gemeldete, aber dauerhaft konstante Leistung (z. B. ungenutzte Wallbox mit 0 W) löst sie nicht mehr fälschlich aus.',
@@ -475,14 +480,15 @@ class Lastprognose extends IPSModule
         return ($warn ? '⚠️' : '✅') . ' Wallboxen: ' . count($w['use']) . " automatisch erkannt und abgezogen:\n" . implode("\n", $parts);
     }
 
-    /** EMS-Kopplung für Sondereffekte (nur Prognosegüte). */
+    /** EMS-Kopplung für Sondereffekte: Prognosegüte, Fehler-Korrektur und k-NN-Lernmaterial. */
     private function emsStatusLine(): string
     {
         $ems = function_exists('EMS_GetSpecialEvents') ? $this->emsInstance() : 0;
         if ($ems <= 0) {
-            return 'ℹ️ EMS: nicht gefunden – Tage mit Sondereffekten (§14a-Dimmung, Regelenergie …) werden aus der Prognosegüte nicht herausgerechnet, alle Tage zählen.';
+            return 'ℹ️ EMS: nicht gefunden – Tage mit Sondereffekten (Grid Rewards, Boost, §14a-Lastbegrenzung …) werden weder aus dem Lernmaterial noch aus der Prognosegüte herausgerechnet, alle Tage zählen.';
         }
-        $events = $this->fetchSpecialEvents(14);
+        $lookback = $this->ReadPropertyInteger('LFC_LookbackDays');
+        $events = $this->poolSpecialEvents($lookback);
         $head = 'EMS: verbunden mit “' . IPS_GetName($ems) . '” (#' . $ems . ', automatisch erkannt)';
         if ($this->specialEventsVersionMismatch !== null) {
             return '⚠️ ' . $head . ', aber der Vertrag EMS_GetSpecialEvents hat Version ' . $this->specialEventsVersionMismatch . ' (unterstützt: ' . self::EMS_EVENTS_MAJOR . '.x) – Kopplung bis zum Modul-Update aus.';
@@ -490,8 +496,18 @@ class Lastprognose extends IPSModule
         if ($this->specialEventsContract === null) {
             return '⚠️ ' . $head . ', aber EMS_GetSpecialEvents liefert keine Ereignisliste – Sondereffekte werden nicht berücksichtigt.';
         }
-        return '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
-            . ' Sonderereignis(se) der letzten 14 Tage – betroffene Tage werden aus der Prognosegüte herausgerechnet.';
+        $days = 0;
+        for ($d = 1; $d <= $lookback; $d++) {
+            $ts = strtotime('today -' . $d . ' days');
+            if ($this->dayHasSpecialEvent($events, $ts, $this->dayEndExclusive($ts) - 1, 'load')) { $days++; }
+        }
+        $line = '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
+            . ' Sonderereignis(se), davon betreffen ' . $days . ' Tag(e) der letzten ' . $lookback . ' die Last – diese Tage bleiben aus dem Lernmaterial (Ähnliche-Tage-Suche), der Prognosegüte und der Fehler-Korrektur (Band) heraus.'
+            . ' Ereignisse, die nur die PV-Erzeugung betreffen (z. B. Negativpreis), zählen hier nicht.';
+        if (version_compare($this->specialEventsContract, '1.1', '<')) {
+            $line .= ' Hinweis: Vertrag ' . $this->specialEventsContract . ' liefert kein Feld „affects“ – jedes Ereignis gilt dann für Last und PV.';
+        }
+        return $line;
     }
 
     /**
@@ -712,6 +728,9 @@ class Lastprognose extends IPSModule
                 $status .= ' | ⚠️ ' . implode(' · ', $stale);
             }
             $status .= $this->wallboxNotices();
+            if ($this->poolExcluded > 0) {
+                $status .= sprintf(' | ℹ️ Lernmaterial ohne %d Tag(e) mit Sondereffekt (EMS)', $this->poolExcluded);
+            }
             $this->SetValue('LFC_Status', $status);
             $this->SetStatus(102);
             $this->log(LFC_LOG_BASIC, 'Neuberechnung abgeschlossen');
@@ -771,8 +790,15 @@ class Lastprognose extends IPSModule
         $lookback = $this->ReadPropertyInteger('LFC_LookbackDays');
         $k        = max(1, $this->ReadPropertyInteger('LFC_K'));
 
-        // Kandidaten: alle Tage von gestern rückwärts.
+        // Kandidaten: alle Tage von gestern rückwärts. Tage mit einem Sondereffekt, der die LAST
+        // verfälscht (Grid Rewards, Boost, §14a-Lastbegrenzung — EMS_GetSpecialEvents, `affects`
+        // ∋ 'load'), kommen nicht ins Lernmaterial: sonst steckt z. B. die Ladeleistung einer
+        // Regelenergie-Ladung im Ähnliche-Tage-Mittel. Zurückgestellt statt verworfen: reicht
+        // die saubere Historie nicht für k Nachbarn (junge Installation), werden die nächsten
+        // zurückgestellten Tage aufgefüllt — eine Prognose mit Sondertagen ist besser als keine.
+        $events = $this->poolSpecialEvents($lookback);
         $cands = [];
+        $held  = [];
         for ($d = 1; $d <= $lookback; $d++) {
             $ts      = strtotime('today -' . $d . ' days');
             $profile = $this->getDayProfile($ts);
@@ -781,7 +807,20 @@ class Lastprognose extends IPSModule
             }
             $cf   = $this->dayFeatures($ts, false);
             $dist = $this->distance($tf, $cf);
-            $cands[] = ['dist' => $dist, 'profile' => $profile];
+            $cand = ['dist' => $dist, 'profile' => $profile];
+            if ($this->dayHasSpecialEvent($events, $ts, $this->dayEndExclusive($ts) - 1, 'load')) {
+                $held[] = $cand;
+            } else {
+                $cands[] = $cand;
+            }
+        }
+        $this->poolExcluded = count($held);
+        if (count($held) > 0 && count($cands) < $k) {
+            usort($held, function ($a, $b) { return $a['dist'] <=> $b['dist']; });
+            $fill = array_slice($held, 0, $k - count($cands));
+            $this->log(LFC_LOG_BASIC, sprintf('Nur %d Tage ohne Sondereffekt, k=%d: %d Tag(e) mit Sondereffekt zum Auffüllen verwendet',
+                count($cands), $k, count($fill)));
+            $cands = array_merge($cands, $fill);
         }
 
         if (count($cands) === 0) {
@@ -967,7 +1006,7 @@ class Lastprognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
-            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1)) { $excluded++; continue; }
+            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1, 'load')) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
             $prof = $this->getDayProfile($ts);
@@ -1590,6 +1629,24 @@ class Lastprognose extends IPSModule
     }
 
     /**
+     * Ereignisse für das Lernmaterial über die ganze Lookback-Tiefe, je Request einmal. Die Tiefe
+     * hängt am Bestand des EMS (höchstens 500 Einträge, erst ab dem Zeitpunkt, an dem das EMS sie
+     * führt) — ältere Tage sind dann schlicht nicht markiert. Ohne EMS leer, nichts ändert sich.
+     */
+    private function poolSpecialEvents(int $lookbackDays): array
+    {
+        if ($this->poolEvents === null) {
+            try {
+                $this->poolEvents = $this->fetchSpecialEvents($lookbackDays);
+            } catch (\Throwable $e) {
+                $this->log(LFC_LOG_BASIC, 'EMS_GetSpecialEvents für das Lernmaterial nicht lesbar: ' . $e->getMessage());
+                $this->poolEvents = [];
+            }
+        }
+        return $this->poolEvents;
+    }
+
+    /**
      * Sondereffekte (§14a, Tibber-Regelenergie, Vermarktung, EMS-Schutz) der
      * letzten $lookbackDays über EMS_GetSpecialEvents (Verbund-Vertrag 1.0)
      * abfragen. Standalone-fähig: ohne EMS bleibt die Liste leer, wirkt sich
@@ -1638,7 +1695,7 @@ class Lastprognose extends IPSModule
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */
-    private function dayHasSpecialEvent(array $events, int $dayStart, int $dayEnd): bool
+    private function dayHasSpecialEvent(array $events, int $dayStart, int $dayEnd, string $affects = ''): bool
     {
         foreach ($events as $e) {
             // Nur echte Event-Objekte mit realem Startzeitpunkt werten —
@@ -1648,11 +1705,23 @@ class Lastprognose extends IPSModule
             if (!is_array($e)) { continue; }
             $from = (int)($e['from'] ?? 0);
             if ($from <= 0) { continue; }
+            // Vertrag 1.1: `affects` nennt, WAS das Ereignis verfälscht ('pv' = Erzeugung abgeregelt,
+            // 'load' = Last verfälscht). Ohne Feld (Vertrag 1.0, ältere Einträge) gilt beides.
+            if ($affects !== '' && !in_array($affects, $this->eventAffects($e), true)) { continue; }
             $to   = (int)($e['to'] ?? 0);
             $effectiveTo = ($to > 0) ? $to : time(); // 0 = noch andauernd → bis jetzt
             if ($from <= $dayEnd && $effectiveTo >= $dayStart) { return true; }
         }
         return false;
+    }
+
+    /** Wirkung eines EMS-Ereignisses: ['pv'], ['load'] oder beides; fehlt/ungültig das Feld → beides. */
+    private function eventAffects(array $e): array
+    {
+        $a = $e['affects'] ?? null;
+        if (!is_array($a)) { return ['pv', 'load']; }
+        $a = array_values(array_filter($a, 'is_string'));
+        return count($a) > 0 ? $a : ['pv', 'load'];
     }
 
     /**

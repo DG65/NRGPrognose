@@ -59,7 +59,7 @@ Idents waren durchgehend unangetastet.
   Wetter-Zeitstempeln oder `GetEnergyWindow` `sommerzeit.php` (PV, echte Kurven beider Umstellungen)
   und `lastprognose_sommerzeit.php` (Lastprognose Ende-zu-Ende mit gestelltem Archiv) laufen lassen;
   vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`; vor Änderungen an
-  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
+  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
   „Verbund-Verbindungen im Formular sichtbar machen“) `formularstatus.php`. Neue automatische Verbindung =
   neue benannte Label-Zeile in `form.json` + Builder in `connectionStatusLines()` + Prüfpunkt dort. Alle
   ohne IP-Symcon, müssen „ALLES GRÜN“ melden. Liegt lokal in `tools/` (per
@@ -254,11 +254,19 @@ eigenständige IPS-Variable vor (nur als `unit`-Feld in JSON-Nutzlasten) — kei
   **Grundlast** gelernt wird. Diese Variablen müssen **archiviert** sein.
 - **Abgeregelte PV-Generatoren** (DC-MPPT mit Strom-/Spannungslimit): Selbstkalibrierung je Generator
   abschalten → das Modell liefert das **Potenzial** statt der gedrosselten Messung.
-- **Sondereffekt-Ausschluss (`EMS_GetSpecialEvents`, Vertrag 1.0, final seit 24.07.2026):** In
-  `evaluateAccuracy()` (LFC + PVF) holt `fetchSpecialEvents(14)` einmal die Ereignisse der letzten
+- **Sondereffekt-Ausschluss (`EMS_GetSpecialEvents`, Vertrag 1.0 final seit 24.07.2026, 1.1 additiv seit
+  Build 124):** In `evaluateAccuracy()` (LFC + PVF) holt `fetchSpecialEvents(14)` einmal die Ereignisse der letzten
   14 Tage (`EMS_GetSpecialEvents(0, $from, $to)`, `deviceId=0` = ganze Anlage), `dayHasSpecialEvent()`
   schließt überlappende Tage komplett von Bias/MAPE **und** den Residuen-Quantilen aus — sonst würde
   ein externer Eingriff (§14a, Regelenergie, Direktvermarktung) fälschlich als Prognosefehler gelernt.
+  **Wirkung (`affects`, Vertrag 1.1):** jedes Ereignis nennt, was es verfälscht: `['pv']` (Erzeugung abgeregelt:
+  einspeisung_netzbetreiber, negativpreis) oder `['load']` (Last verfälscht: grid_rewards, boost,
+  lastbegrenzung_14a); fehlt das Feld (Vertrag 1.0, ältere Einträge) → beides. LFC schließt nur `load`
+  aus, PVF nur `pv`. **Lernmaterial (seit Build 124):** LFC nimmt Ereignistage aus dem k-NN-Kandidatenpool
+  (`poolSpecialEvents(LFC_LookbackDays)`, zurückgestellt und bei < k sauberen Tagen aufgefüllt, nie leer), PVF
+  überspringt sie in `calibrate()` (`calibrationEvents()`; bleiben < 5 Tage, keine Kalibrierung → Cache/Rohmodell).
+  Der EMS-Bestand ist begrenzt (max. 500 Einträge, Instanz-Attribut, geht bei Modul-Neuladen verloren) — ältere
+  Tage sind schlicht nicht markiert. Prüfstand `sondereffekte.php`.
   Aufruf steht hinter `function_exists('EMS_GetSpecialEvents')` (Eigenständigkeitsregel!) — ohne EMS
   ist die Ereignisliste leer, Verhalten unverändert. `to=0` bedeutet „noch andauernd" → Überlappung
   bis `time()`. Kein Echtzeit-Anspruch nötig, da unsere Auswertung ohnehin rückblickend läuft.

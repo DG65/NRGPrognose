@@ -6,6 +6,26 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Lastprognose, PVPrognose): Sondereffekte auch aus dem Lernmaterial (21.09.2026, Rückfrage EMS-Sitzung
+  zur Absprache „lernende Module schließen externe Regeleingriffe vom Training aus", Freigabe Dietmar, Build 124).**
+  Bisher wirkte `EMS_GetSpecialEvents` nur in `evaluateAccuracy()` (Bias/MAPE und Fehler-Residuen für Band und
+  Pegel); das eigentliche Lernmaterial war nicht gefiltert. **Lastprognose:** Ereignistage kommen nicht mehr in den
+  k-NN-Kandidatenpool (`poolSpecialEvents()` über die Lookback-Tiefe, request-lokal); sie werden zurückgestellt und
+  nur bei weniger als k sauberen Tagen (junge Installation) nächstliegend aufgefüllt, die Prognose wird nie leer.
+  Status-Zeile: `ℹ️ Lernmaterial ohne N Tag(e) mit Sondereffekt (EMS)`. **PVPrognose:** `calibrate()` überspringt
+  Kalibriertage mit abgeregelter Erzeugung (`calibrationEvents()`); bleiben weniger als 5 Tage, gibt es keine
+  Kalibrierung (Cache bis 3 Tage, sonst Rohmodell) statt eines verfälschten Faktors. **Wirkung statt Pauschale
+  (EMS-Vertrag 1.1, additiv, Major unverändert):** neues Feld `affects` je Ereignis — `['pv']` (Erzeugung
+  abgeregelt: einspeisung_netzbetreiber, negativpreis) oder `['load']` (Last verfälscht: grid_rewards, boost,
+  lastbegrenzung_14a); ohne Feld (Vertrag 1.0, ältere Einträge) gilt beides. LFC schließt nur `load` aus, PVF nur
+  `pv` — in Lernmaterial **und** Prognosegüte/Residuen (Verhaltensänderung: ein Negativpreis-Tag bleibt jetzt in
+  der Lastprognose-Güte, ein Grid-Rewards-Tag in der PV-Güte). `dayHasSpecialEvent()` bekam den Filter-Parameter,
+  `eventAffects()` liest das Feld robust. Ohne EMS unverändert. Grenze des Bestands: das EMS hält höchstens 500
+  Ereignisse (Instanz-Attribut, geht bei Modul-Neuladen verloren) und markiert erst ab dem Zeitpunkt, an dem es sie
+  führt — ältere Tage sind nicht markiert. EMS-Statuszeile im Formular nennt jetzt den tatsächlichen Umfang
+  (Vertragsversion, Ereignisse, betroffene Tage, Lernmaterial/Prognosegüte/Kalibrierung, Hinweis bei Vertrag 1.0).
+  Interne Testnaht: `fetchOpenMeteoPast()` ist jetzt `protected`. Prüfstand `tools/pruefstand/sondereffekte.php`
+  (lokal, 19 Prüfungen). „Neu in Version"-Banner von Lastprognose und PVPrognose (Build 124).
 - **Neu (alle drei Module): live berechnete Verbindungs-Statuszeilen im Konfigurationsformular
   (21.09.2026, Auftrag Dietmar über EMS-Sitzung, SUITE.md „Verbund-Verbindungen im Formular sichtbar
   machen", Build 123).** Jede automatische Erkennung hat jetzt eine in `GetConfigurationForm()` berechnete

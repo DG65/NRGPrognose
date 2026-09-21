@@ -175,8 +175,9 @@ die Wetterquellen liefern stündlich, feinere Stufen werden interpoliert). EMS-Z
 
 **Prognosegüte & Tagesgang-Korrektur.** Beide Prognosemodule speichern täglich einen
 Day-Ahead-Snapshot und vergleichen ihn mit der gemessenen Erzeugung/dem gemessenen Verbrauch —
-Sondereffekte (externe Regeleingriffe wie §14a, bei EMS-Kopplung) und erkannte Archivstörungen
-(gehaltene Messwerte nach einer Datenlücke) werden dabei automatisch ausgeschlossen. Bei PVF wird
+Sondereffekte (externe Regeleingriffe wie §14a, Grid Rewards, Negativpreis, bei EMS-Kopplung — je nachdem, ob
+sie Last oder Erzeugung verfälschen) und erkannte Archivstörungen (gehaltene Messwerte nach einer Datenlücke)
+werden dabei automatisch ausgeschlossen, auch aus dem Lernmaterial (Ähnliche-Tage-Suche, Selbstkalibrierung). Bei PVF wird
 die daraus abgeleitete Residuen-Korrektur je Tagesabschnitt getrennt ermittelt (Sonnenaufgang bis
 -untergang in 8 Abschnitte geteilt, statt einem Faktor für den ganzen Tag) — morgens und abends
 liegt eine Prognose oft anders daneben als mittags. `PVF_GetAccuracy($id)` liefert die

@@ -74,6 +74,8 @@ class PVPrognose extends IPSModule
     private $specialEventsVersionMismatch = null;
     // Vertragsversion, mit der EMS_GetSpecialEvents zuletzt geantwortet hat (null = keine Antwort) — für die Formular-Statuszeile.
     private $specialEventsContract = null;
+    // Ereignisse für die Selbstkalibrierung (Kalibrier-Zeitraum), request-lokal — calibrate() läuft je Generator.
+    private $calibEvents = null;
 
     // Residuen-Korrektur ("Immer genauer werden"): Tagesgang-Profil statt
     // einem einzigen globalen Faktor (Fund EMS-Sitzung 12.09.2026: Morgens
@@ -119,8 +121,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 123)';
+    private const NEWS_VERSION = '0.20 (Build 124)';
     private const NEWS_ITEMS = [
+        '🧹 Abgeregelte Tage bleiben aus der Selbstkalibrierung: Mit einem NRG-Stack-EMS werden Tage, an denen die Erzeugung abgeregelt war (Netzbetreiber-Dimmung, negativer Börsenpreis), nicht mehr für den Kalibrierfaktor verwendet — sonst würde die gedrosselte Messung als „Modell zu hoch“ gelernt und die Prognose zu niedrig ausfallen. Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), zählen hier nicht. Ohne EMS ändert sich nichts.',
         '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde — Archiv und Archivierung der gemessenen Leistung, die Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung) und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
         '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
         '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
@@ -414,14 +417,15 @@ class PVPrognose extends IPSModule
         return ($unsure ? '⚠️' : '✅') . " Einheit (automatisch erkannt):\n" . implode("\n", $lines);
     }
 
-    /** EMS-Kopplung für Sondereffekte (nur Prognosegüte). */
+    /** EMS-Kopplung für Sondereffekte: Prognosegüte, Fehler-Korrektur und Selbstkalibrierung. */
     private function emsStatusLine(): string
     {
         $ems = function_exists('EMS_GetSpecialEvents') ? $this->emsInstance() : 0;
         if ($ems <= 0) {
-            return 'ℹ️ EMS: nicht gefunden – Tage mit Sondereffekten (Abregelung, §14a-Dimmung …) werden aus der Prognosegüte nicht herausgerechnet, alle Tage zählen.';
+            return 'ℹ️ EMS: nicht gefunden – Tage mit abgeregelter Erzeugung (Netzbetreiber-Dimmung, Negativpreis …) werden weder aus der Selbstkalibrierung noch aus der Prognosegüte herausgerechnet, alle Tage zählen.';
         }
-        $events = $this->fetchSpecialEvents(14);
+        $days = max(7, $this->ReadPropertyInteger('PVF_CalibDays'));
+        $events = $this->calibrationEvents($days);
         $head = 'EMS: verbunden mit “' . IPS_GetName($ems) . '” (#' . $ems . ', automatisch erkannt)';
         if ($this->specialEventsVersionMismatch !== null) {
             return '⚠️ ' . $head . ', aber der Vertrag EMS_GetSpecialEvents hat Version ' . $this->specialEventsVersionMismatch . ' (unterstützt: ' . self::EMS_EVENTS_MAJOR . '.x) – Kopplung bis zum Modul-Update aus.';
@@ -429,8 +433,18 @@ class PVPrognose extends IPSModule
         if ($this->specialEventsContract === null) {
             return '⚠️ ' . $head . ', aber EMS_GetSpecialEvents liefert keine Ereignisliste – Sondereffekte werden nicht berücksichtigt.';
         }
-        return '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
-            . ' Sonderereignis(se) der letzten 14 Tage – betroffene Tage werden aus der Prognosegüte herausgerechnet.';
+        $pvDays = 0;
+        for ($d = 1; $d <= $days; $d++) {
+            $ts = strtotime('today -' . $d . ' days');
+            if ($this->dayHasSpecialEvent($events, $ts, $this->dayEndExclusive($ts) - 1, 'pv')) { $pvDays++; }
+        }
+        $line = '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
+            . ' Sonderereignis(se), davon betreffen ' . $pvDays . ' Tag(e) der letzten ' . $days . ' die PV-Erzeugung – diese Tage bleiben aus der Selbstkalibrierung, der Prognosegüte und der Fehler-Korrektur (Band, Pegel) heraus.'
+            . ' Ereignisse, die nur die Last betreffen (z. B. Grid Rewards), zählen hier nicht.';
+        if (version_compare($this->specialEventsContract, '1.1', '<')) {
+            $line .= ' Hinweis: Vertrag ' . $this->specialEventsContract . ' liefert kein Feld „affects“ – jedes Ereignis gilt dann für Last und PV.';
+        }
+        return $line;
     }
 
     /**
@@ -1210,7 +1224,7 @@ class PVPrognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
-            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1)) { $excluded++; continue; }
+            if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1, 'pv')) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
 
@@ -1923,13 +1937,25 @@ class PVPrognose extends IPSModule
         $perDayPast = $this->fetchOpenMeteoPast($g, $days);
         if ($perDayPast === null) { return null; }
 
+        // Tage, an denen die Erzeugung abgeregelt war (EMS_GetSpecialEvents, `affects` ∋ 'pv':
+        // Netzbetreiber-Dimmung, negativer Börsenpreis, Direktvermarktung), zählen nicht: die
+        // gedrosselte Messung würde sonst als „Modell zu hoch" gelernt und den Faktor drücken.
+        // Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), berühren die Erzeugung nicht.
+        $events = $this->calibrationEvents($days);
+        $skipped = 0;
         $ratios = [];
         foreach ($perDayPast as $date => $hours) {
             $pred = array_sum($hours) / 1000.0;          // modellierte kWh
             if ($pred < 0.2) { continue; }               // Nachts/triviale Tage überspringen
-            $meas = $this->measuredKwh($g['powervar'], strtotime($date));
+            $dayStart = strtotime($date);
+            if ($this->dayHasSpecialEvent($events, $dayStart, $this->dayEndExclusive($dayStart) - 1, 'pv')) { $skipped++; continue; }
+            $meas = $this->measuredKwh($g['powervar'], $dayStart);
             if ($meas === null) { continue; }
             $ratios[] = $meas / $pred;
+        }
+        if ($skipped > 0) {
+            $this->log(PVF_LOG_VERBOSE, sprintf('Kalibrierung %s: %d Tag(e) mit abgeregelter Erzeugung (Sondereffekt) übersprungen, %d Tage verwendet',
+                $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']), $skipped, count($ratios)));
         }
         if (count($ratios) < 5) { return null; }
 
@@ -1938,8 +1964,8 @@ class PVPrognose extends IPSModule
         return max(0.4, min(1.6, $median));
     }
 
-    /** Open-Meteo nur für vergangene Tage (Kalibrierung), nach Datum. */
-    private function fetchOpenMeteoPast(array $g, int $pastDays)
+    /** Open-Meteo nur für vergangene Tage (Kalibrierung), nach Datum. protected = Testnaht des Prüfstands. */
+    protected function fetchOpenMeteoPast(array $g, int $pastDays)
     {
         $lat = $this->ReadPropertyFloat('PVF_Latitude');
         $lon = $this->ReadPropertyFloat('PVF_Longitude');
@@ -2267,7 +2293,7 @@ class PVPrognose extends IPSModule
     }
 
     /** Überlappt irgendein Sondereffekt-Fenster den Tag [$dayStart, $dayEnd]? */
-    private function dayHasSpecialEvent(array $events, int $dayStart, int $dayEnd): bool
+    private function dayHasSpecialEvent(array $events, int $dayStart, int $dayEnd, string $affects = ''): bool
     {
         foreach ($events as $e) {
             // Nur echte Event-Objekte mit realem Startzeitpunkt werten —
@@ -2277,11 +2303,40 @@ class PVPrognose extends IPSModule
             if (!is_array($e)) { continue; }
             $from = (int)($e['from'] ?? 0);
             if ($from <= 0) { continue; }
+            // Vertrag 1.1: `affects` nennt, WAS das Ereignis verfälscht ('pv' = Erzeugung abgeregelt,
+            // 'load' = Last verfälscht). Ohne Feld (Vertrag 1.0, ältere Einträge) gilt beides.
+            if ($affects !== '' && !in_array($affects, $this->eventAffects($e), true)) { continue; }
             $to   = (int)($e['to'] ?? 0);
             $effectiveTo = ($to > 0) ? $to : time(); // 0 = noch andauernd → bis jetzt
             if ($from <= $dayEnd && $effectiveTo >= $dayStart) { return true; }
         }
         return false;
+    }
+
+    /** Wirkung eines EMS-Ereignisses: ['pv'], ['load'] oder beides; fehlt/ungültig das Feld → beides. */
+    private function eventAffects(array $e): array
+    {
+        $a = $e['affects'] ?? null;
+        if (!is_array($a)) { return ['pv', 'load']; }
+        $a = array_values(array_filter($a, 'is_string'));
+        return count($a) > 0 ? $a : ['pv', 'load'];
+    }
+
+    /**
+     * Ereignisse für die Selbstkalibrierung, je Request einmal (calibrate() läuft je Generator).
+     * Ohne EMS leer, nichts ändert sich. Fehler beim Lesen dürfen die Kalibrierung nicht kippen.
+     */
+    private function calibrationEvents(int $days): array
+    {
+        if ($this->calibEvents === null) {
+            try {
+                $this->calibEvents = $this->fetchSpecialEvents($days + 1);
+            } catch (\Throwable $e) {
+                $this->log(PVF_LOG_BASIC, 'EMS_GetSpecialEvents für die Kalibrierung nicht lesbar: ' . $e->getMessage());
+                $this->calibEvents = [];
+            }
+        }
+        return $this->calibEvents;
     }
 
     /**

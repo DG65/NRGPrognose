@@ -80,8 +80,11 @@ aktivieren), **\|Ø-Fehler\|** ist der mittlere Betrag.
 
 **Sondereffekte werden ausgeschlossen** (NRG-Stack, sobald ein EMS mit `EMS_GetSpecialEvents`
 installiert ist): Tage mit externem Regeleingriff (§14a-Dimmung, Tibber-Regelenergie,
-Direktvermarktung, EMS-Schutzabschaltung) fließen weder in Bias/\|Ø-Fehler\| noch in die
-Residuen-Quantile ein. Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten unverändert.
+Direktvermarktung, EMS-Schutzabschaltung, negativer Börsenpreis) fließen weder in Bias/\|Ø-Fehler\| noch in
+die Residuen-Quantile noch in die Selbstkalibrierung ein — eine abgeregelte Messung würde sonst als „Modell zu
+hoch" gelernt. Maßgeblich ist, was ein Ereignis verfälscht (Feld `affects` im EMS-Vertrag 1.1): Es zählt, wenn
+es die PV-Erzeugung betrifft; Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), bleiben außen vor.
+Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten unverändert.
 
 ## Öffentliche Funktionen
 
