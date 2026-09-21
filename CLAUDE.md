@@ -59,7 +59,7 @@ Idents waren durchgehend unangetastet.
   Wetter-Zeitstempeln oder `GetEnergyWindow` `sommerzeit.php` (PV, echte Kurven beider Umstellungen)
   und `lastprognose_sommerzeit.php` (Lastprognose Ende-zu-Ende mit gestelltem Archiv) laufen lassen;
   vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`; vor Änderungen an
-  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
+  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, am automatischen Hausverbrauch (MeterHub `house`) `hausverbrauch.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
   „Verbund-Verbindungen im Formular sichtbar machen“) `formularstatus.php`. Neue automatische Verbindung =
   neue benannte Label-Zeile in `form.json` + Builder in `connectionStatusLines()` + Prüfpunkt dort. Ersetzt die Zeile ein Eingabefeld (Wert kommt automatisch): 🔗 + `visible:false` bei leerem Feld, ✏️ bei eigener Angabe (sichtbar, Vorrang), nie den Auto-Wert ins Feld schreiben; `onChange` → `Preview…()` → `UpdateFormField`. Alle
   ohne IP-Symcon, müssen „ALLES GRÜN“ melden. Liegt lokal in `tools/` (per

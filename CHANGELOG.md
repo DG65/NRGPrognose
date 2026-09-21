@@ -6,6 +6,26 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Lastprognose): Hausverbrauch automatisch aus dem MeterHub (21.09.2026, Vorschlag EMS-Sitzung, Freigabe Dietmar,
+  Build 126).** Bleibt `VAR_Consumption` leer und meldet genau ein MeterHub-Zähler (`MHUB_GetFunctions` bzw.
+  `MHUBV_GetFunctions`, Vertrag Major 1, JSON-String) eine Zuordnung mit Funktion `house`, wird dessen Leistungsvariable
+  (W) als Hausverbrauch verwendet — im ganzen Modul über `consumptionVar()` (Lastprofil, Plausibilität, Formular).
+  **Nur diese Quelle, bewusst:** das abgeleitete `EMS_HousePower` (PV + Batterie − Netz − Wallbox) ist keine Messung
+  und erst seit 10.09. archiviert, „Last gesamt“ des InverterHub ist je Hersteller nicht die Hauslast. **Brauchbar** heißt:
+  Slot `total`/`main` (nicht eine einzelne Phase L1–L3), Leistungsvariable vorhanden, `measured` nicht false, archiviert,
+  innerhalb von 48 h aktualisiert; zwei Wege auf dieselbe Variable zählen einmal. **Nichts wird geraten:** mehrere
+  brauchbare Zähler → ⚠️ und Feld selbst wählen; unbrauchbare (nicht archiviert, veraltet, Teilwert, fremde Major) → ⚠️ mit
+  Grund. Eine eigene Angabe hat immer Vorrang (✏️, die Zeile nennt den Zähler nur „zum Vergleich"). **Formular:** neue
+  Zeile `ConnStatusConsumption` (🔗/✏️/⚠️/⛔ mit Zähler, Instanz, Vertrag, Variable); das Auswahlfeld liegt in einem
+  eingeklappten Panel „Eigene Hausverbrauch-Variable verwenden" und ist nur bei 🔗 eingeklappt — überschreiben bleibt
+  bewusst möglich (der Zähler kann eine andere Größe erfassen als gemeint, z. B. mit/ohne Wärmepumpe); onChange zieht
+  Verbrauchs-, Archiv- und Einheitenzeile nach. Archiv-Zeile: ohne festgelegten Hausverbrauch nur noch ℹ️ (das ⛔ trägt
+  jetzt die Verbrauchs-Zeile). `Rebuild()` ohne Variable und ohne eindeutigen Zähler meldet ⛔ und rechnet nicht; mit
+  Automatik nennt die Status-Zeile den Zähler. Bestehende Einstellungen bleiben unverändert (Property gewinnt).
+  Testnaht `hubHouseMeters()` (protected). Vorzeichen: es wird angenommen, dass `powerID` des Hauslast-Zählers positiv
+  = Verbrauch liefert (Vertrag legt es nicht fest). Prüfstand `tools/pruefstand/hausverbrauch.php` (lokal, Vertrag lesen,
+  Wahl, Vorrang, Wirkung auf die Prognose) und neue Fälle in `formularstatus.php`. „Neu in Version"-Banner der
+  Lastprognose (Build 126).
 - **Neu (alle drei Module): automatisch ermittelte Werte ersetzen das Eingabefeld (21.09.2026, Auftrag Dietmar über
   EMS-Sitzung, SUITE.md „Wert kommt automatisch: Eingabefeld ersetzen", Build 125).** Die Statuszeile allein reichte
   nicht, solange darunter das Feld leer stehen blieb. Jetzt: Liefert die Verbindung den Wert und ist das Feld leer,

@@ -88,6 +88,10 @@ class Lastprognose extends IPSModule
     // Ereignisse für das k-NN-Lernmaterial (Lookback-Tiefe), request-lokal — computeForecast() läuft je Rebuild fünfmal.
     // Im Formular gewählte, noch nicht gespeicherte Werte (Name => Wert), nur während PreviewSelection().
     private $formOverride = [];
+    // Automatisch erkannter Hausverbrauch (MeterHub, Funktion 'house'), request-lokal — getDayProfile() läuft hunderte Male je Rebuild.
+    private $consumptionCache = null;
+    // Major des MHUB_GetFunctions-/MHUBV_GetFunctions-Vertrags, den wir lesen; abweichende Major → Zähler nicht verwenden.
+    private const METERHUB_MAJOR = 1;
     private $poolEvents = null;
     // Anzahl der im letzten computeForecast() wegen Sondereffekt zurückgestellten Kandidatentage — für die Status-Zeile.
     private $poolExcluded = 0;
@@ -107,8 +111,9 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.20 (Build 125)';
+    private const NEWS_VERSION = '0.20 (Build 126)';
     private const NEWS_ITEMS = [
+        '🔗 Hausverbrauch automatisch: Bleibt das Feld „Hausverbrauch“ leer und gibt es genau einen MeterHub-Zähler mit der Funktion „Hausverbrauch“ (gemessene Leistung, archiviert, aktuell), übernimmt die Lastprognose dessen Leistung selbst — das Formular zeigt Zähler und Variable. Bei mehreren Zählern wird nichts geraten, eine eigene Variable hat immer Vorrang. Eine bestehende Einstellung bleibt unverändert.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die OpenWeatherData-Instanz ist bei genau einer Instanz und leerem Feld ausgeblendet und als „🔗 automatisch übernommen“ mit den erhaltenen Tagesmitteln zu sehen. Die Einheit (W/kW) zeigt je Variable, woher sie stammt; das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eigene Angaben (✏️) haben Vorrang, die Zeilen folgen der Auswahl sofort. Der Hausverbrauch wird nicht automatisch ermittelt und bleibt immer ein Eingabefeld.',
         '🧹 Sondertage bleiben aus dem Lernmaterial: Mit einem NRG-Stack-EMS werden Tage, an denen ein externer Eingriff den Verbrauch verfälscht hat (z. B. Grid-Rewards- oder Boost-Ladung, §14a-Lastbegrenzung), nicht mehr für die Ähnliche-Tage-Suche verwendet, statt nur aus der Prognosegüte herausgerechnet zu werden. Ereignisse, die nur die PV-Erzeugung betreffen (Negativpreis), zählen hier nicht. Reicht die saubere Historie nicht für k Nachbarn, werden Sondertage aufgefüllt. Ohne EMS ändert sich nichts.',
         '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde und welche Werte übernommen werden — Archiv, Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung), OpenWeatherData-Instanz samt erhaltenen Tagesmitteln, erkannte Wallboxen und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
@@ -270,6 +275,10 @@ class Lastprognose extends IPSModule
         if (strpos($lines['ConnStatusOwm'], '🔗') === 0 && $this->ReadPropertyInteger('LFC_OwmInstance') === 0) {
             $this->patchElementByName($form['elements'], 'LFC_OwmInstance', ['visible' => false]);
         }
+        // Hausverbrauch: kommt er automatisch (🔗), liegt das Auswahlfeld eingeklappt unter „Eigene Variable
+        // stattdessen verwenden" (bewusstes Überschreiben ist gewollt — der Zähler kann eine andere Größe
+        // erfassen als der Nutzer meint); in allen anderen Zuständen (✏️/⚠️/⛔) ist es aufgeklappt.
+        $this->patchElementByName($form['elements'], 'ConsumptionOverridePanel', ['expanded' => strpos($lines['ConnStatusConsumption'], '🔗') !== 0]);
         // Einheit: die Erkennung über Größenordnung kann bei großen kW-Anlagen irren, deshalb bleibt ein
         // bewusstes Überschreiben möglich — das Feld liegt in einem eingeklappten Panel „Einheit selbst
         // festlegen"; nur wo die Automatik nichts Sicheres liefert (⚠️) oder eine eigene Angabe gilt (✏️),
@@ -339,11 +348,18 @@ class Lastprognose extends IPSModule
     /** onChange von Einheit und OpenWeatherData-Auswahl: Statuszeile live nachziehen (SUITE.md „Zeile folgt der Auswahl"). */
     public function PreviewSelection(string $prop, int $value): void
     {
-        $lineFor = ['LFC_PowerUnit' => 'ConnStatusUnit', 'LFC_OwmInstance' => 'ConnStatusOwm'];
+        $lineFor = [
+            'LFC_PowerUnit'   => ['ConnStatusUnit'],
+            'LFC_OwmInstance' => ['ConnStatusOwm'],
+            // Der Hausverbrauch bestimmt auch, was Archiv-Zeile und Einheiten-Zeile prüfen.
+            'VAR_Consumption' => ['ConnStatusConsumption', 'ConnStatusArchive', 'ConnStatusUnit'],
+        ];
         if (!isset($lineFor[$prop])) { return; }
         $this->formOverride[$prop] = $value;
         $lines = $this->connectionStatusLines();
-        $this->UpdateFormField($lineFor[$prop], 'caption', $lines[$lineFor[$prop]]);
+        foreach ($lineFor[$prop] as $name) {
+            $this->UpdateFormField($name, 'caption', $lines[$name]);
+        }
     }
 
     /**
@@ -357,6 +373,7 @@ class Lastprognose extends IPSModule
     {
         $builders = [
             'ConnStatusArchive'  => 'archiveStatusLine',
+            'ConnStatusConsumption' => 'consumptionStatusLine',
             'ConnStatusUnit'     => 'unitStatusLine',
             'ConnStatusOwm'      => 'owmStatusLine',
             'ConnStatusWallbox'  => 'wallboxStatusLine',
@@ -373,6 +390,132 @@ class Lastprognose extends IPSModule
         return $out;
     }
 
+    /**
+     * Hausverbrauch-Variable, die das Modul tatsächlich verwendet: die eigene Angabe (Property, Vorrang) oder —
+     * nur bei leerem Feld — der Leistungszähler eines MeterHub mit Funktion „Hausverbrauch“ (siehe
+     * detectedConsumption()). 0 = keine. $selected = im Formular gewählter, noch nicht gespeicherter Wert.
+     */
+    private function consumptionVar(?int $selected = null): int
+    {
+        $p = $selected ?? $this->ReadPropertyInteger('VAR_Consumption');
+        if ($p > 0) { return $p; }
+        return $this->detectedConsumption()['varID'];
+    }
+
+    /**
+     * Zuordnungen mit Funktion 'house' aus den MeterHub-Verträgen (MHUB_GetFunctions, MHUBV_GetFunctions; hinter
+     * function_exists — ohne MeterHub bleibt alles wie bisher). Der Vertrag liefert einen JSON-String
+     * {contractVersion, ready?, assignments[]}; ein Zähler im Neuladen meldet ready=false und wird übersprungen.
+     * protected = Testnaht des Prüfstands.
+     */
+    protected function hubHouseMeters(): array
+    {
+        $out = [];
+        foreach (['MHUB' => 'MeterHub', 'MHUBV' => 'MeterHub (virtuell)'] as $prefix => $hub) {
+            $fn = $prefix . '_GetFunctions';
+            if (!function_exists($fn)) { continue; }
+            foreach (IPS_GetInstanceList() as $iid) {
+                $m = IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);
+                if (($m['Prefix'] ?? '') !== $prefix) { continue; }
+                $raw = @$fn($iid);
+                $c = is_string($raw) ? json_decode($raw, true) : $raw;
+                if (!is_array($c) || ($c['ready'] ?? true) === false) { continue; }
+                foreach ((array)($c['assignments'] ?? []) as $a) {
+                    if (is_array($a) && ($a['function'] ?? '') === 'house') {
+                        $a['_hub'] = $hub; $a['_instance'] = $iid; $a['_contract'] = (string)($c['contractVersion'] ?? '1.0');
+                        $out[] = $a;
+                    }
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Automatisch erkannter Hausverbrauch: NUR ein gemessener Hauslast-Zähler eines MeterHub (Funktion 'house'),
+     * dessen Leistung (W) archiviert und aktuell ist. Bewusst nichts anderes: das abgeleitete EMS_HousePower
+     * (PV + Batterie − Netz − Wallbox) ist keine Messung und erst kurz archiviert; „Last gesamt“ des InverterHub
+     * ist je Hersteller nicht die Hauslast. Mehrere brauchbare Zähler werden nicht geraten (state 'ambiguous').
+     *
+     * @return array{varID:int,state:string,usable:array,issues:array} state: auto | ambiguous | unusable | none
+     */
+    private function detectedConsumption(): array
+    {
+        if ($this->consumptionCache !== null) { return $this->consumptionCache; }
+        $out = ['varID' => 0, 'state' => 'none', 'usable' => [], 'issues' => []];
+        $aid = (int)$this->getArchiveID();
+        $seen = [];
+        foreach ($this->hubHouseMeters() as $a) {
+            $pid   = (int)($a['powerID'] ?? 0);
+            $label = trim((string)($a['label'] ?? '')) !== '' ? trim((string)$a['label']) : IPS_GetName((int)$a['_instance']);
+            $e = ['label' => $label, 'hub' => $a['_hub'], 'instance' => (int)$a['_instance'], 'powerID' => $pid, 'contract' => $a['_contract']];
+            $slot = (string)($a['slot'] ?? '');
+            $major = (int)explode('.', (string)$a['_contract'])[0];
+            if ($major !== self::METERHUB_MAJOR) {
+                $reason = 'Vertrag ' . $a['_contract'] . ' wird nicht unterstützt (Major ' . self::METERHUB_MAJOR . ' erwartet) – Modul-Update prüfen';
+            } elseif (!in_array($slot, ['total', 'main'], true)) {
+                $reason = 'nur Teilwert einer Phase (' . $slot . '), nicht der gesamte Hausverbrauch';
+            } elseif ($pid <= 0 || !IPS_VariableExists($pid)) {
+                $reason = 'Leistungsvariable fehlt';
+            } elseif (array_key_exists('measured', $a) && $a['measured'] === false) {
+                $reason = 'Leistung nicht gemessen';
+            } elseif ($aid <= 0 || !$this->isLogged($aid, $pid)) {
+                $reason = 'Leistung nicht archiviert';
+            } else {
+                $v = IPS_GetVariable($pid);
+                $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
+                $reason = ($age > 48 * 3600) ? sprintf('seit %s Tagen ohne neuen Messwert', number_format($age / 86400, 1, ',', '')) : '';
+            }
+            if ($reason !== '') { $e['reason'] = $reason; $out['issues'][] = $e; continue; }
+            if (isset($seen[$pid])) { continue; }    // dieselbe Variable über zwei Wege gemeldet
+            $seen[$pid] = true;
+            $out['usable'][] = $e;
+        }
+        if (count($out['usable']) === 1) {
+            $out['varID'] = $out['usable'][0]['powerID'];
+            $out['state'] = 'auto';
+        } elseif (count($out['usable']) > 1) {
+            $out['state'] = 'ambiguous';
+        } elseif (count($out['issues']) > 0) {
+            $out['state'] = 'unusable';
+        }
+        return $this->consumptionCache = $out;
+    }
+
+    /** Hausverbrauch: eigene Variable (✏️), automatisch von einem MeterHub-Zähler (🔗) oder nichts (⚠️/⛔). */
+    private function consumptionStatusLine(): string
+    {
+        $sel = $this->selectedInt('VAR_Consumption');
+        $det = $this->detectedConsumption();
+        $meter = function (array $e) { return 'MeterHub “' . $e['label'] . '” (#' . $e['instance'] . ')'; };
+
+        if ($sel > 0) {
+            if (!IPS_VariableExists($sel)) {
+                return '⚠️ Hausverbrauch: die gewählte Variable #' . $sel . ' existiert nicht.';
+            }
+            $line = '✏️ Hausverbrauch: eigene Variable „' . IPS_GetName($sel) . '“ (#' . $sel . '), hat Vorrang vor der Automatik.';
+            if ($det['state'] === 'auto' && $det['varID'] !== $sel) {
+                $line .= ' Zum Vergleich: ' . $meter($det['usable'][0]) . ' würde den Hausverbrauch automatisch liefern (Leistung #' . $det['varID'] . ').';
+            }
+            return $line;
+        }
+        switch ($det['state']) {
+            case 'auto':
+                $e = $det['usable'][0];
+                return '🔗 Hausverbrauch: automatisch übernommen von ' . $meter($e) . ', Funktion „Hausverbrauch“, Vertrag MHUB ' . $e['contract']
+                    . ' – Leistung „' . IPS_GetName($e['powerID']) . '“ (#' . $e['powerID'] . '), archiviert. Erfasst dieser Zähler nicht das, was du als Hausverbrauch meinst (z. B. mit oder ohne Wärmepumpe), unten eine eigene Variable wählen.';
+            case 'ambiguous':
+                return '⚠️ Hausverbrauch: ' . count($det['usable']) . ' MeterHub-Zähler mit Funktion „Hausverbrauch“ gefunden ('
+                    . implode(', ', array_map(function ($e) { return '“' . $e['label'] . '” #' . $e['instance']; }, $det['usable']))
+                    . ') – es wird keiner geraten, bitte unten die Variable selbst wählen.';
+            case 'unusable':
+                $parts = array_map(function ($e) { return '“' . $e['label'] . '” (#' . $e['instance'] . '): ' . $e['reason']; }, $det['issues']);
+                return '⚠️ Hausverbrauch: MeterHub-Zähler mit Funktion „Hausverbrauch“ gefunden, aber nicht verwendbar – ' . implode('; ', $parts) . '. Bitte unten die Variable selbst wählen.';
+            default:
+                return '⛔ Hausverbrauch: Pflichtangabe fehlt. Es gibt keinen MeterHub-Zähler mit Funktion „Hausverbrauch“ – bitte unten die Leistungsvariable selbst wählen (z. B. der Hausverbrauch deines Energiemanagements).';
+        }
+    }
+
     /** Archiv-Control und Archivierung des Hauptverbrauchs. */
     private function archiveStatusLine(): string
     {
@@ -381,9 +524,9 @@ class Lastprognose extends IPSModule
             return '⛔ Archiv: keine Archiv-Control-Instanz gefunden – ohne Archiv gibt es keine Prognose.';
         }
         $head = 'Archiv: verbunden mit “' . IPS_GetName($aid) . '” (#' . $aid . ', automatisch erkannt)';
-        $vid = $this->ReadPropertyInteger('VAR_Consumption');
+        $vid = $this->consumptionVar($this->selectedInt('VAR_Consumption'));
         if ($vid <= 0) {
-            return '⛔ ' . $head . '. Pflicht: Hausverbrauch-Variable wählen (wird nicht automatisch ermittelt).';
+            return 'ℹ️ ' . $head . '. Der Hausverbrauch ist noch nicht festgelegt (siehe unten) – ohne ihn gibt es keine Prognose.';
         }
         if (!IPS_VariableExists($vid)) {
             return '⛔ ' . $head . '. Die gewählte Hausverbrauch-Variable #' . $vid . ' existiert nicht.';
@@ -403,7 +546,7 @@ class Lastprognose extends IPSModule
         }
 
         $entries = [];
-        $cons = $this->ReadPropertyInteger('VAR_Consumption');
+        $cons = $this->consumptionVar($this->selectedInt('VAR_Consumption'));
         if ($cons > 0) { $entries[$cons] = 'Hausverbrauch'; }
         foreach ($this->excludeVarIds() as $vid) { if (!isset($entries[$vid])) { $entries[$vid] = 'Abzug'; } }
         foreach ($this->wpDevices() as $dev) { if (!isset($entries[$dev['var']])) { $entries[$dev['var']] = 'Gerät'; } }
@@ -719,8 +862,8 @@ class Lastprognose extends IPSModule
      */
     public function Rebuild(): string
     {
-        if ($this->ReadPropertyInteger('VAR_Consumption') <= 0) {
-            $msg = '⛔ Keine Verbrauchsvariable konfiguriert.';
+        if ($this->consumptionVar() <= 0) {
+            $msg = '⛔ Keine Verbrauchsvariable konfiguriert und kein eindeutiger MeterHub-Hausverbrauchszähler gefunden.';
             $this->SetValue('LFC_Status', $msg);
             return $msg;
         }
@@ -768,6 +911,10 @@ class Lastprognose extends IPSModule
                 $status .= ' | ⚠️ ' . implode(' · ', $stale);
             }
             $status .= $this->wallboxNotices();
+            if ($this->ReadPropertyInteger('VAR_Consumption') <= 0 && $this->detectedConsumption()['state'] === 'auto') {
+                $e = $this->detectedConsumption()['usable'][0];
+                $status .= sprintf(' | 🔗 Hausverbrauch automatisch von MeterHub „%s“ (Leistung #%d)', $e['label'], $e['powerID']);
+            }
             if ($this->poolExcluded > 0) {
                 $status .= sprintf(' | ℹ️ Lernmaterial ohne %d Tag(e) mit Sondereffekt (EMS)', $this->poolExcluded);
             }
@@ -1355,7 +1502,7 @@ class Lastprognose extends IPSModule
     private function getDayProfile(int $ts)
     {
         $slots = $this->slots();
-        $main = $this->dayProfile($this->ReadPropertyInteger('VAR_Consumption'), $ts);
+        $main = $this->dayProfile($this->consumptionVar(), $ts);
         if ($main === null) { return null; }
 
         foreach ($this->excludeVarIds() as $vid) {
@@ -1811,7 +1958,7 @@ class Lastprognose extends IPSModule
             }
         };
 
-        $check($this->ReadPropertyInteger('VAR_Consumption'));
+        $check($this->consumptionVar());
         $check($this->ReadPropertyInteger('VAR_TempHistory'));
         $check($this->ReadPropertyInteger('VAR_Presence'));
         foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
@@ -1862,7 +2009,7 @@ class Lastprognose extends IPSModule
             }
         };
 
-        $check($this->ReadPropertyInteger('VAR_Consumption'), 'Hausverbrauch', 48 * 3600);
+        $check($this->consumptionVar(), 'Hausverbrauch', 48 * 3600);
         foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
             $vid = (int)($row['VariableID'] ?? 0);
             $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste', 30 * 86400);

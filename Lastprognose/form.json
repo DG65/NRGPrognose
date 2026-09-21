@@ -15,7 +15,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Hauptverbrauch: eine archivierte LEISTUNGS-Variable (kein kWh-Zähler). Die Einheit W/kW wird automatisch erkannt (Profil-Suffix, sonst Größenordnung) — bei Variablen ohne Profil ggf. manuell festlegen."
+                    "caption": "Hauptverbrauch: eine archivierte LEISTUNGS-Variable (kein kWh-Zähler). Bleibt das Feld leer, wird ein eindeutiger MeterHub-Zähler mit der Funktion „Hausverbrauch“ automatisch übernommen. Die Einheit W/kW wird automatisch erkannt (Profil-Suffix, sonst Größenordnung) — bei Variablen ohne Profil ggf. manuell festlegen."
                 },
                 {
                     "type": "Label",
@@ -106,9 +106,23 @@
                     "caption": "── Hauptverbrauch (Pflicht) ─────────────────────────"
                 },
                 {
-                    "type": "SelectVariable",
-                    "name": "VAR_Consumption",
-                    "caption": "Hausverbrauch — LEISTUNG (muss archiviert sein)"
+                    "type": "Label",
+                    "name": "ConnStatusConsumption",
+                    "caption": "Hausverbrauch: wird beim Öffnen des Formulars geprüft …"
+                },
+                {
+                    "type": "ExpansionPanel",
+                    "name": "ConsumptionOverridePanel",
+                    "caption": "✏️ Eigene Hausverbrauch-Variable verwenden (überschreibt die Automatik)",
+                    "expanded": true,
+                    "items": [
+                        {
+                            "type": "SelectVariable",
+                            "name": "VAR_Consumption",
+                            "caption": "Hausverbrauch — LEISTUNG (muss archiviert sein)",
+                            "onChange": "LFC_PreviewSelection($id, 'VAR_Consumption', $VAR_Consumption);"
+                        }
+                    ]
                 },
                 {
                     "type": "Label",
