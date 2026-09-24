@@ -23,6 +23,23 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Fix (PVPrognose): defektes Stunden-Aggregat im Archiv erzeugte sichtbare Warnung, obwohl das Modul
+  längst richtig reagierte (24.09.2026, Fund EMS-Tagesauswertung, live bei Dietmar — drei GoodWe-MPPT-
+  Variablen #26434/#49092/#56208, Zeitstempel einer Stunde lag nicht auf der vollen Stunde, Build 130).**
+  `AC_GetAggregatedValues` liefert in diesem Fall für den GANZEN Tag `false` statt eines Arrays und
+  feuert eine native PHP-Warnung ("Ungültige Aggregation hour"); der `is_array()`-Schutz danach fing das
+  bereits korrekt ab (der Tag fehlte nur im Kalibrier-Mittel, kein Absturz, kein falscher Wert) — die
+  Warnung selbst landete aber sichtbar im TimerPool als Fehler, weil der Aufruf in `measuredKwh()` als
+  einziger der drei `AC_GetAggregatedValues`-Stellen der Datei kein `@` hatte. Ein einfaches `@`
+  reicht dafür allerdings NICHT zuverlässig: Ist wie bei IP-Symcon selbst ein eigener Error-Handler
+  registriert, wird der seit PHP 8 trotz `@` aufgerufen (im Prüfstand nachgestellt — `@` allein ließ die
+  Warnung durchrutschen). Neue gemeinsame Hilfsfunktion `aggregatedValuesQuiet()` ersetzt an allen drei
+  Aufrufstellen (`measuredKwh()`, `measuredProfile()`, `autoPowerUnit()`) den bisherigen `@`-Aufruf: Für
+  die Dauer des nativen Aufrufs wird der Error-Handler explizit durch einen No-Op ersetzt und danach
+  wiederhergestellt — unabhängig davon, ob die native Warnung als `E_WARNING` oder `E_USER_WARNING`
+  ankommt. Prüfstand `tools/pruefstand/archivstoerung.php` (lokal, deckt beide Fehlertypen sowie mehrere
+  gleichzeitig defekte Tage und "zu wenige saubere Tage übrig" ab). Kein Verhalten geändert, nur die
+  Sichtbarkeit im Log. „Neu in Version"-Banner (Build 130).
 - **Neu (alle drei Module): Statuszeilen farbig (21.09.2026, SUITE.md „Wert kommt automatisch", Farbregel, Build 127).**
   🔗-Zeilen (automatisch übernommen) werden grün dargestellt (Label-Eigenschaft `color` = `0x2E8B3D`), ⛔ rot (`0xFF0000`), alle
   anderen in der Standardfarbe (`-1`). Beim Aufbau über `lineColor()` gesetzt, bei `onChange` per

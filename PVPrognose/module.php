@@ -123,8 +123,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 125)';
+    private const NEWS_VERSION = '0.20 (Build 130)';
     private const NEWS_ITEMS = [
+        '🩹 Robuster gegen defekte Archivdaten: Ein einzelnes kaputtes Stunden-Aggregat im Archiv (kam bei drei Variablen live vor) ließ die Selbstkalibrierung für den betroffenen Tag als PHP-Warnung im System-Log auftauchen, obwohl der Tag ohnehin sauber übersprungen wurde. Die Warnung ist jetzt unterdrückt, das Ergebnis unverändert.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die Einheit (W/kW) der gemessenen Leistung zeigt je Generator, woher sie stammt („🔗 automatisch übernommen“); das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eine eigene Angabe (✏️) hat Vorrang, die Zeile folgt der Auswahl sofort.',
         '🧹 Abgeregelte Tage bleiben aus der Selbstkalibrierung: Mit einem NRG-Stack-EMS werden Tage, an denen die Erzeugung abgeregelt war (Netzbetreiber-Dimmung, negativer Börsenpreis), nicht mehr für den Kalibrierfaktor verwendet — sonst würde die gedrosselte Messung als „Modell zu hoch“ gelernt und die Prognose zu niedrig ausfallen. Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), zählen hier nicht. Ohne EMS ändert sich nichts.',
         '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde — Archiv und Archivierung der gemessenen Leistung, die Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung) und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
@@ -2248,12 +2249,38 @@ class PVPrognose extends IPSModule
 
         $start = strtotime('today', $ts);
         $end   = $this->clampEnd($this->dayEndExclusive($start) - 1);
-        $rows  = AC_GetAggregatedValues($aid, $varID, 0, $start, $end, 0); // stündlich
+        $rows  = $this->aggregatedValuesQuiet($aid, $varID, 0, $start, $end); // stündlich
         if (!is_array($rows) || count($rows) === 0) { return null; }
         $f  = $this->varPowerFactor($varID); // Einheit → W
         $wh = 0.0;
         foreach ($rows as $r) { $wh += (float)$r['Avg'] * $f; } // Ø-W × 1 h = Wh
         return $wh / 1000.0;
+    }
+
+    /**
+     * AC_GetAggregatedValues, robust gegen ein defektes Stunden-Aggregat im Archiv (Fund 24.09.2026, live
+     * bei Dietmar — drei GoodWe-MPPT-Variablen, Zeitstempel einer Stunde lag nicht auf der vollen Stunde).
+     * In diesem Fall liefert die native Funktion `false` statt eines Arrays UND feuert eine PHP-Warnung
+     * ("Ungültige Aggregation hour"), die ohne Gegenmaßnahme im TimerPool als Fehler auftaucht. Ein
+     * simples `@` reicht dafür NICHT zuverlässig: Ist ein eigener Error-Handler registriert (wie bei
+     * IP-Symcon selbst), wird der seit PHP 8 trotz `@` aufgerufen — geprüft im Prüfstand
+     * `archivstoerung.php`, ein `@` allein ließ die Warnung dort durchrutschen. Deshalb wird der Handler
+     * für die Dauer des Aufrufs explizit durch einen No-Op ersetzt und danach wiederhergestellt.
+     * Rückgabe: das native Ergebnis unverändert (Array oder `false`) — die Aufrufer prüfen bereits
+     * `is_array()` und überspringen den betroffenen Tag/die betroffene Variable sauber, kein Absturz,
+     * kein falscher Wert.
+     */
+    private function aggregatedValuesQuiet(int $aid, int $vid, int $level, int $start, int $end)
+    {
+        // Kein einschränkender Error-Level: ob die native Warnung als E_WARNING oder E_USER_WARNING
+        // ankommt, ist von außen nicht verlässlich bekannt — ein zu enger Filter würde sie NICHT fangen
+        // (PHP ruft dann weder diesen noch den vorherigen Handler, sondern den eingebauten Standard-
+        // Handler auf; im Prüfstand `archivstoerung.php` live nachvollzogen). E_ALL (Standard ohne
+        // zweiten Parameter) deckt das sicher ab, und das Zeitfenster ist auf diesen einen Aufruf begrenzt.
+        set_error_handler(function () { return true; });
+        $rows = AC_GetAggregatedValues($aid, $vid, $level, $start, $end, 0);
+        restore_error_handler();
+        return $rows;
     }
 
     /** Archive-Control-Instanz (0 = keine vorhanden). */
@@ -2427,7 +2454,7 @@ class PVPrognose extends IPSModule
         foreach ($this->pvGenerators() as $g) {
             $vid = $g['powervar'];
             if (!$this->isLogged($aid, $vid)) { continue; }
-            $rows = @AC_GetAggregatedValues($aid, $vid, 0 /* stündlich */, $start, $end, 0);
+            $rows = $this->aggregatedValuesQuiet($aid, $vid, 0 /* stündlich */, $start, $end);
             if (!is_array($rows) || count($rows) === 0) { continue; }
             $f = $this->varPowerFactor($vid);
             // Je Generator erst sauber auf 0..23 Stunden bringen (Kollision
@@ -2555,7 +2582,7 @@ class PVPrognose extends IPSModule
         }
         $aid = $this->archiveID();
         if ($this->isLogged($aid, $vid)) {
-            $rows = @AC_GetAggregatedValues($aid, $vid, 1, strtotime('-7 days'), $this->clampEnd(time()), 0);
+            $rows = $this->aggregatedValuesQuiet($aid, $vid, 1, strtotime('-7 days'), $this->clampEnd(time()));
             if (is_array($rows) && count($rows) > 0) {
                 $max = 0.0;
                 foreach ($rows as $r) { $max = max($max, (float)$r['Max']); }
