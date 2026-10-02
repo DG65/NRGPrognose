@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.20 (Build 125)';
+    private const NEWS_VERSION = '0.20 (Build 131)';
     private const NEWS_ITEMS = [
+        '🩹 Stabiler beim Start: Die Verwaltung der Referenzen beim Initialisieren nutzt jetzt die dokumentierte Modulmethode statt des Kernel-Aufrufs — Fehlermeldungen beim Start mehrerer Instanzen (Hinweis aus dem Forum, danke!) treten damit nicht mehr auf.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Findet die Kachel genau eine PV- bzw. Lastprognose-Instanz und ist das Feld leer, ist das Auswahlfeld ausgeblendet und eine Zeile „🔗 … automatisch übernommen“ zeigt Instanz, Nummer und Werte. Eine eigene Auswahl (✏️) bleibt sichtbar und hat Vorrang; die Zeile folgt der Auswahl sofort, auch vor dem Speichern.',
         '🔎 Neu im Formular: Zwei Statuszeilen zeigen live, mit welcher PV- und welcher Lastprognose-Instanz die Kachel verbunden ist (Name, Nummer, Vertragsversion) und welche Werte sie daraus übernimmt — oder warum nichts Brauchbares ankommt (z. B. mehrere Instanzen ohne Auswahl).',
         'Prognosehorizont von 3 auf 5 Tage erweitert (heute + 4 weitere Tage) — bei mehr als 3 Tagen lässt sich das Diagramm horizontal scrollen, Legende und Y-Achse bleiben dabei sichtbar.',
@@ -307,16 +308,21 @@ class Energiebilanz extends IPSModule
         // Referenzen an, sobald sich die aufgelöste PV-/Last-Instanz oder
         // eine Ist-Wert-Variable ändert (Fund: Beta-Tester somm, 15.09.2026 —
         // Dutzende "referenziertes Objekt existiert nicht"-Meldungen über
-        // IPS_GetReferenceList(), von Dashboard code-verifiziert als echte,
+        // GetReferenceList(), von Dashboard code-verifiziert als echte,
         // nie bereinigte Referenzen dieser Instanz). Analog zum
         // Message-Cleanup direkt darüber, das genau dieses Muster für
         // VM_UPDATE-Abos schon richtig macht.
-        // IPS_GetReferenceList() liefert während der Instanz-ERSTELLUNG false
+        // IPS_GetReferenceList() (Kernel-Funktion) lieferte während der Instanz-ERSTELLUNG false
         // statt eines Arrays (Instanz ist durch IPS_CreateInstance() selbst
         // noch belegt, re-entranter Aufruf abgelehnt) — Fund: Beta-Tester
         // Ghostraider, 16.09.2026, "Konnte Instanz nicht erstellen". Ohne den
         // is_array()-Schutz bricht foreach() daran die komplette Neuanlage ab.
-        $existingRefs = IPS_GetReferenceList($this->InstanceID);
+        // Seit Build 131 über die dokumentierte Modulmethode $this->GetReferenceList() (Symcon >= 5.1,
+        // liefert ein Array) statt IPS_GetReferenceList($this->InstanceID) — Beta-Tester doctee,
+        // 02.10.2026 (Forum #35): beim Initialisieren zweier Instanzen traten mit dem Kernel-Aufruf Fehler
+        // auf, mit der Modulmethode starten beide fehlerfrei (auch nach vollständigem Neustart getestet).
+        // Der is_array()-Schutz bleibt als Sicherheitsnetz.
+        $existingRefs = $this->GetReferenceList();
         if (is_array($existingRefs)) {
             foreach ($existingRefs as $refID) {
                 $this->UnregisterReference($refID);

@@ -23,6 +23,13 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Fix (Energiebilanz): Referenzverwaltung über die Modulmethode (02.10.2026, Forum-Hinweis doctee #35, Build 131).**
+  `ApplyChanges()` räumte die Referenzen bisher über `IPS_GetReferenceList($this->InstanceID)` auf. Beim
+  Initialisieren zweier Instanzen traten damit Fehler auf; mit der dokumentierten Modulmethode
+  `$this->GetReferenceList()` (Symcon >= 5.1, liefert ein Array, gegen die Symcon-Doku geprüft) starten beide
+  fehlerfrei, auch nach vollständigem Neustart (vom Tester lokal bestätigt, Konfiguration und Referenzen
+  bleiben erhalten). Der `is_array()`-Schutz aus dem Ghostraider-Fix (16.09.) bleibt. „Neu in Version"-Banner der
+  Energiebilanz (Build 131).
 - **Fix (PVPrognose): defektes Stunden-Aggregat im Archiv erzeugte sichtbare Warnung, obwohl das Modul
   längst richtig reagierte (24.09.2026, Fund EMS-Tagesauswertung, live bei Dietmar — drei GoodWe-MPPT-
   Variablen #26434/#49092/#56208, Zeitstempel einer Stunde lag nicht auf der vollen Stunde, Build 130).**
