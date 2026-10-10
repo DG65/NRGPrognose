@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.20 (Build 131)';
+    private const NEWS_VERSION = '0.21 (Build 132)';
     private const NEWS_ITEMS = [
+        '🎨 Gemessene Linien mit eigenem Legendeneintrag und eigener Farbe (Anregung aus dem Forum, danke!): „PV (Ist)“ und „Verbrauch (Ist)“ stehen jetzt in der Legende und lassen sich einzeln aus- und einblenden. Wer die Ist-Linie anders einfärben möchte, schaltet „Eigene Farbe für die gemessene …-Linie“ ein und wählt die Farbe; ohne Schalter bleibt alles wie bisher.',
         '🩹 Stabiler beim Start: Die Verwaltung der Referenzen beim Initialisieren nutzt jetzt die dokumentierte Modulmethode statt des Kernel-Aufrufs — Fehlermeldungen beim Start mehrerer Instanzen (Hinweis aus dem Forum, danke!) treten damit nicht mehr auf.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Findet die Kachel genau eine PV- bzw. Lastprognose-Instanz und ist das Feld leer, ist das Auswahlfeld ausgeblendet und eine Zeile „🔗 … automatisch übernommen“ zeigt Instanz, Nummer und Werte. Eine eigene Auswahl (✏️) bleibt sichtbar und hat Vorrang; die Zeile folgt der Auswahl sofort, auch vor dem Speichern.',
         '🔎 Neu im Formular: Zwei Statuszeilen zeigen live, mit welcher PV- und welcher Lastprognose-Instanz die Kachel verbunden ist (Name, Nummer, Vertragsversion) und welche Werte sie daraus übernimmt — oder warum nichts Brauchbares ankommt (z. B. mehrere Instanzen ohne Auswahl).',
@@ -116,6 +117,10 @@ class Energiebilanz extends IPSModule
             'ShowLoad'           => ['Verbrauch anzeigen', 11, true],
             'ShowActualPV'       => ['Gemessenen PV-Tagesverlauf (heute) als Linie zeigen', 31, false],
             'ShowActualLoad'     => ['Gemessenen Verbrauchs-Tagesverlauf (heute) als Linie zeigen', 32, false],
+            // Forum Ghostraider (10.10.2026): gemessene Linien mit eigener Farbe + eigenem Legendeneintrag.
+            // Aus = Farbe der Prognosekurve (bisheriges Verhalten, keine Aenderung fuer bestehende Instanzen).
+            'ActualOwnPV'        => ['Eigene Farbe für die gemessene PV-Linie', 35, false],
+            'ActualOwnLoad'      => ['Eigene Farbe für die gemessene Verbrauchs-Linie', 36, false],
             'ShowYesterday'      => ['Gestern mit anzeigen (Soll aus gespeicherter Prognose + Ist aus Archiv)', 33, false],
             'Smooth'             => ['Kurven glätten (gegen kantige Linien)', 49, self::DEF_SMOOTH],
             'ShowBand'           => ['Unsicherheitsband (P10–P90) anzeigen', 50, self::DEF_BAND],
@@ -155,6 +160,8 @@ class Energiebilanz extends IPSModule
             'ChartEngine'      => ['Diagramm-Engine', 'EFTILE.Engine', 40, 0],
             'ColorPV'          => ['Farbe PV-Erzeugung', '~HexColor', 41, self::DEF_PV],
             'ColorLoad'        => ['Farbe Verbrauch', '~HexColor', 42, self::DEF_LOAD],
+            'ColorActualPV'        => ['Farbe gemessene PV-Linie', '~HexColor', 37, self::DEF_PV],
+            'ColorActualLoad'        => ['Farbe gemessene Verbrauchs-Linie', '~HexColor', 38, self::DEF_LOAD],
             'ColorBackground'  => ['Hintergrundfarbe (falls nicht automatisch)', '~HexColor', 44, 0xFFFFFF],
             'FontFamily'       => ['Schriftart', 'EFTILE.Font', 45, 0],
         ];
@@ -378,9 +385,9 @@ class Energiebilanz extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
-                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ColorBackgroundAuto'];
+                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ColorBackgroundAuto', 'ActualOwnPV', 'ActualOwnLoad'];
         $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartEngine',
-                       'ColorPV', 'ColorLoad', 'ColorBackground', 'FontFamily'];
+                       'ColorPV', 'ColorLoad', 'ColorActualPV', 'ColorActualLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
 
         if (in_array($Ident, $boolIdents, true)) {
@@ -758,6 +765,10 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ChartEngine', 0);
         $this->SetValue('ColorPV', self::DEF_PV);
         $this->SetValue('ColorLoad', self::DEF_LOAD);
+        $this->SetValue('ColorActualPV', self::DEF_PV);
+        $this->SetValue('ColorActualLoad', self::DEF_LOAD);
+        $this->SetValue('ActualOwnPV', false);
+        $this->SetValue('ActualOwnLoad', false);
         $this->SetValue('ColorBackgroundAuto', true);
         $this->SetValue('ColorBackground', 0xFFFFFF);
         $this->SetValue('FontFamily', 0);
@@ -788,6 +799,8 @@ class Energiebilanz extends IPSModule
         $style = [
             'pvColor'   => sprintf('#%06x', (int) $this->GetValue('ColorPV')),
             'loadColor' => sprintf('#%06x', (int) $this->GetValue('ColorLoad')),
+            'actualPvColor'   => $this->GetValue('ActualOwnPV') ? sprintf('#%06x', (int) $this->GetValue('ColorActualPV')) : '',
+            'actualLoadColor' => $this->GetValue('ActualOwnLoad') ? sprintf('#%06x', (int) $this->GetValue('ColorActualLoad')) : '',
             'bg'        => $this->GetValue('ColorBackgroundAuto') ? '' : sprintf('#%06x', (int) $this->GetValue('ColorBackground')),
             'scale'     => $this->FontScaleValue(),
             'lineWidth' => max(0.5, min(6.0, (float) $this->GetValue('LineWidth'))),
