@@ -85,7 +85,7 @@
 
     <script>
         var lastData = null, chart = null, chartEngine = null;
-        var userHide = { pv: false, load: false };
+        var userHide = { pv: false, load: false, pvm: false, lom: false };
         var libs = { hc: 0, ec: 0 };
         // Gestrichelte "jetzt"-Linie rot statt neutralem Grau (Dietmars Wunsch) —
         // fest statt theme-abhängig, da Rot auf hellem wie dunklem Grund gut lesbar bleibt.
@@ -242,6 +242,7 @@
                 SEP: dark ? 'rgba(159,176,192,.34)' : 'rgba(92,107,122,.30)',
                 days: data.days, nDays: data.days.length,
                 pvC: data.pvColor || '#e0a020', loC: data.loadColor || '#2bb3c0',
+                pvMC: data.actualPvColor || data.pvColor || '#e0a020', loMC: data.actualLoadColor || data.loadColor || '#2bb3c0',
                 plotLeft: pm.left, plotRight: pm.right, plotTop: pm.top, plotBottom: pm.bottom,
                 scale: scale, lw: data.lineWidth || 2, smooth: (data.smooth !== false),
                 showBand: (data.showBand !== false), bandOp: (data.bandOp != null ? data.bandOp : 0.16),
@@ -272,6 +273,9 @@
             // beiden Engines, damit die feststehende Y-Achsen-Überlagerung (siehe
             // buildYAxisOverlay) exakt zu dem passt, was jede Engine tatsächlich zeichnet.
             D.pvVis = D.pvPresent && !userHide.pv;
+            // gemessene Linien lassen sich getrennt von der Prognose ausblenden (Forum Ghostraider, 10.10.2026)
+            D.pvMVis = D.pvMeas.length > 1 && !userHide.pvm;
+            D.loMVis = D.loMeas.length > 1 && !userHide.lom;
             D.loVis = D.loPresent && !userHide.load;
             (function () {
                 var maxV = 0, useBand = D.showBand && D.bandOp > 0;
@@ -357,17 +361,17 @@
             if (pvVis) {
                 series.push({ id: 'pv', type: stype, name: 'PV', data: D.pvLine, color: pvC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'PV-Band', data: D.pvBand, color: pvC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'pv', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
-                if (D.pvMeas.length > 1) { series.push({ type: stype, name: 'PV gemessen', data: D.pvMeas, color: pvC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), linkedTo: 'pv', enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
             }
             if (loVis) {
                 series.push({ id: 'load', type: stype, name: 'Verbrauch', data: D.loLine, color: loC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'Verbrauch-Band', data: D.loBand, color: loC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'load', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
-                if (D.loMeas.length > 1) { series.push({ type: stype, name: 'Verbrauch gemessen', data: D.loMeas, color: loC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), linkedTo: 'load', enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
             }
+            if (D.pvMVis) { series.push({ type: stype, name: 'PV gemessen', data: D.pvMeas, color: D.pvMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
+            if (D.loMVis) { series.push({ type: stype, name: 'Verbrauch gemessen', data: D.loMeas, color: D.loMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
             var nowPts = [];
             if (D.nowX != null) {
-                if (pvVis && D.actualPV != null) { nowPts.push({ x: D.nowX, y: D.actualPV / 1000, color: pvC }); }
-                if (loVis && D.actualLoad != null) { nowPts.push({ x: D.nowX, y: D.actualLoad / 1000, color: loC }); }
+                if (pvVis && D.actualPV != null) { nowPts.push({ x: D.nowX, y: D.actualPV / 1000, color: (D.pvMeas.length > 1 ? D.pvMC : pvC) }); }
+                if (loVis && D.actualLoad != null) { nowPts.push({ x: D.nowX, y: D.actualLoad / 1000, color: (D.loMeas.length > 1 ? D.loMC : loC) }); }
             }
             if (nowPts.length) { series.push({ type: 'scatter', name: 'jetzt', data: nowPts, showInLegend: false, enableMouseTracking: false, zIndex: 6, marker: { enabled: true, radius: 5, symbol: 'circle', lineColor: TIP, lineWidth: 2 } }); }
 
@@ -443,6 +447,9 @@
             }
             item('pv', 'PV', D.pvC, D.pvPresent, D.actualPV, userHide.pv);
             item('load', 'Verbrauch', D.loC, D.loPresent, D.actualLoad, userHide.load);
+            // gemessene Linien als eigene Eintraege (Forum Ghostraider, 10.10.2026)
+            item('pvm', 'PV (Ist)', D.pvMC, D.pvMeas.length > 1, null, userHide.pvm);
+            item('lom', 'Verbrauch (Ist)', D.loMC, D.loMeas.length > 1, null, userHide.lom);
             legEl.innerHTML = h;
             legEl.style.fontSize = (11 * D.scale) + 'px'; legEl.style.fontFamily = D.font; legEl.style.color = D.TEXT;
         }
@@ -529,8 +536,8 @@
             bandSeries(D.pvBand, D.pvC, pvVis);
             bandSeries(D.loBand, D.loC, loVis);
 
-            if (pvVis && D.pvMeas.length > 1) { series.push({ type: 'line', data: D.pvMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
-            if (loVis && D.loMeas.length > 1) { series.push({ type: 'line', data: D.loMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
+            if (D.pvMVis) { series.push({ type: 'line', data: D.pvMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
+            if (D.loMVis) { series.push({ type: 'line', data: D.loMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
 
             var markData = [];
             for (var di = 1; di < D.nDays; di++) { markData.push({ xAxis: di * 24, lineStyle: { color: D.SEP, type: 'solid', width: 1 } }); }
@@ -543,8 +550,8 @@
 
             var dots = [];
             if (D.nowX != null) {
-                if (pvVis && D.actualPV != null) { dots.push({ value: [D.nowX, D.actualPV / 1000], itemStyle: { color: D.pvC, borderColor: D.TIP, borderWidth: 2 } }); }
-                if (loVis && D.actualLoad != null) { dots.push({ value: [D.nowX, D.actualLoad / 1000], itemStyle: { color: D.loC, borderColor: D.TIP, borderWidth: 2 } }); }
+                if (pvVis && D.actualPV != null) { dots.push({ value: [D.nowX, D.actualPV / 1000], itemStyle: { color: (D.pvMeas.length > 1 ? D.pvMC : D.pvC), borderColor: D.TIP, borderWidth: 2 } }); }
+                if (loVis && D.actualLoad != null) { dots.push({ value: [D.nowX, D.actualLoad / 1000], itemStyle: { color: (D.loMeas.length > 1 ? D.loMC : D.loC), borderColor: D.TIP, borderWidth: 2 } }); }
             }
             if (dots.length) { series.push({ type: 'scatter', data: dots, symbolSize: 11, z: 6, silent: true, animation: false }); }
 

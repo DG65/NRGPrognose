@@ -6,6 +6,7 @@ Dieser Stand läuft im **Beta-Kanal** und trägt daher das Kürzel `-beta` in de
 Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in den Stable-Kanal
 übernommen.
 
+- **Neu (Energiebilanz, Build 132, 10.10.2026, Forum Ghostraider): gemessene Linien mit eigenem Legendeneintrag und eigener Farbe.** „PV (Ist)“ und „Verbrauch (Ist)“ erscheinen als eigene Legendeneinträge, die sich einzeln aus- und einblenden lassen (beide Engines). Neue Einstellungen „Eigene Farbe für die gemessene PV-/Verbrauchs-Linie“ (Schalter, Standard aus = Farbe der Prognosekurve) und „Farbe gemessene PV-/Verbrauchs-Linie“. Bestehende Instanzen sehen unverändert dasselbe, bis der Schalter eingeschaltet wird. Gespiegelt in NRGDashboardForecast.
 - **Neu (Lastprognose): MeterHub-Vorzeichen- und Messart-Regeln übernommen (21.09.2026, Antwort MeterHub-Sitzung als
   Vertragsbesitzer, SUITE.md „Vorzeichen-Konvention MHUB/MHUBV“, Build 129).** Für `function='house'` gilt verbindlich
   + = Verbrauch. Ein dauerhaft negativer Hausverbrauch (Median der letzten 7 Tage < 0) ist eine falsch gestellte Richtung am
