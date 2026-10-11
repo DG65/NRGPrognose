@@ -38,7 +38,7 @@ Beim Überfahren/Antippen werden Werte und Saldo zur Uhrzeit angezeigt.
 |---|---|
 | **Quellen** | Werden automatisch erkannt (je eine PV- und Lastprognose-Instanz); nur bei mehreren Instanzen manuell wählen. Jede Reihe per Schalter oder Legenden-Klick ausblendbar. |
 | **Anzuzeigende Tage** | 1–5 (+ optional Gestern = bis zu 6 insgesamt). Bis 3 Tage passen ohne Scrollen in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen proportional breiter und lassen sich horizontal scrollen (bei gleicher Kachelbreite), statt sich zusammenzuquetschen. |
-| **Ist-Werte** | Momentane Leistungsvariablen für PV und Verbrauch; optional der gemessene Tagesverlauf als Linie – mit eigenem Legendeneintrag („PV (Ist)“, „Verbrauch (Ist)“) und auf Wunsch eigener Farbe (Schalter „Eigene Farbe für die gemessene … Linie“). |
+| **Ist-Werte** | Momentane Leistungsvariablen für PV und Verbrauch; optional der gemessene Tagesverlauf als Linie – mit eigenem Legendeneintrag („PV (Ist)“, „Verbrauch (Ist)“; die Prognosekurven heißen dann „PV (Soll)“ / „Verbrauch (Soll)“, der Momentanwert „Ist jetzt“) und auf Wunsch eigener Farbe (Schalter „Eigene Farbe für die gemessene … Linie“). |
 | **Gestern** | Vortag mit Ist-Kurve und (falls vorhanden) Snapshot-Soll. |
 | **Diagramm-Engine** | **ECharts** (quelloffen, auch kommerziell kostenlos) oder **Highcharts** (nur privat/nicht-kommerziell kostenlos). |
 | **Darstellung** | Diagrammhöhe, Linienstärke, Glättung, Band-Transparenz, Gitter, Y-Achse, Farben, Schriftart/-größe. |

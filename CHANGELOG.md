@@ -24,6 +24,13 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz): Legende mit „Soll"/„Ist" statt gleichklingender Begriffe (11.10.2026, Forum hbraun #42,
+  Build 132).** „PV · jetzt 4,2 kW" (Prognosekurve, aber mit gemessenem Momentanwert) und „PV (Ist)" (gemessene
+  Linie) wirkten wie dasselbe. Jetzt dieselbe Sprache wie der Tagesstreifen: Die Prognosekurven heißen „PV (Soll)" /
+  „Verbrauch (Soll)", sobald es ein Ist-Gegenstück gibt (gemessene Linie oder Momentanwert); der Momentanwert heißt
+  „Ist jetzt". Ohne Ist-Werte bleiben die nackten Namen („PV", „Verbrauch") — ein „Soll" ohne Gegenstück wäre
+  inkonsistent (derselbe Gedanke wie beim Tagesstreifen). Nur Beschriftung in `module.html`. „Neu in Version"-Banner
+  (Build 132).
 - **Fix (Energiebilanz): Referenzverwaltung über die Modulmethode (02.10.2026, Forum-Hinweis doctee #35, Build 131).**
   `ApplyChanges()` räumte die Referenzen bisher über `IPS_GetReferenceList($this->InstanceID)` auf. Beim
   Initialisieren zweier Instanzen traten damit Fehler auf; mit der dokumentierten Modulmethode
