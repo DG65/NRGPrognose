@@ -60,7 +60,7 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 132)';
+    private const NEWS_VERSION = '0.21 (Build 133)';
     private const NEWS_ITEMS = [
         '🏷️ Klarere Legende (Anregung aus dem Forum, danke!): Die Prognosekurven heißen jetzt „PV (Soll)“ und „Verbrauch (Soll)“, sobald es ein Ist-Gegenstück gibt, der Momentanwert in der Legende „Ist jetzt“ — dieselbe Sprache wie im Tagesstreifen („Soll“ / „Ist“). Ohne Ist-Werte bleibt es bei „PV“ und „Verbrauch“.',
         '🎨 Gemessene Linien mit eigenem Legendeneintrag und eigener Farbe (Anregung aus dem Forum, danke!): „PV (Ist)“ und „Verbrauch (Ist)“ stehen jetzt in der Legende und lassen sich einzeln aus- und einblenden. Wer die Ist-Linie anders einfärben möchte, schaltet „Eigene Farbe für die gemessene …-Linie“ ein und wählt die Farbe; ohne Schalter bleibt alles wie bisher.',
