@@ -123,8 +123,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.20 (Build 130)';
+    private const NEWS_VERSION = '0.21 (Build 134)';
     private const NEWS_ITEMS = [
+        '🔑 Solcast-Schlüssel sichtbar: Nach dem Speichern bleibt das Eingabefeld aus Sicherheitsgründen leer, das sah aus, als sei nichts gespeichert (Hinweis aus dem Forum, danke!). Eine Zeile darüber zeigt jetzt, ob ein Schlüssel hinterlegt ist (mit Zeichenanzahl, ohne den Schlüssel selbst).',
         '🩹 Robuster gegen defekte Archivdaten: Ein einzelnes kaputtes Stunden-Aggregat im Archiv (kam bei drei Variablen live vor) ließ die Selbstkalibrierung für den betroffenen Tag als PHP-Warnung im System-Log auftauchen, obwohl der Tag ohnehin sauber übersprungen wurde. Die Warnung ist jetzt unterdrückt, das Ergebnis unverändert.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die Einheit (W/kW) der gemessenen Leistung zeigt je Generator, woher sie stammt („🔗 automatisch übernommen“); das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eine eigene Angabe (✏️) hat Vorrang, die Zeile folgt der Auswahl sofort.',
         '🧹 Abgeregelte Tage bleiben aus der Selbstkalibrierung: Mit einem NRG-Stack-EMS werden Tage, an denen die Erzeugung abgeregelt war (Netzbetreiber-Dimmung, negativer Börsenpreis), nicht mehr für den Kalibrierfaktor verwendet — sonst würde die gedrosselte Messung als „Modell zu hoch“ gelernt und die Prognose zu niedrig ausfallen. Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), zählen hier nicht. Ohne EMS ändert sich nichts.',
@@ -377,6 +378,7 @@ class PVPrognose extends IPSModule
         $builders = [
             'ConnStatusArchive' => 'archiveStatusLine',
             'ConnStatusUnit'    => 'unitStatusLine',
+            'ConnStatusSolcast' => 'solcastStatusLine',
             'ConnStatusEms'     => 'emsStatusLine',
         ];
         $out = [];
@@ -457,6 +459,28 @@ class PVPrognose extends IPSModule
             }
         }
         return ($unsure ? '⚠️' : '🔗') . " Einheit (automatisch übernommen):\n" . implode("\n", $lines);
+    }
+
+    /**
+     * Solcast-API-Schlüssel: Das Eingabefeld ist nach dem Speichern bewusst leer (der Schlüssel liegt im
+     * Attribut, nicht in der Property — siehe ApplyChanges()). Ein leeres Feld sah aber aus, als sei nichts
+     * gespeichert (Forum hbraun, 12.10.2026) — deshalb sagt diese Zeile, ob ein Schlüssel hinterlegt ist.
+     * Der Schlüssel selbst wird nie angezeigt, nur die Länge (reicht, um "gespeichert" von "abgeschnitten"
+     * zu unterscheiden, verrät aber nichts).
+     */
+    private function solcastStatusLine(): string
+    {
+        $secret = trim((string)$this->ReadAttributeString('PVF_SolcastSecret'));
+        $isSolcast = ($this->ReadPropertyInteger('PVF_Source') === PVF_SRC_SOLCAST);
+        if ($secret !== '') {
+            $len = mb_strlen($secret);
+            return '✏️ Solcast-Schlüssel: gespeichert (' . $len . ' Zeichen, wird aus Sicherheitsgründen nicht angezeigt; das Feld unten bleibt deshalb leer).'
+                . ($isSolcast ? ' Er wird für den Abruf verwendet.' : ' Er wird nur verwendet, wenn die Quelle auf Solcast steht.')
+                . ' Zum Ändern einfach einen neuen Schlüssel eintragen und übernehmen.';
+        }
+        return $isSolcast
+            ? '⛔ Solcast-Schlüssel: Quelle Solcast ist gewählt, aber noch kein Schlüssel hinterlegt – ohne Schlüssel kein Abruf. Bitte unten eintragen und übernehmen.'
+            : 'ℹ️ Solcast-Schlüssel: nicht hinterlegt (nur nötig, wenn die Quelle auf Solcast steht).';
     }
 
     /** EMS-Kopplung für Sondereffekte: Prognosegüte, Fehler-Korrektur und Selbstkalibrierung. */

@@ -24,6 +24,15 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (PVPrognose): Solcast-Schlüssel sichtbar hinterlegt (12.10.2026, Forum hbraun im Dashboard-Thread #170,
+  Build 134).** Nach dem Speichern ist das Eingabefeld für den Solcast-API-Schlüssel bewusst leer (der Schlüssel
+  liegt im Attribut, nicht in der Property, und wird nicht im Formular gezeigt) - der Tester dachte deshalb, er sei
+  nicht übernommen worden. Der statische Hinweis in der Feldbeschriftung reichte offensichtlich nicht (SUITE.md:
+  ein statischer Satz sagt nie, ob es geklappt hat). Neue live berechnete Zeile `ConnStatusSolcast` über dem Feld:
+  ✏️ „gespeichert (N Zeichen …)" mit Hinweis, ob er mit der gewählten Quelle verwendet wird, ⛔ bei Quelle Solcast
+  ohne Schlüssel, ℹ️ „nicht hinterlegt" bei den anderen Quellen. Der Schlüssel selbst wird nie angezeigt, nur die
+  Länge. Feldbeschriftung verkürzt/geschärft („hier neu eintragen"). Prüfstand `formularstatus.php` (5 Fälle).
+  „Neu in Version"-Banner (Build 134).
 - **Neu (Energiebilanz): Legende mit „Soll"/„Ist" statt gleichklingender Begriffe (11.10.2026, Forum hbraun #42,
   Build 133).** „PV · jetzt 4,2 kW" (Prognosekurve, aber mit gemessenem Momentanwert) und „PV (Ist)" (gemessene
   Linie) wirkten wie dasselbe. Jetzt dieselbe Sprache wie der Tagesstreifen: Die Prognosekurven heißen „PV (Soll)" /

@@ -183,9 +183,14 @@
                     ]
                 },
                 {
+                    "type": "Label",
+                    "name": "ConnStatusSolcast",
+                    "caption": "Solcast-Schlüssel: wird beim Öffnen des Formulars geprüft …"
+                },
+                {
                     "type": "PasswordTextBox",
                     "name": "PVF_SolcastKey",
-                    "caption": "Solcast API-Schlüssel (nur bei Solcast) — Eingabe, wird nach dem Speichern sicher abgelegt und hier geleert"
+                    "caption": "Solcast API-Schlüssel (nur bei Solcast) - hier neu eintragen, wird nach dem Speichern sicher abgelegt und das Feld wieder geleert"
                 },
                 {
                     "type": "Label",
