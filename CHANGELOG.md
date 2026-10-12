@@ -24,6 +24,14 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (PVPrognose): Hilfe „Wo finde ich die Solcast-ID?" (12.10.2026, Forum hbraun Dashboard-Thread #176, Build 136).**
+  Nach dem neuen Hinweis „keine Resource-ID eingetragen" fragte der Tester, welche ID gemeint ist und wo er sie findet -
+  die Spalte hieß nur „Solcast-ID". Neuer Hilfe-Button (Frage als Beschriftung, SUITE.md-Konvention) im Panel
+  „Vorhersagequelle": Gemeint ist die Resource-ID der Rooftop-Site (nicht der API-Schlüssel), Format vier Gruppen mit
+  Bindestrichen, zu finden bei toolkit.solcast.com.au bzw. in der API-Adresse der Site, Eintrag je Generator in die Spalte
+  „Solcast-ID". Die Hinweise in Status- und Formularzeile verweisen auf den Button. Der genaue Klickweg in der
+  Solcast-Oberfläche ist nicht verifiziert (Web-Recherche stützt nur toolkit.solcast.com.au und die API-Adresse
+  rooftop_sites/<ID>/forecasts); der Hilfetext sagt das ehrlich. „Neu in Version"-Banner (Build 136).
 - **Neu (PVPrognose): Solcast-Fehlerursachen statt „API/Netzwerk?" (12.10.2026, Hinweis Dashboard-Sitzung zu
   Forum hbraun #172, Build 135).** `Rebuild()` meldete für ALLE Solcast-Fehlerfälle dieselbe Zeile („Vorhersage konnte
   nicht geladen werden (API/Netzwerk?)"), der Tester konnte „Resource-ID fehlt" nicht von „Schlüssel abgelehnt"

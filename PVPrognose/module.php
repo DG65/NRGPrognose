@@ -126,8 +126,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 135)';
+    private const NEWS_VERSION = '0.21 (Build 136)';
     private const NEWS_ITEMS = [
+        '❓ Solcast-ID erklärt: Neben dem Schlüsselfeld gibt es den Button „Wo finde ich die Solcast-ID?“ (Frage aus dem Forum, danke!) - er erklärt, dass die Resource-ID der Dach-Site gemeint ist (nicht der API-Schlüssel) und wo man sie bei Solcast findet.',
         '🔎 Solcast: klare Fehlerursache statt „API/Netzwerk?“ - die Status-Zeile nennt jetzt, ob der Schlüssel fehlt oder abgelehnt wurde, für einen Generator die Resource-ID (Spalte „Solcast-ID“) fehlt oder unbekannt ist, das Tageskontingent erschöpft ist oder keine Verbindung besteht. Fehlt die Resource-ID, steht das auch schon im Formular über dem Schlüsselfeld.',
         '🔑 Solcast-Schlüssel sichtbar: Nach dem Speichern bleibt das Eingabefeld aus Sicherheitsgründen leer, das sah aus, als sei nichts gespeichert (Hinweis aus dem Forum, danke!). Eine Zeile darüber zeigt jetzt, ob ein Schlüssel hinterlegt ist (mit Zeichenanzahl, ohne den Schlüssel selbst).',
         '🩹 Robuster gegen defekte Archivdaten: Ein einzelnes kaputtes Stunden-Aggregat im Archiv (kam bei drei Variablen live vor) ließ die Selbstkalibrierung für den betroffenen Tag als PHP-Warnung im System-Log auftauchen, obwohl der Tag ohnehin sauber übersprungen wurde. Die Warnung ist jetzt unterdrückt, das Ergebnis unverändert.',
@@ -482,7 +483,7 @@ class PVPrognose extends IPSModule
             $gens = $this->pvGenerators();
             foreach ($gens as $g) { if (trim($g['solcast']) === '') { $noRid[] = ($g['name'] !== '') ? '„' . $g['name'] . '“' : 'ein Generator'; } }
             if (count($noRid) > 0) {
-                return '⛔ Solcast-Schlüssel gespeichert, aber für ' . implode(', ', $noRid) . ' ist keine Resource-ID in der Spalte „Solcast-ID“ der Generatorliste eingetragen – dafür gibt es keinen Abruf'
+                return '⛔ Solcast-Schlüssel gespeichert, aber für ' . implode(', ', $noRid) . ' ist keine Resource-ID in der Spalte „Solcast-ID“ der Generatorliste eingetragen – dafür gibt es keinen Abruf (Hilfe: Button „Wo finde ich die Solcast-ID?“)'
                     . (count($noRid) === count($gens) ? ', die Vorhersage kann so nicht geladen werden.' : ', er fehlt in der Summe.');
             }
         }
@@ -1910,7 +1911,7 @@ class PVPrognose extends IPSModule
                 case 'nokey':
                     $t = '⛔ Solcast: kein API-Schlüssel hinterlegt'; $k = 'nokey'; break;
                 case 'norid':
-                    $t = '⛔ Solcast: für ' . $gen . ' ist keine Resource-ID eingetragen (Spalte „Solcast-ID“ der Generatorliste)'; $k = 'norid' . $i['gen']; break;
+                    $t = '⛔ Solcast: für ' . $gen . ' ist keine Resource-ID eingetragen (Spalte „Solcast-ID“ der Generatorliste; Hilfe: Button „Wo finde ich die Solcast-ID?“)'; $k = 'norid' . $i['gen']; break;
                 case 'auth':
                     $t = '⛔ Solcast: Schlüssel abgelehnt (HTTP ' . $i['http'] . ') – bitte den API-Schlüssel prüfen'; $k = 'auth'; break;
                 case 'notfound':

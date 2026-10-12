@@ -193,6 +193,40 @@
                     "caption": "Solcast API-Schlüssel (nur bei Solcast) - hier neu eintragen, wird nach dem Speichern sicher abgelegt und das Feld wieder geleert"
                 },
                 {
+                    "type": "PopupButton",
+                    "caption": "Wo finde ich die Solcast-ID?",
+                    "width": "460px",
+                    "popup": {
+                        "caption": "Wo finde ich die Solcast-ID?",
+                        "items": [
+                            {
+                                "type": "Label",
+                                "caption": "Gemeint ist die Resource-ID deiner Dach-Site bei Solcast, nicht der API-Schlüssel."
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "1. Auf toolkit.solcast.com.au anmelden und unter deinen Rooftop-Sites die Anlage öffnen."
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "2. Dort steht die Resource-ID: vier Gruppen aus Buchstaben/Ziffern, mit Bindestrichen getrennt (z. B. 1234-abcd-5678-ef90). Sie steckt auch in der API-Adresse der Site: .../rooftop_sites/<ID>/forecasts."
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "3. Diese ID in die Spalte „Solcast-ID“ der Generatorliste eintragen, je Dachfläche/Generator die ID der passenden Site. Liegen mehrere Dächer unter einer Site, reicht bei einem Generator die ID, bei den übrigen bleibt die Spalte leer."
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "Der API-Schlüssel ist etwas anderes: Er gehört zu deinem Solcast-Konto und kommt in das Feld darüber."
+                            },
+                            {
+                                "type": "Label",
+                                "caption": "Hinweis: Das Modul nutzt die „Rooftop Sites“ (Hobbyist-Konto, kostenlos). Wo genau die ID in der Oberfläche steht, kann sich bei Solcast ändern - im Zweifel hilft die API-Adresse der Site."
+                            }
+                        ]
+                    }
+                },
+                {
                     "type": "Label",
                     "caption": "⚠️ Solcast-Gratiskonto: nur ~10 API-Abrufe pro TAG — jede Neuberechnung kostet einen Abruf JE Generator, andere Skripte mit demselben Schlüssel zählen mit. Das Modul cacht Antworten für die Dauer des Berechnungsintervalls (mehrfaches „Jetzt neu berechnen“ kostet also nichts extra) und pausiert nach einem 429-Fehler (Tageslimit) automatisch 2 Stunden. Bei 2 Generatoren und 6h-Intervall werden 8 der 10 Abrufe/Tag verbraucht — Intervall ggf. auf 8–12h erhöhen."
                 }
