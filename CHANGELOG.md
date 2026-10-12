@@ -24,6 +24,12 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Intern (Lastprognose, PVPrognose): `$this->LogMessage()` statt `IPS_LogMessage()` (12.10.2026, Store-Review-
+  Checkliste Punkt 15 via EMS-Sitzung, Build 137).** Reviewwortlaut: „Verwende stattdessen bitte das bessere
+  $this->LogMessage." Je eine Stelle (zentrale `log()`-Methode) umgestellt: `$this->LogMessage($text, KL_MESSAGE)`
+  ordnet den Eintrag der Instanz zu. Verhalten und Log-Stufen unverändert (`SendDebug` bleibt für VERBOSE/INFO).
+  Energiebilanz hatte keine Stelle. Neuer Prüfstand `tools/pruefstand/logging.php` (kein `IPS_LogMessage(` in den
+  drei `module.php`); alle Prüfstand-Attrappen kennen jetzt `LogMessage()` und `KL_MESSAGE`. Kein Banner.
 - **Neu (PVPrognose): Hilfe „Wo finde ich die Solcast-ID?" (12.10.2026, Forum hbraun Dashboard-Thread #176, Build 136).**
   Nach dem neuen Hinweis „keine Resource-ID eingetragen" fragte der Tester, welche ID gemeint ist und wo er sie findet -
   die Spalte hieß nur „Solcast-ID". Neuer Hilfe-Button (Frage als Beschriftung, SUITE.md-Konvention) im Panel

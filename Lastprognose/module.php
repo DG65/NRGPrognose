@@ -2571,7 +2571,8 @@ class Lastprognose extends IPSModule
         $prefix = ($level === LFC_LOG_VERBOSE) ? 'VERBOSE' : 'INFO';
         $this->SendDebug($prefix, $message, 0);
         if ($level <= LFC_LOG_BASIC) {
-            IPS_LogMessage('Lastprognose', $message);
+            // $this->LogMessage statt IPS_LogMessage (Store-Review 12.10.2026): ordnet den Eintrag der Instanz zu.
+            $this->LogMessage((string)$message, KL_MESSAGE);
         }
     }
 }

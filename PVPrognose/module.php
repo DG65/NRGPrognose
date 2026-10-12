@@ -2725,6 +2725,7 @@ class PVPrognose extends IPSModule
         if ($level > $configLevel) { return; }
         $prefix = ($level === PVF_LOG_VERBOSE) ? 'VERBOSE' : 'INFO';
         $this->SendDebug($prefix, $message, 0);
-        if ($level <= PVF_LOG_BASIC) { IPS_LogMessage('PVPrognose', $message); }
+        // $this->LogMessage statt IPS_LogMessage (Store-Review 12.10.2026): ordnet den Eintrag der Instanz zu.
+        if ($level <= PVF_LOG_BASIC) { $this->LogMessage((string)$message, KL_MESSAGE); }
     }
 }
