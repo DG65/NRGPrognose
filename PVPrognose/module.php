@@ -78,6 +78,9 @@ class PVPrognose extends IPSModule
     // Im Formular gewählte, noch nicht gespeicherte Werte (Name => Wert), nur während PreviewSelection().
     private $formOverride = [];
     private $calibEvents = null;
+    // Ursachen fehlgeschlagener/unvollständiger Solcast-Abrufe im laufenden Rebuild (kind, gen, rid, http) — damit
+    // die Status-Zeile statt "API/Netzwerk?" die tatsächliche Ursache nennt (Forum hbraun, 12.10.2026).
+    private $solcastIssues = [];
 
     // Residuen-Korrektur ("Immer genauer werden"): Tagesgang-Profil statt
     // einem einzigen globalen Faktor (Fund EMS-Sitzung 12.09.2026: Morgens
@@ -123,8 +126,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 134)';
+    private const NEWS_VERSION = '0.21 (Build 135)';
     private const NEWS_ITEMS = [
+        '🔎 Solcast: klare Fehlerursache statt „API/Netzwerk?“ - die Status-Zeile nennt jetzt, ob der Schlüssel fehlt oder abgelehnt wurde, für einen Generator die Resource-ID (Spalte „Solcast-ID“) fehlt oder unbekannt ist, das Tageskontingent erschöpft ist oder keine Verbindung besteht. Fehlt die Resource-ID, steht das auch schon im Formular über dem Schlüsselfeld.',
         '🔑 Solcast-Schlüssel sichtbar: Nach dem Speichern bleibt das Eingabefeld aus Sicherheitsgründen leer, das sah aus, als sei nichts gespeichert (Hinweis aus dem Forum, danke!). Eine Zeile darüber zeigt jetzt, ob ein Schlüssel hinterlegt ist (mit Zeichenanzahl, ohne den Schlüssel selbst).',
         '🩹 Robuster gegen defekte Archivdaten: Ein einzelnes kaputtes Stunden-Aggregat im Archiv (kam bei drei Variablen live vor) ließ die Selbstkalibrierung für den betroffenen Tag als PHP-Warnung im System-Log auftauchen, obwohl der Tag ohnehin sauber übersprungen wurde. Die Warnung ist jetzt unterdrückt, das Ergebnis unverändert.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die Einheit (W/kW) der gemessenen Leistung zeigt je Generator, woher sie stammt („🔗 automatisch übernommen“); das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eine eigene Angabe (✏️) hat Vorrang, die Zeile folgt der Auswahl sofort.',
@@ -472,6 +476,16 @@ class PVPrognose extends IPSModule
     {
         $secret = trim((string)$this->ReadAttributeString('PVF_SolcastSecret'));
         $isSolcast = ($this->ReadPropertyInteger('PVF_Source') === PVF_SRC_SOLCAST);
+        if ($secret !== '' && $isSolcast) {
+            // Resource-ID je Generator (Spalte "Solcast-ID"): ohne sie gibt es für diesen Generator keinen Abruf.
+            $noRid = [];
+            $gens = $this->pvGenerators();
+            foreach ($gens as $g) { if (trim($g['solcast']) === '') { $noRid[] = ($g['name'] !== '') ? '„' . $g['name'] . '“' : 'ein Generator'; } }
+            if (count($noRid) > 0) {
+                return '⛔ Solcast-Schlüssel gespeichert, aber für ' . implode(', ', $noRid) . ' ist keine Resource-ID in der Spalte „Solcast-ID“ der Generatorliste eingetragen – dafür gibt es keinen Abruf'
+                    . (count($noRid) === count($gens) ? ', die Vorhersage kann so nicht geladen werden.' : ', er fehlt in der Summe.');
+            }
+        }
         if ($secret !== '') {
             $len = mb_strlen($secret);
             return '✏️ Solcast-Schlüssel: gespeichert (' . $len . ' Zeichen, wird aus Sicherheitsgründen nicht angezeigt; das Feld unten bleibt deshalb leer).'
@@ -720,7 +734,10 @@ class PVPrognose extends IPSModule
             // bei Forecast.Solar ratenbegrenzt) — jetzt wird der Aufbau wiederverwendet.
             $this->modelCache = $model;
             if ($model === null) {
-                $msg = '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?) — zuletzt gültige Prognose bleibt erhalten.';
+                $why = $this->solcastIssueText();
+                $msg = ($why !== '')
+                    ? '⚠️ Vorhersage konnte nicht geladen werden: ' . $why . ' — zuletzt gültige Prognose bleibt erhalten.'
+                    : '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?) — zuletzt gültige Prognose bleibt erhalten.';
                 $this->rotateForecastCache(); // Tageswechsel trotzdem nachziehen (siehe RollDay())
                 $this->SetValue('PVF_Status', $msg);
                 $this->SetStatus(104);
@@ -1775,6 +1792,7 @@ class PVPrognose extends IPSModule
 
         $gotAny = false;
         $failed = 0;
+        $this->solcastIssues = [];
         foreach ($gens as $g) {
             switch ($src) {
                 case PVF_SRC_FORECASTSOLAR: $perDay = $this->fetchForecastSolar($g); break;
@@ -1878,9 +1896,45 @@ class PVPrognose extends IPSModule
      * Hinweise für die Status-Zeile: Ersatzwerte im aktuellen Rebuild (Kalibrierfaktor aus dem Cache) und
      * die Lernphase (Übergangsband aktiv). Leer, wenn alles normal ist.
      */
+    /**
+     * Ursachen der Solcast-Abrufprobleme dieses Rebuilds als lesbarer Text (leer ohne Probleme). Ersetzt für die
+     * Quelle Solcast die pauschale Meldung "API/Netzwerk?": Schlüssel fehlt/abgelehnt, Resource-ID fehlt/unbekannt,
+     * Tageskontingent, sonstiger HTTP-Fehler, keine Verbindung. Je Ursache und Generator höchstens einmal.
+     */
+    private function solcastIssueText(): string
+    {
+        $parts = []; $seen = [];
+        foreach ($this->solcastIssues as $i) {
+            $gen = ($i['gen'] !== '') ? '„' . $i['gen'] . '“' : 'ein Generator';
+            switch ($i['kind']) {
+                case 'nokey':
+                    $t = '⛔ Solcast: kein API-Schlüssel hinterlegt'; $k = 'nokey'; break;
+                case 'norid':
+                    $t = '⛔ Solcast: für ' . $gen . ' ist keine Resource-ID eingetragen (Spalte „Solcast-ID“ der Generatorliste)'; $k = 'norid' . $i['gen']; break;
+                case 'auth':
+                    $t = '⛔ Solcast: Schlüssel abgelehnt (HTTP ' . $i['http'] . ') – bitte den API-Schlüssel prüfen'; $k = 'auth'; break;
+                case 'notfound':
+                    $t = '⛔ Solcast: Resource-ID „' . $i['rid'] . '“ für ' . $gen . ' nicht gefunden (HTTP 404) – bitte die Solcast-ID prüfen'; $k = 'nf' . $i['rid']; break;
+                case 'quota':
+                    $t = '⚠️ Solcast: Tageskontingent erschöpft (HTTP 429), nächster Versuch in 2 Stunden'; $k = 'quota'; break;
+                case 'network':
+                    $t = '⚠️ Solcast: keine Verbindung (Netzwerk, DNS oder Zeitüberschreitung)'; $k = 'net'; break;
+                default:
+                    $t = '⚠️ Solcast: Abruf für ' . $gen . ' fehlgeschlagen (HTTP ' . $i['http'] . ')'; $k = 'http' . $i['http'] . $i['gen'];
+            }
+            if (isset($seen[$k])) { continue; }
+            $seen[$k] = true;
+            if (!empty($i['stale'])) { $t .= ' (letzte gültige Antwort wird weiterverwendet)'; }
+            $parts[] = $t;
+        }
+        return implode('; ', $parts);
+    }
+
     private function statusNotices(): string
     {
         $out = '';
+        $solcast = $this->solcastIssueText();
+        if ($solcast !== '') { $out .= ' | ' . $solcast; }
         if (count($this->calibNotes) > 0) {
             $names = array_map(function ($n) { return $n['name']; }, $this->calibNotes);
             $oldest = min(array_map(function ($n) { return $n['ts']; }, $this->calibNotes));
@@ -2145,6 +2199,7 @@ class PVPrognose extends IPSModule
         $rid = trim($g['solcast']);
         if ($key === '' || $rid === '') {
             $this->log(PVF_LOG_VERBOSE, 'Solcast: API-Schlüssel oder Resource-ID fehlt');
+            $this->solcastIssues[] = ['kind' => ($key === '') ? 'nokey' : 'norid', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 0];
             return null;
         }
 
@@ -2161,8 +2216,10 @@ class PVPrognose extends IPSModule
         if ($cooldown > time()) {
             if (is_array($entry)) {
                 $this->log(PVF_LOG_VERBOSE, sprintf('Solcast: Abkühlphase nach Tageslimit bis %s — letzte gültige Antwort wird weiterverwendet.', date('H:i', $cooldown)));
+                $this->solcastIssues[] = ['kind' => 'quota', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 429, 'stale' => true];
                 return $this->mapOffsets($entry['byDate'], true);
             }
+            $this->solcastIssues[] = ['kind' => 'quota', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 429, 'stale' => false];
             return null;
         }
 
@@ -2177,6 +2234,11 @@ class PVPrognose extends IPSModule
                 $this->WriteAttributeInteger('PVF_SolcastCooldownUntil', time() + 2 * 3600);
                 $this->log(PVF_LOG_BASIC, 'Solcast: Tageskontingent erschöpft (HTTP 429). Das Gratiskonto erlaubt nur ~10 Abrufe/Tag — je Generator einer pro Neuberechnung, andere Skripte mit demselben Schlüssel zählen mit. Nächster Versuch in 2 Stunden; bis dahin wird die letzte gültige Antwort weiterverwendet.');
             }
+            $kind = ($httpCode === 429) ? 'quota'
+                : (($httpCode === 401 || $httpCode === 403) ? 'auth'
+                : (($httpCode === 404) ? 'notfound'
+                : (($httpCode === 0) ? 'network' : 'http')));
+            $this->solcastIssues[] = ['kind' => $kind, 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => (int)$httpCode, 'stale' => is_array($entry)];
             // Letzte gecachte Antwort als Rückfall (stale-if-error) — besser
             // leicht veraltet als Null-Prognose.
             return is_array($entry) ? $this->mapOffsets($entry['byDate'], true) : null;
@@ -2618,7 +2680,8 @@ class PVPrognose extends IPSModule
     }
 
     /** $httpCode (out): tatsächlicher HTTP-Status — für Aufrufer, die z. B. 429 gesondert behandeln (fetchSolcast). */
-    private function httpGetJson(string $url, array $headers = [], int &$httpCode = 0)
+    // protected = Testnaht des Prüfstands (Solcast-Fehlerfälle simulieren), sonst unverändert
+    protected function httpGetJson(string $url, array $headers = [], int &$httpCode = 0)
     {
         $ch = curl_init($url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);

@@ -24,6 +24,19 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (PVPrognose): Solcast-Fehlerursachen statt „API/Netzwerk?" (12.10.2026, Hinweis Dashboard-Sitzung zu
+  Forum hbraun #172, Build 135).** `Rebuild()` meldete für ALLE Solcast-Fehlerfälle dieselbe Zeile („Vorhersage konnte
+  nicht geladen werden (API/Netzwerk?)"), der Tester konnte „Resource-ID fehlt" nicht von „Schlüssel abgelehnt"
+  unterscheiden. `fetchSolcast()` merkt sich jetzt die Ursache je Generator (`solcastIssues`): Schlüssel fehlt,
+  Resource-ID fehlt (Generator + Spalte „Solcast-ID" genannt), HTTP 401/403 Schlüssel abgelehnt, 404 Resource-ID
+  nicht gefunden, 429 Tageskontingent erschöpft (2 h Abkühlphase), sonstiger HTTP-Code, keine Verbindung (HTTP 0).
+  Die Meldung steht in der Status-Zeile, auch wenn eine gecachte Antwort weiterverwendet wird („letzte gültige
+  Antwort wird weiterverwendet"). Zusätzlich zeigt die Formular-Zeile über dem Schlüsselfeld (Build 134) bereits vor
+  dem ersten Abruf ⛔, wenn bei Quelle Solcast für einen oder alle Generatoren die Resource-ID fehlt. Offener
+  Punkt, bewusst nicht geändert: Ein Generator OHNE Resource-ID zählt weiter als „nicht konfiguriert" (nicht als
+  Ausfall), weil mehrere Dächer unter einer Solcast-Site laufen können - die Summe ist dann ggf. zu niedrig; das
+  Formular warnt jetzt davor. `httpGetJson()` ist Testnaht (protected). Prüfstand `tools/pruefstand/solcast.php`
+  (lokal, 15 Prüfungen). „Neu in Version"-Banner (Build 135).
 - **Neu (PVPrognose): Solcast-Schlüssel sichtbar hinterlegt (12.10.2026, Forum hbraun im Dashboard-Thread #170,
   Build 134).** Nach dem Speichern ist das Eingabefeld für den Solcast-API-Schlüssel bewusst leer (der Schlüssel
   liegt im Attribut, nicht in der Property, und wird nicht im Formular gezeigt) - der Tester dachte deshalb, er sei
