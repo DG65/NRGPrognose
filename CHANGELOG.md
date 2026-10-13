@@ -24,6 +24,18 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (PVPrognose): Solcast nur bei Tageslicht und mit Tagesbudget (13.10.2026, Forum lungo #45, Build 138).**
+  Frage: „alle 4 Stunden" - auch nachts, auch Solcast? Ja: Der Rebuild-Timer läuft rund um die Uhr, und jeder Lauf mit
+  veraltetem Zwischenspeicher kostete einen Abruf JE verschiedener Resource-ID (Gratiskonto: ~10/Tag). Zwei Dächer mit
+  zwei IDs und 4-h-Intervall = 12 Abrufe/Tag, daher dauerhaft HTTP 429. Neu: (1) Schalter „Solcast nur bei Tageslicht
+  abrufen" (Standard an): Fenster = Sonnenaufgang minus Versatz bis Sonnenuntergang plus Versatz (`date_sun_info` aus
+  Breiten-/Längengrad, Versatz Standard 30 min); außerhalb gilt die letzte gültige Antwort aus dem Zwischenspeicher
+  (mehrere Tage), ohne Zwischenspeicher wird beim ersten Mal trotzdem abgerufen. (2) Tagesbudget „Höchstens N Abrufe pro
+  Tag" (Standard 10, 0 = unbegrenzt, eigener Tageszähler `PVF_SolcastCalls`): danach kein Abruf bis morgen, Status
+  nennt das. (3) Formular-Zeile `ConnStatusSolcastBudget`: heutige Abrufe, Tageslicht-Fenster und eine Abschätzung
+  „Intervall x Resource-IDs" gegen das Budget (⚠️ wenn es voraussichtlich nicht reicht). Open-Meteo und Forecast.Solar
+  unverändert. Testnaht `solcastNow()`. Prüfstand `solcast.php` um 15 Fälle erweitert. „Neu in Version"-Banner
+  (Build 138).
 - **Intern (Lastprognose, PVPrognose): `$this->LogMessage()` statt `IPS_LogMessage()` (12.10.2026, Store-Review-
   Checkliste Punkt 15 via EMS-Sitzung, Build 137).** Reviewwortlaut: „Verwende stattdessen bitte das bessere
   $this->LogMessage." Je eine Stelle (zentrale `log()`-Methode) umgestellt: `$this->LogMessage($text, KL_MESSAGE)`
