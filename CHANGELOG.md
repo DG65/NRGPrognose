@@ -24,6 +24,18 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (PVPrognose): Solcast rechnet aus dem Budget, wie oft abgerufen werden darf (13.10.2026, Anregung Dietmar,
+  Build 139).** „Wenn jedes Dach eine ID ergibt und einen Abruf darstellt, müsste errechnet werden, wie oft man abrufen
+  kann." Das Tagesbudget (Build 138) war nur eine harte Obergrenze: zwei Dächer mit 1-h-Intervall hätten das Budget
+  schon vormittags verbraucht. Jetzt `solcastBudgetPlan()`: Abrufrunden = floor(Budget / verschiedene Resource-IDs),
+  gleichmäßig über das Tageslicht-Fenster (bzw. 24 h) verteilt, Mindestabstand = Fenster / (Runden - 1) (Abrufe am
+  Anfang und Ende des Fensters mitgezählt, damit die Runden nie über dem Budget landen; bei einer Runde: ein Abruf je
+  Fenster). Der Zwischenspeicher gilt als frisch, solange er jünger ist als das GRÖSSERE aus eingestelltem Intervall
+  und Mindestabstand - ein zu kurzes Intervall wird also automatisch gestreckt. Das Budget bleibt als harte Grenze
+  zusätzlich. Formular-Zeile nennt Runden, Mindestabstand und Abrufe pro Tag („automatisch gestreckt" bzw. „dein
+  Intervall passt"); ⚠️ nur noch bei mehr verschiedenen IDs als Budget oder erreichtem Tagesbudget. Prüfstand
+  `solcast.php` um die Planrechnung (Runden, Abstand, Streckung) erweitert; `solcastNow()` auch für den Zeitstempel
+  des Zwischenspeichers. „Neu in Version"-Banner (Build 139).
 - **Neu (PVPrognose): Solcast nur bei Tageslicht und mit Tagesbudget (13.10.2026, Forum lungo #45, Build 138).**
   Frage: „alle 4 Stunden" - auch nachts, auch Solcast? Ja: Der Rebuild-Timer läuft rund um die Uhr, und jeder Lauf mit
   veraltetem Zwischenspeicher kostete einen Abruf JE verschiedener Resource-ID (Gratiskonto: ~10/Tag). Zwei Dächer mit

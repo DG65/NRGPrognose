@@ -126,8 +126,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 138)';
+    private const NEWS_VERSION = '0.21 (Build 139)';
     private const NEWS_ITEMS = [
+        '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
         '☀️ Solcast schont das Tageskontingent (Anregung aus dem Forum, danke!): Abrufe laufen nur noch bei Tageslicht (Sonnenaufgang bis Sonnenuntergang aus deinen Koordinaten, einstellbarer Versatz) und höchstens so oft pro Tag, wie das Tagesbudget erlaubt (Standard 10, Gratiskonto). Nachts und bei erreichtem Budget gilt die letzte gültige Antwort. Eine Zeile im Formular zeigt die heutigen Abrufe und ob Intervall und Zahl der Resource-IDs ins Budget passen. Open-Meteo und Forecast.Solar sind nicht betroffen.',
         '❓ Solcast-ID erklärt: Neben dem Schlüsselfeld gibt es den Button „Wo finde ich die Solcast-ID?“ (Frage aus dem Forum, danke!) - er erklärt, dass die Resource-ID der Dach-Site gemeint ist (nicht der API-Schlüssel) und wo man sie bei Solcast findet.',
         '🔎 Solcast: klare Fehlerursache statt „API/Netzwerk?“ - die Status-Zeile nennt jetzt, ob der Schlüssel fehlt oder abgelehnt wurde, für einen Generator die Resource-ID (Spalte „Solcast-ID“) fehlt oder unbekannt ist, das Tageskontingent erschöpft ist oder keine Verbindung besteht. Fehlt die Resource-ID, steht das auch schon im Formular über dem Schlüsselfeld.',
@@ -522,22 +523,33 @@ class PVPrognose extends IPSModule
         $n = $this->solcastCallsToday();
         $daylight = $this->ReadPropertyBoolean('PVF_SolcastDaylightOnly');
         $win = $daylight ? $this->solcastDaylightWindow() : null;
-        $ids = [];
-        foreach ($this->pvGenerators() as $g) { $r = trim($g['solcast']); if ($r !== '') { $ids[$r] = true; } }
+        $plan = $this->solcastBudgetPlan();
         $interval = max(1, $this->ReadPropertyInteger('PVF_IntervalHours'));
-        $hours = ($win !== null) ? max(0.0, ($win[1] - $win[0]) / 3600.0) : 24.0;
-        $perDay = count($ids) * ((int)floor($hours / $interval) + 1);
+        $gap = max($interval * 3600, $plan['gap']);
+        $fmt = function (int $sec) { $h = intdiv($sec, 3600); $m = (int)round(($sec % 3600) / 60); if ($m === 60) { $h++; $m = 0; } return $h . ' h' . ($m > 0 ? ' ' . $m . ' min' : ''); };
+        $perDay = ($plan['ids'] > 0) ? $plan['ids'] * ((int)floor($plan['window'] / $gap) + 1) : 0;
 
         $line = 'Solcast-Abrufe heute: ' . $n . ($budget > 0 ? ' von ' . $budget : ' (kein Tagesbudget)');
         $line .= ($win !== null)
             ? ', Abrufe nur bei Tageslicht (' . date('H:i', $win[0]) . '–' . date('H:i', $win[1]) . ')'
             : ($daylight ? ', Tageslicht-Fenster nicht bestimmbar (Koordinaten prüfen), Abrufe rund um die Uhr' : ', Abrufe rund um die Uhr');
-        $line .= '. Bei ' . $interval . ' h Intervall und ' . count($ids) . (count($ids) === 1 ? ' Resource-ID' : ' verschiedenen Resource-IDs') . ' sind etwa ' . $perDay . ' Abrufe pro Tag nötig.';
+        if ($budget > 0 && $plan['ids'] > 0) {
+            $line .= '. Mit ' . $plan['ids'] . ($plan['ids'] === 1 ? ' Resource-ID' : ' verschiedenen Resource-IDs') . ' und Budget ' . $budget . ' sind '
+                . $plan['rounds'] . ' Abrufrunden am Tag möglich';
+            if ($plan['gap'] > $interval * 3600) {
+                $line .= ' - deshalb wird höchstens alle ' . $fmt($gap) . ' abgerufen (länger als dein Intervall von ' . $interval . ' h, automatisch gestreckt)';
+            } else {
+                $line .= '; dein Intervall von ' . $interval . ' h passt, es sind etwa ' . $perDay . ' Abrufe pro Tag';
+            }
+            $line .= '.';
+        } elseif ($budget <= 0) {
+            $line .= '. Intervall ' . $interval . ' h' . ($plan['ids'] > 0 ? ', etwa ' . $perDay . ' Abrufe pro Tag' : '') . '.';
+        }
         if ($budget > 0 && $n >= $budget) {
             return '⚠️ ' . $line . ' Das Tagesbudget ist erreicht, bis morgen gilt die letzte gültige Antwort.';
         }
-        if ($budget > 0 && count($ids) > 0 && $perDay > $budget) {
-            return '⚠️ ' . $line . ' Das reicht voraussichtlich nicht für das Budget - Intervall erhöhen oder Generatoren derselben Site dieselbe Resource-ID geben.';
+        if ($budget > 0 && $plan['ids'] > $budget) {
+            return '⚠️ ' . $line . ' Es gibt mehr verschiedene Resource-IDs als das Budget Abrufe erlaubt - Generatoren derselben Site dieselbe ID geben.';
         }
         return 'ℹ️ ' . $line;
     }
@@ -2251,6 +2263,31 @@ class PVPrognose extends IPSModule
         return (is_array($c) && ($c['date'] ?? '') === date('Y-m-d', $this->solcastNow())) ? (int)($c['n'] ?? 0) : 0;
     }
 
+    /**
+     * Mindestabstand zwischen zwei Solcast-Abrufen derselben Resource-ID aus dem Tagesbudget: Das Budget (Standard 10,
+     * Gratiskonto) ist die Zahl der Abrufe, jede VERSCHIEDENE Resource-ID kostet einen je Runde. Daraus folgen
+     * Runden = floor(Budget / IDs) und, gleichmäßig über das Tageslicht-Fenster (bzw. 24 h) verteilt, der kürzeste
+     * zulässige Abstand = Fenster / Runden. So wird das Budget nicht schon vormittags verbraucht und das Intervall
+     * ist nie kürzer, als es das Konto hergibt (Forum lungo 13.10.2026, Dietmar: "es müsste errechnet werden, wie
+     * oft man abrufen kann").
+     *
+     * @return array{gap:int,rounds:int,ids:int,window:int} gap in Sekunden (0 = kein Budget gesetzt)
+     */
+    private function solcastBudgetPlan(): array
+    {
+        $ids = [];
+        foreach ($this->pvGenerators() as $g) { $r = trim($g['solcast']); if ($r !== '') { $ids[$r] = true; } }
+        $n = max(1, count($ids));
+        $budget = max(0, $this->ReadPropertyInteger('PVF_SolcastDailyBudget'));
+        $win = $this->ReadPropertyBoolean('PVF_SolcastDaylightOnly') ? $this->solcastDaylightWindow() : null;
+        $window = ($win !== null) ? max(3600, $win[1] - $win[0]) : 86400;
+        if ($budget <= 0) { return ['gap' => 0, 'rounds' => 0, 'ids' => count($ids), 'window' => $window]; }
+        $rounds = max(1, intdiv($budget, $n));
+        // Abrufe zum Beginn UND Ende des Fensters mitgezählt: n Runden = n-1 Abstände, n=1 = ein Abruf je Fenster.
+        $gap = ($rounds > 1) ? (int)ceil($window / ($rounds - 1)) : $window;
+        return ['gap' => $gap, 'rounds' => $rounds, 'ids' => count($ids), 'window' => $window];
+    }
+
     private function solcastCountCall(): void
     {
         $this->WriteAttributeString('PVF_SolcastCalls', json_encode(['date' => date('Y-m-d', $this->solcastNow()), 'n' => $this->solcastCallsToday() + 1]));
@@ -2282,8 +2319,10 @@ class PVPrognose extends IPSModule
         $cache = json_decode((string)$this->ReadAttributeString('PVF_SolcastCache'), true);
         if (!is_array($cache)) { $cache = []; }
         $entry = $cache[$rid] ?? null;
+        $plan = $this->solcastBudgetPlan();
+        $minAge = max(max(1, $this->ReadPropertyInteger('PVF_IntervalHours')) * 3600, $plan['gap']);
         $cacheFresh = is_array($entry)
-            && (time() - (int)($entry['ts'] ?? 0)) < max(1, $this->ReadPropertyInteger('PVF_IntervalHours')) * 3600 - 60;
+            && ($this->solcastNow() - (int)($entry['ts'] ?? 0)) < $minAge - 60;
 
         if ($cacheFresh) {
             return $this->mapOffsets($entry['byDate'], true);
@@ -2370,7 +2409,7 @@ class PVPrognose extends IPSModule
         // Roh-Forecasts, nach Datum indiziert — bleibt über Mitternacht gültig,
         // mapOffsets() löst „heute + o" erst beim Lesen auf) und eine evtl.
         // Abkühlphase beenden.
-        $cache[$rid] = ['ts' => time(), 'byDate' => $byDate];
+        $cache[$rid] = ['ts' => $this->solcastNow(), 'byDate' => $byDate];
         $this->WriteAttributeString('PVF_SolcastCache', json_encode($cache));
         if ($cooldown > 0) { $this->WriteAttributeInteger('PVF_SolcastCooldownUntil', 0); }
 
