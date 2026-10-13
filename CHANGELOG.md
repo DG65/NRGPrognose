@@ -24,6 +24,13 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Klarstellung (PVPrognose): Abrufplan je Instanz sichtbar als Runden × IDs (13.10.2026, Dietmar, Build 140).**
+  „Ein Nutzer mit einem Dach kann öfter abrufen als einer mit fünf Dächern - jede Instanz müsste die möglichen Abrufe
+  ausrechnen." Das tut `solcastBudgetPlan()` seit Build 139 je Instanz aus den EIGENEN Generatoren (Runden = Budget /
+  verschiedene IDs: 1 Dach = 10 Runden, 5 Dächer = 2 Runden; Generatoren mit derselben ID teilen sich einen Abruf).
+  Neu nur die Anzeige: die Formular-Zeile nennt „Runden × IDs = Abrufe" (z. B. „2 × 5 = 10 Abrufe"). Prüfstand
+  `solcast.php` +3 Fälle (1 vs. 5 Dächer, gemeinsame ID). Grenze: Mehrere Instanzen oder Skripte mit demselben
+  Schlüssel teilen sich das Konto, jede Instanz zählt nur ihre eigenen Abrufe. Kein Banner-Eintrag (nur Anzeige).
 - **Neu (PVPrognose): Solcast rechnet aus dem Budget, wie oft abgerufen werden darf (13.10.2026, Anregung Dietmar,
   Build 139).** „Wenn jedes Dach eine ID ergibt und einen Abruf darstellt, müsste errechnet werden, wie oft man abrufen
   kann." Das Tagesbudget (Build 138) war nur eine harte Obergrenze: zwei Dächer mit 1-h-Intervall hätten das Budget

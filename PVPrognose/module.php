@@ -126,7 +126,7 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 139)';
+    private const NEWS_VERSION = '0.21 (Build 140)';
     private const NEWS_ITEMS = [
         '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
         '☀️ Solcast schont das Tageskontingent (Anregung aus dem Forum, danke!): Abrufe laufen nur noch bei Tageslicht (Sonnenaufgang bis Sonnenuntergang aus deinen Koordinaten, einstellbarer Versatz) und höchstens so oft pro Tag, wie das Tagesbudget erlaubt (Standard 10, Gratiskonto). Nachts und bei erreichtem Budget gilt die letzte gültige Antwort. Eine Zeile im Formular zeigt die heutigen Abrufe und ob Intervall und Zahl der Resource-IDs ins Budget passen. Open-Meteo und Forecast.Solar sind nicht betroffen.',
@@ -535,7 +535,7 @@ class PVPrognose extends IPSModule
             : ($daylight ? ', Tageslicht-Fenster nicht bestimmbar (Koordinaten prüfen), Abrufe rund um die Uhr' : ', Abrufe rund um die Uhr');
         if ($budget > 0 && $plan['ids'] > 0) {
             $line .= '. Mit ' . $plan['ids'] . ($plan['ids'] === 1 ? ' Resource-ID' : ' verschiedenen Resource-IDs') . ' und Budget ' . $budget . ' sind '
-                . $plan['rounds'] . ' Abrufrunden am Tag möglich';
+                . $plan['rounds'] . ' Abrufrunden am Tag möglich (' . $plan['rounds'] . ' × ' . $plan['ids'] . ' = ' . ($plan['rounds'] * $plan['ids']) . ' Abrufe)';
             if ($plan['gap'] > $interval * 3600) {
                 $line .= ' - deshalb wird höchstens alle ' . $fmt($gap) . ' abgerufen (länger als dein Intervall von ' . $interval . ' h, automatisch gestreckt)';
             } else {
