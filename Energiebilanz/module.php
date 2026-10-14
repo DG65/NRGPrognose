@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 143)';
+    private const NEWS_VERSION = '0.21 (Build 144)';
     private const NEWS_ITEMS = [
+        '📏 Anlagenleistungs-Linie mit eigenem Wert: Im Konfigurationsformular lässt sich unter „Anlagenleistung für die gestrichelte Linie“ ein eigener Wert in kW eintragen (zum Beispiel die tatsächlich erreichte Mittagsleistung einer Ost-/Süd-/West-Anlage). 0 = Summe der Modul-kWp aus der PV-Prognose wie bisher.',
         '📏 Zwei Wünsche aus dem Forum (danke!): Der Hinweis zur Auflösung in der Balkenansicht lässt sich ausblenden („Hinweis zur Auflösung in der Balkenansicht anzeigen“), und die Anlagenleistung (Summe der Modul-kWp aus der PV-Prognose) kann als gestrichelte Linie eingeblendet werden („Anlagenleistung als gestrichelte Linie zeigen“), um den Abstand zum Maximum zu sehen. Beides im WebFront über den Doppelpfeil.',
         '📊 Neue Darstellung „Balken je Zeitscheibe“ (Idee aus dem Forum, danke!): Im WebFront über den Doppelpfeil unter „Darstellung“ wählbar. Je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie darüber - für alle ausgewählten Tage. Voraussetzung für 15-Minuten-Balken ist, dass PV- und Lastprognose mit 15 min Auflösung rechnen; bei gröberer Auflösung zeigt die Kachel einen Hinweis. Die Standarddarstellung bleibt die Kurve.',
         '🩹 Gemessene Linie verschwindet nicht mehr: Bei einem defekten Stunden-Aggregat im Archiv („Ungültige Aggregation hour“) fehlte die Linie „PV (Ist)“/„Verbrauch (Ist)“ ganz (Hinweis aus dem Forum, danke!) - jetzt wird sie ersatzweise aus den Rohwerten gebildet. Über den Ist-Feldern zeigt eine Zeile, ob die Variable archiviert ist, ob die Linie eingeschaltet ist und wie viele Messwerte heute ankommen.',
@@ -88,6 +89,9 @@ class Energiebilanz extends IPSModule
         $this->RegisterPropertyInteger('PVSource',   0);
         $this->RegisterPropertyInteger('LoadSource', 0);
         $this->RegisterPropertyInteger('ActualPV',   0);
+        // Eigener Wert für die gestrichelte Anlagenleistungs-Linie (kW, 0 = Summe kWp der PV-Prognose) - Forum Ghostraider #54:
+        // Ost-/Süd-/West-Anlage mit 7,38 kWp erreicht mittags real nur ~5 kW.
+        $this->RegisterPropertyFloat('MaxLineKw', 0.0);
         $this->RegisterPropertyInteger('ActualLoad', 0);
         $this->RegisterAttributeString('MeasuredCache', '');
         $this->RegisterAttributeString('SeenNews', '');
@@ -859,6 +863,13 @@ class Energiebilanz extends IPSModule
 
     // ---------------------------------------------------------------------
 
+    /** Wert der gestrichelten Linie: eigener Wert (kW) aus der Konfiguration, sonst die Summe der Modul-kWp. */
+    private function maxLineValue(): float
+    {
+        $manual = (float) $this->ReadPropertyFloat('MaxLineKw');
+        return ($manual > 0) ? $manual : $this->pvMaxKwp();
+    }
+
     /** Summe der Modulleistung (kWp) aus der aufgelösten PV-Prognose-Instanz, 0 = unbekannt. */
     private function pvMaxKwp(): float
     {
@@ -890,7 +901,8 @@ class Energiebilanz extends IPSModule
             'view'      => ((int) $this->GetValue('ChartView') === 1) ? 'bars' : 'curve',
             'showViewHint' => (bool) $this->GetValue('ShowViewHint'),
             'showMaxLine'  => (bool) $this->GetValue('ShowMaxLine'),
-            'maxKwp'       => $this->GetValue('ShowMaxLine') ? $this->pvMaxKwp() : 0.0,
+            'maxKwp'       => $this->GetValue('ShowMaxLine') ? $this->maxLineValue() : 0.0,
+            'maxManual'    => ((float) $this->ReadPropertyFloat('MaxLineKw') > 0),
         ];
 
         return json_encode(array_merge($style, $this->buildDaysData(false)));

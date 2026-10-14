@@ -92,6 +92,15 @@
             "type": "SelectVariable",
             "name": "ActualLoad",
             "caption": "Ist-Hausverbrauch (W)"
+        },
+        {
+            "type": "NumberSpinner",
+            "name": "MaxLineKw",
+            "caption": "Anlagenleistung für die gestrichelte Linie (kW, 0 = Summe der Modul-kWp aus der PV-Prognose)",
+            "digits": 2,
+            "minimum": 0,
+            "maximum": 1000,
+            "suffix": " kW"
         }
     ],
     "actions": [

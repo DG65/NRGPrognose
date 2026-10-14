@@ -24,6 +24,12 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz): eigener Wert für die Anlagenleistungs-Linie (14.10.2026, Forum Ghostraider #54, Build 144).**
+  Torsten: Seine Ost-/Süd-/West-Anlage hat 7,38 kWp, erreicht mittags real aber nur ~5 kW - die Linie soll dort stehen.
+  Neue Konfigurationseigenschaft `MaxLineKw` (Formular, kW, Standard 0 = Summe der Modul-kWp aus der PV-Prognose wie
+  bisher). Mit Wert > 0 steht die gestrichelte Linie auf diesem Wert und heißt „Max. 5,00 kW" statt „Anlage 7,38 kWp".
+  Der Schalter „Anlagenleistung als gestrichelte Linie zeigen" (WebFront) bleibt der Ein/Aus. „Neu in Version"-Banner
+  (Build 144).
 - **Neu (Energiebilanz): Auflösungshinweis ausblendbar, Anlagenleistung als Linie (14.10.2026, Forum Ghostraider #52,
   Build 143).** Torsten: „Hinweis zur 15-Minuten-Auflösung oben ausblenden - für mich ist eine 60-Minuten-Ansicht
   sinnvoller" und „maximale Anlagenleistung als gestrichelte horizontale Linie". (1) Neue WebFront-Variable

@@ -253,7 +253,7 @@
                 yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false),
                 showIstRow: (data.showIstRow !== false), font: data.font || 'sans-serif',
                 bars: (data.view === 'bars'), coarseMin: 0, stH: 0.25,
-                maxKwp: (data.showMaxLine && data.maxKwp > 0) ? data.maxKwp : 0, showViewHint: (data.showViewHint !== false),
+                maxKwp: (data.showMaxLine && data.maxKwp > 0) ? data.maxKwp : 0, maxLabel: (data.maxManual ? 'Max. ' : 'Anlage '), maxUnit: (data.maxManual ? ' kW' : ' kWp'), showViewHint: (data.showViewHint !== false),
                 pvBars: [], loBars: [], pvMBars: [],
                 pvPresent: false, loPresent: false, pvLine: [], pvBand: [], loLine: [], loBand: []
             };
@@ -444,7 +444,7 @@
                 // Scrollen sichtbar bleibt) — Gitterlinien bleiben wie gehabt.
                 yAxis: { min: 0, max: D.yMax, title: { text: null }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { enabled: false },
                     plotLines: (D.maxKwp > 0) ? [{ value: D.maxKwp, color: MUTED, width: 1.5, dashStyle: 'Dash', zIndex: 4,
-                        label: { text: 'Anlage ' + D.maxKwp.toFixed(2) + ' kWp', align: 'left', x: 6, y: -4, style: { color: MUTED, fontSize: fpx(10) } } }] : [] },
+                        label: { text: D.maxLabel + D.maxKwp.toFixed(2) + D.maxUnit, align: 'left', x: 6, y: -4, style: { color: MUTED, fontSize: fpx(10) } } }] : [] },
                 tooltip: { shared: true, useHTML: true, backgroundColor: TIP, borderColor: GRID, borderRadius: 6, style: { color: TEXT, fontSize: fpx(11) }, formatter: function () {
                     var x = this.x, di = Math.floor(x / 24 + 1e-6), hod = x - di * 24, hh = Math.floor(hod + 1e-6), mm = Math.round((hod - hh) * 60); if (mm >= 60) { hh++; mm -= 60; }
                     var head = cap((days[di] || days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
@@ -634,7 +634,7 @@
             if (D.maxKwp > 0) {
                 series.push({ type: 'line', data: [], silent: true, animation: false, markLine: { silent: true, symbol: 'none', animation: false,
                     lineStyle: { color: D.MUTED, type: 'dashed', width: 1.5 },
-                    label: { show: true, position: 'insideStartTop', color: D.MUTED, fontSize: fs(10), formatter: 'Anlage ' + D.maxKwp.toFixed(2) + ' kWp' },
+                    label: { show: true, position: 'insideStartTop', color: D.MUTED, fontSize: fs(10), formatter: D.maxLabel + D.maxKwp.toFixed(2) + D.maxUnit },
                     data: [{ yAxis: D.maxKwp }] } });
             }
             var dots = [];
