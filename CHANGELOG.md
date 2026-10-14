@@ -24,6 +24,17 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Fix (Energiebilanz): gemessene Linie bei defektem Stunden-Aggregat + Statuszeile (14.10.2026, Forum hbraun #47,
+  Build 141).** „PV Ist" war gestern noch da, heute weg. Wahrscheinlichste Ursache (aus dem PVPrognose-Fund von Build 130):
+  Ein defektes Stunden-Aggregat im Archiv lässt `AC_GetAggregatedValues` für den GANZEN Tag `false` liefern und eine
+  Warnung ausgeben; `readMeasured()` gab dann `null` zurück, die Linie fehlte komplett (und die Warnung stand im Log).
+  Jetzt: `aggregatedHourly()` fängt die Warnung ab, bei `false` wird die Linie ersatzweise aus den Rohwerten gebildet
+  (`measuredFine()`, vom Aggregat unabhängig). Neue Zeilen `ConnStatusActualPV`/`ConnStatusActualLoad` über den Ist-Feldern:
+  Variable gewählt/vorhanden/archiviert, ob die Linie eingeschaltet ist (Schalter im WebFront-Doppelpfeil bzw.
+  Instanzvariable - auch „Stil zurücksetzen" schaltet sie aus), wie viele Stunden heute Messwerte haben, bei defektem
+  Aggregat der Hinweis „im Archiv Control Neu aggregieren". Bewusst nicht belegt: ob das bei Horst die Ursache war; die
+  Zeile zeigt es ihm nach dem Update. Prüfstand `tools/pruefstand/istlinie.php` (lokal, 9 Prüfungen). „Neu in
+  Version"-Banner (Build 141).
 - **Klarstellung (PVPrognose): Abrufplan je Instanz sichtbar als Runden × IDs (13.10.2026, Dietmar, Build 140).**
   „Ein Nutzer mit einem Dach kann öfter abrufen als einer mit fünf Dächern - jede Instanz müsste die möglichen Abrufe
   ausrechnen." Das tut `solcastBudgetPlan()` seit Build 139 je Instanz aus den EIGENEN Generatoren (Runden = Budget /

@@ -74,9 +74,19 @@
             "caption": "── Ist-Werte (optional): momentane Leistung für Prognose vs. Realität ──"
         },
         {
+            "type": "Label",
+            "name": "ConnStatusActualPV",
+            "caption": "PV (Ist): wird beim Öffnen des Formulars geprüft …"
+        },
+        {
             "type": "SelectVariable",
             "name": "ActualPV",
             "caption": "Ist-PV-Leistung (W)"
+        },
+        {
+            "type": "Label",
+            "name": "ConnStatusActualLoad",
+            "caption": "Verbrauch (Ist): wird beim Öffnen des Formulars geprüft …"
         },
         {
             "type": "SelectVariable",

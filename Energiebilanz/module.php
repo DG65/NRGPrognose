@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 133)';
+    private const NEWS_VERSION = '0.21 (Build 141)';
     private const NEWS_ITEMS = [
+        '🩹 Gemessene Linie verschwindet nicht mehr: Bei einem defekten Stunden-Aggregat im Archiv („Ungültige Aggregation hour“) fehlte die Linie „PV (Ist)“/„Verbrauch (Ist)“ ganz (Hinweis aus dem Forum, danke!) - jetzt wird sie ersatzweise aus den Rohwerten gebildet. Über den Ist-Feldern zeigt eine Zeile, ob die Variable archiviert ist, ob die Linie eingeschaltet ist und wie viele Messwerte heute ankommen.',
         '🏷️ Klarere Legende (Anregung aus dem Forum, danke!): Die Prognosekurven heißen jetzt „PV (Soll)“ und „Verbrauch (Soll)“, sobald es ein Ist-Gegenstück gibt, der Momentanwert in der Legende „Ist jetzt“ — dieselbe Sprache wie im Tagesstreifen („Soll“ / „Ist“). Ohne Ist-Werte bleibt es bei „PV“ und „Verbrauch“.',
         '🎨 Gemessene Linien mit eigenem Legendeneintrag und eigener Farbe (Anregung aus dem Forum, danke!): „PV (Ist)“ und „Verbrauch (Ist)“ stehen jetzt in der Legende und lassen sich einzeln aus- und einblenden. Wer die Ist-Linie anders einfärben möchte, schaltet „Eigene Farbe für die gemessene …-Linie“ ein und wählt die Farbe; ohne Schalter bleibt alles wie bisher.',
         '🩹 Stabiler beim Start: Die Verwaltung der Referenzen beim Initialisieren nutzt jetzt die dokumentierte Modulmethode statt des Kernel-Aufrufs — Fehlermeldungen beim Start mehrerer Instanzen (Hinweis aus dem Forum, danke!) treten damit nicht mehr auf.',
@@ -564,7 +565,10 @@ class Energiebilanz extends IPSModule
     {
         if (!in_array($prop, ['PVSource', 'LoadSource'], true)) { return; }
         $this->formOverride[$prop] = $value;
-        foreach ($this->connectionStatusLines() as $name => $caption) {
+        // Nur die beiden Quell-Zeilen nachführen (die Ist-Zeilen lesen das Archiv und hängen nicht an dieser Auswahl).
+        $all = $this->connectionStatusLines(false);
+        foreach (['ConnStatusPV', 'ConnStatusLoad'] as $name) {
+            $caption = $all[$name];
             $this->UpdateFormField($name, 'caption', $caption);
             $this->UpdateFormField($name, 'color', $this->lineColor($caption));
         }
@@ -577,7 +581,7 @@ class Energiebilanz extends IPSModule
      *
      * @return array{0:string,1:string} [PV-Zeile, Last-Zeile]
      */
-    private function connectionStatusLines(): array
+    private function connectionStatusLines(bool $withActual = true): array
     {
         $pv   = $this->sourceStatus('PV-Prognose', self::SOURCE_PV, 'PVSource', 'PVF_Today', 'PVF_GetForecast', 'PVF');
         $load = $this->sourceStatus('Lastprognose', self::SOURCE_LOAD, 'LoadSource', 'LFC_Today', 'LFC_GetForecast', 'LFC');
@@ -592,7 +596,52 @@ class Energiebilanz extends IPSModule
         } elseif ($load['state'] === 'missing') {
             $load['line'] = 'ℹ️ Lastprognose: keine Instanz gefunden (optional) – die Kachel zeigt nur die PV-Erzeugung.';
         }
-        return ['ConnStatusPV' => $pv['line'], 'ConnStatusLoad' => $load['line']];
+        $out = ['ConnStatusPV' => $pv['line'], 'ConnStatusLoad' => $load['line']];
+        if ($withActual) {
+            // Lesen das Archiv - deshalb nur beim Öffnen des Formulars, nicht bei jedem onChange der Quell-Auswahl.
+            $out['ConnStatusActualPV']   = $this->actualStatusLine('ActualPV', 'PV (Ist)', 'ShowActualPV', 'Gemessenen PV-Tagesverlauf (heute) als Linie zeigen');
+            $out['ConnStatusActualLoad'] = $this->actualStatusLine('ActualLoad', 'Verbrauch (Ist)', 'ShowActualLoad', 'Gemessenen Verbrauchs-Tagesverlauf (heute) als Linie zeigen');
+        }
+        return $out;
+    }
+
+    /**
+     * Statuszeile zur gemessenen Linie („PV (Ist)“/„Verbrauch (Ist)“): Variable gewählt/existiert/archiviert, ob die
+     * Linie eingeschaltet ist (Instanzvariable/Doppelpfeil-Schalter) und wie viele Messpunkte heute ankommen. Forum
+     * hbraun #47 (14.10.2026): „PV Ist“ war plötzlich weg und der Nutzer konnte nicht erkennen, warum.
+     */
+    private function actualStatusLine(string $prop, string $name, string $showIdent, string $showCaption): string
+    {
+        $vid = $this->ReadPropertyInteger($prop);
+        if ($vid <= 0) {
+            return 'ℹ️ ' . $name . ': keine Variable gewählt (Feld unten) - ohne sie gibt es weder Momentanwert noch gemessene Linie.';
+        }
+        if (!IPS_VariableExists($vid)) {
+            return '⚠️ ' . $name . ': die gewählte Variable #' . $vid . ' existiert nicht mehr.';
+        }
+        $vname = '„' . IPS_GetName($vid) . '“ (#' . $vid . ')';
+        $on = (bool) $this->GetValue($showIdent);
+        $aid = $this->getArchiveID();
+        if ($aid <= 0 || !@AC_GetLoggingStatus($aid, $vid)) {
+            return '⚠️ ' . $name . ': Variable ' . $vname . ' ist nicht archiviert - die gemessene Linie braucht die Archivierung (Momentanwert geht auch ohne).';
+        }
+        $this->aggFault = [];
+        $slots = 24;
+        $data = $this->readMeasured($vid, $slots, strtotime('today'));
+        $n = 0;
+        if (is_array($data)) { foreach ($data as $x) { if ($x !== null) { $n++; } } }
+        $switch = $on
+            ? 'Linie ist eingeschaltet'
+            : 'Linie ist AUSGESCHALTET (Schalter „' . $showCaption . '“ im WebFront-Doppelpfeil bzw. als Instanzvariable)';
+        if (!empty($this->aggFault[$vid])) {
+            return '⚠️ ' . $name . ': Variable ' . $vname . ' - das Stunden-Aggregat im Archiv ist defekt („Ungültige Aggregation“). Die Linie wird ersatzweise aus den Rohwerten gebildet'
+                . ($n > 0 ? ' (' . $n . ' Stunden mit Werten heute)' : ', heute aber ohne Werte')
+                . '. Dauerhaft helfen: im Archiv Control für diese Variable „Neu aggregieren“. ' . $switch . '.';
+        }
+        if ($n === 0) {
+            return '⚠️ ' . $name . ': Variable ' . $vname . ' ist archiviert, aber heute ohne Messwerte im Archiv - die Linie bleibt leer. ' . $switch . '.';
+        }
+        return ($on ? '✅ ' : 'ℹ️ ') . $name . ': Variable ' . $vname . ' archiviert, heute ' . $n . ' Stunden mit Messwerten. ' . $switch . '.';
     }
 
     /**
@@ -1078,6 +1127,22 @@ class Energiebilanz extends IPSModule
         return strtotime('tomorrow', $start);
     }
 
+    /** Variablen, bei denen das Stunden-Aggregat defekt war (für die Formular-Statuszeile). */
+    private $aggFault = [];
+
+    /**
+     * AC_GetAggregatedValues (stündlich) mit abgefangener nativer Warnung. Bei einem defekten Stunden-Aggregat
+     * liefert Symcon false statt eines Arrays UND gibt eine PHP-Warnung aus (siehe PVPrognose Build 130).
+     * Rückgabe: Array (ggf. leer) oder false bei Fehler.
+     */
+    private function aggregatedHourly(int $aid, int $vid, int $start, int $end)
+    {
+        set_error_handler(function () { return true; });
+        $rows = AC_GetAggregatedValues($aid, $vid, 0, $start, $end, 0);
+        restore_error_handler();
+        return is_array($rows) ? $rows : false;
+    }
+
     private function readMeasured(int $vid, int $slots, int $start)
     {
         if ($vid <= 0 || !IPS_VariableExists($vid)) { return null; }
@@ -1088,7 +1153,19 @@ class Energiebilanz extends IPSModule
 
         // 60 min: stündliches Aggregat (exakt, leichtgewichtig).
         if ($slots <= 24) {
-            $rows = AC_GetAggregatedValues($aid, $vid, 0, $start, $this->dayEndExclusive($start) - 1, 0);
+            $rows = $this->aggregatedHourly($aid, $vid, $start, $this->dayEndExclusive($start) - 1);
+            if ($rows === false) {
+                // Defektes Stunden-Aggregat im Archiv (Symcon: "Ungültige Aggregation hour", dann liefert
+                // AC_GetAggregatedValues für den GANZEN Tag false): die gemessene Linie verschwand komplett
+                // (Forum hbraun #47, 14.10.2026 - "PV Ist" war gestern noch da). Ersatzweise aus den
+                // Rohwerten integrieren, die vom Aggregat unabhängig sind.
+                $this->aggFault[$vid] = true;
+                $fine = $this->measuredFine($aid, $vid, $start, $slots);
+                if (is_array($fine) && $f !== 1.0) {
+                    foreach ($fine as $i => $v) { if ($v !== null) { $fine[$i] = $v * $f; } }
+                }
+                return $fine;
+            }
             if (!is_array($rows) || count($rows) === 0) { return null; }
             $out = array_fill(0, $slots, null);
             $hits = array_fill(0, $slots, 0);
