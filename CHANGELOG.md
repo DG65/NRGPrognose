@@ -24,6 +24,18 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz): Darstellung „Balken je Zeitscheibe" (14.10.2026, Idee Ghostraider #48, Auslegung Dietmar,
+  Build 142).** Neue WebFront-Einstellung „Darstellung" (Variable `ChartView`, Profil `EFTILE.View`; im Doppelpfeil
+  neben der Diagramm-Engine; Standard Kurve, Bestandsinstanzen unverändert): je Zeitscheibe ein Balken für das Soll
+  (hell, volle Slot-Breite), der sich mit dem Ist füllt (deckend, schmaler davor), der Verbrauch als Linie, Ist-Verbrauch
+  gestrichelt. Gilt für ALLE ausgewählten Tage zusammen. **15 Minuten**, weil Zählung/Messung/Abrechnung dorthin gehen:
+  die Balken folgen der Auflösung der Quelle (96 Slots = Viertelstunde); liegt sie gröber vor (30/60 min), zeigt die
+  Kachel eine Hinweiszeile „Prognose liegt in N min Auflösung vor - für 15-Minuten-Balken die zeitliche Auflösung in
+  PV- und Lastprognose auf 15 min stellen" (die Auflösung wird nicht erfunden). Tooltip: kW (Ø-Leistung der Zeitscheibe)
+  plus kWh der Zeitscheibe, Soll/Ist getrennt. Das Unsicherheitsband entfällt in der Balkenansicht (Band zu Balken
+  würde unleserlich), die Kurvenansicht behält es. Beide Engines (ECharts: Rechtecke als custom-Serie, Highcharts:
+  Säulen mit `pointRange`). Lokal an gestellten Daten in beiden Engines und bei 60-min-Quelle geprüft (Screenshot),
+  nicht an Dietmars Installation. „Neu in Version"-Banner (Build 142).
 - **Fix (Energiebilanz): gemessene Linie bei defektem Stunden-Aggregat + Statuszeile (14.10.2026, Forum hbraun #47,
   Build 141).** „PV Ist" war gestern noch da, heute weg. Wahrscheinlichste Ursache (aus dem PVPrognose-Fund von Build 130):
   Ein defektes Stunden-Aggregat im Archiv lässt `AC_GetAggregatedValues` für den GANZEN Tag `false` liefern und eine

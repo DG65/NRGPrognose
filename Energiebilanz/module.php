@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 141)';
+    private const NEWS_VERSION = '0.21 (Build 142)';
     private const NEWS_ITEMS = [
+        '📊 Neue Darstellung „Balken je Zeitscheibe“ (Idee aus dem Forum, danke!): Im WebFront über den Doppelpfeil unter „Darstellung“ wählbar. Je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie darüber - für alle ausgewählten Tage. Voraussetzung für 15-Minuten-Balken ist, dass PV- und Lastprognose mit 15 min Auflösung rechnen; bei gröberer Auflösung zeigt die Kachel einen Hinweis. Die Standarddarstellung bleibt die Kurve.',
         '🩹 Gemessene Linie verschwindet nicht mehr: Bei einem defekten Stunden-Aggregat im Archiv („Ungültige Aggregation hour“) fehlte die Linie „PV (Ist)“/„Verbrauch (Ist)“ ganz (Hinweis aus dem Forum, danke!) - jetzt wird sie ersatzweise aus den Rohwerten gebildet. Über den Ist-Feldern zeigt eine Zeile, ob die Variable archiviert ist, ob die Linie eingeschaltet ist und wie viele Messwerte heute ankommen.',
         '🏷️ Klarere Legende (Anregung aus dem Forum, danke!): Die Prognosekurven heißen jetzt „PV (Soll)“ und „Verbrauch (Soll)“, sobald es ein Ist-Gegenstück gibt, der Momentanwert in der Legende „Ist jetzt“ — dieselbe Sprache wie im Tagesstreifen („Soll“ / „Ist“). Ohne Ist-Werte bleibt es bei „PV“ und „Verbrauch“.',
         '🎨 Gemessene Linien mit eigenem Legendeneintrag und eigener Farbe (Anregung aus dem Forum, danke!): „PV (Ist)“ und „Verbrauch (Ist)“ stehen jetzt in der Legende und lassen sich einzeln aus- und einblenden. Wer die Ist-Linie anders einfärben möchte, schaltet „Eigene Farbe für die gemessene …-Linie“ ein und wählt die Farbe; ohne Schalter bleibt alles wie bisher.',
@@ -159,6 +160,8 @@ class Energiebilanz extends IPSModule
             'Days'             => ['Anzuzeigende Tage', 'EFTILE.Days', 20, self::DEF_DAYS],
             'PowerUnit'        => ['Einheit der Ist-Leistungsvariablen', 'EFTILE.PowerUnit', 30, 2],
             'MeasuredCacheSec' => ['Ist-Verlauf neu berechnen alle … s (Archiv-Cache)', 'EFTILE.CacheSec', 34, 120],
+            // Darstellung (Forum Ghostraider #48 / Dietmar, 14.10.2026): Kurve oder Balken je Slot (15 min)
+            'ChartView'        => ['Darstellung (Kurve oder Balken je Zeitscheibe)', 'EFTILE.View', 39, 0],
             'ChartEngine'      => ['Diagramm-Engine', 'EFTILE.Engine', 40, 0],
             'ColorPV'          => ['Farbe PV-Erzeugung', '~HexColor', 41, self::DEF_PV],
             'ColorLoad'        => ['Farbe Verbrauch', '~HexColor', 42, self::DEF_LOAD],
@@ -219,6 +222,10 @@ class Energiebilanz extends IPSModule
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 0, 'W (Watt)', '', -1);
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 1, 'kW (Kilowatt)', '', -1);
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 2, 'Automatisch erkennen (Profil/Größenordnung)', '', -1);
+
+        if (!IPS_VariableProfileExists('EFTILE.View')) { IPS_CreateVariableProfile('EFTILE.View', VARIABLETYPE_INTEGER); }
+        IPS_SetVariableProfileAssociation('EFTILE.View', 0, 'Kurve (Linien mit Unsicherheitsband)', '', -1);
+        IPS_SetVariableProfileAssociation('EFTILE.View', 1, 'Balken je Zeitscheibe (15 min, Soll gefüllt mit Ist)', '', -1);
 
         if (!IPS_VariableProfileExists('EFTILE.Engine')) { IPS_CreateVariableProfile('EFTILE.Engine', VARIABLETYPE_INTEGER); }
         IPS_SetVariableProfileAssociation('EFTILE.Engine', 0, 'ECharts (quelloffen, auch kommerziell)', '', -1);
@@ -388,7 +395,7 @@ class Energiebilanz extends IPSModule
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
                        'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ColorBackgroundAuto', 'ActualOwnPV', 'ActualOwnLoad'];
-        $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartEngine',
+        $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartView', 'ChartEngine',
                        'ColorPV', 'ColorLoad', 'ColorActualPV', 'ColorActualLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
 
@@ -812,6 +819,7 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ShowActualLoad', false);
         $this->SetValue('ShowYesterday', false);
         $this->SetValue('MeasuredCacheSec', 120);
+        $this->SetValue('ChartView', 0);
         $this->SetValue('ChartEngine', 0);
         $this->SetValue('ColorPV', self::DEF_PV);
         $this->SetValue('ColorLoad', self::DEF_LOAD);
@@ -863,6 +871,7 @@ class Energiebilanz extends IPSModule
             'yMaxManual'=> max(0.0, (float) $this->GetValue('YMaxManual')),
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
+            'view'      => ((int) $this->GetValue('ChartView') === 1) ? 'bars' : 'curve',
         ];
 
         return json_encode(array_merge($style, $this->buildDaysData(false)));

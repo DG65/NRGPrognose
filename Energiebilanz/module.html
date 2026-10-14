@@ -63,6 +63,8 @@
         #scrollHintR span { right: 0; }
         #scrollHintL span.show, #scrollHintR span.show { opacity: .92; }
         #chart { width: 100%; height: 360px; }
+        /* Hinweis der Balkenansicht, wenn die Prognose gröber als 15 min vorliegt */
+        #viewHint { display: none; font-size: 11px; line-height: 1.3; margin: 2px 0 4px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         /* +5px Abstand zur X-Achsen-Zeitbeschriftung des Charts direkt darüber
            (Dietmars Feedback: zu eng, dadurch waren die Uhrzeiten schlecht
            von "Gestern"/"Heute" usw. zu unterscheiden). */
@@ -74,6 +76,7 @@
 <body>
     <div class="wrap">
         <div id="legend"></div>
+        <div id="viewHint"></div>
         <div id="scrollWrap">
             <div id="yAxisOverlay"></div>
             <div id="chart"></div>
@@ -249,23 +252,37 @@
                 actualPV: data.actualPV, actualLoad: data.actualLoad,
                 yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false),
                 showIstRow: (data.showIstRow !== false), font: data.font || 'sans-serif',
+                bars: (data.view === 'bars'), coarseMin: 0, stH: 0.25,
+                pvBars: [], loBars: [], pvMBars: [],
                 pvPresent: false, loPresent: false, pvLine: [], pvBand: [], loLine: [], loBand: []
             };
+            // Balkenansicht: Punkte in die Mitte der Zeitscheibe legen (Balken zentriert, Linien deckungsgleich);
+            // gröbste vorkommende Auflösung merken für den Hinweis.
             data.days.forEach(function (d, di) {
                 if (d.pv) {
-                    D.pvPresent = true; var n = d.pv.p50.length, st = 24 / n;
-                    for (var i = 0; i < n; i++) { var x = di * 24 + i * st; D.pvLine.push([x, d.pv.p50[i] / 1000]); D.pvBand.push([x, d.pv.p10[i] / 1000, d.pv.p90[i] / 1000]); }
+                    D.pvPresent = true; var n = d.pv.p50.length, st = 24 / n, off = D.bars ? st / 2 : 0;
+                    if (n < 96) { D.coarseMin = Math.max(D.coarseMin, Math.round(1440 / n)); }
+                    D.stH = st;
+                    for (var i = 0; i < n; i++) {
+                        var x = di * 24 + i * st + off; D.pvLine.push([x, d.pv.p50[i] / 1000]); D.pvBand.push([x, d.pv.p10[i] / 1000, d.pv.p90[i] / 1000]);
+                        D.pvBars.push([di * 24 + i * st, di * 24 + (i + 1) * st, d.pv.p50[i] / 1000]);
+                    }
                 }
                 if (d.load) {
-                    D.loPresent = true; var n2 = d.load.p50.length, st2 = 24 / n2;
-                    for (var j = 0; j < n2; j++) { var x2 = di * 24 + j * st2; D.loLine.push([x2, d.load.p50[j] / 1000]); D.loBand.push([x2, d.load.p10[j] / 1000, d.load.p90[j] / 1000]); }
+                    D.loPresent = true; var n2 = d.load.p50.length, st2 = 24 / n2, off2 = D.bars ? st2 / 2 : 0;
+                    if (n2 < 96) { D.coarseMin = Math.max(D.coarseMin, Math.round(1440 / n2)); }
+                    D.stH = Math.min(D.stH, st2);
+                    for (var j = 0; j < n2; j++) { var x2 = di * 24 + j * st2 + off2; D.loLine.push([x2, d.load.p50[j] / 1000]); D.loBand.push([x2, d.load.p10[j] / 1000, d.load.p90[j] / 1000]); }
                 }
             });
             // Ist-Verlauf je Tag (Gestern voller Tag, Heute bis jetzt) — über die Segmente verteilt.
             D.pvMeas = []; D.loMeas = [];
             data.days.forEach(function (d, di) {
-                if (d.pvMeas) { var n = d.pvMeas.length, st = 24 / n; for (var i = 0; i < n; i++) { if (d.pvMeas[i] != null) { D.pvMeas.push([di * 24 + i * st, d.pvMeas[i] / 1000]); } } }
-                if (d.loMeas) { var n2 = d.loMeas.length, st2 = 24 / n2; for (var j = 0; j < n2; j++) { if (d.loMeas[j] != null) { D.loMeas.push([di * 24 + j * st2, d.loMeas[j] / 1000]); } } }
+                if (d.pvMeas) {
+                    var n = d.pvMeas.length, st = 24 / n, off = D.bars ? st / 2 : 0;
+                    for (var i = 0; i < n; i++) { if (d.pvMeas[i] != null) { D.pvMeas.push([di * 24 + i * st + off, d.pvMeas[i] / 1000]); D.pvMBars.push([di * 24 + i * st, di * 24 + (i + 1) * st, d.pvMeas[i] / 1000]); } }
+                }
+                if (d.loMeas) { var n2 = d.loMeas.length, st2 = 24 / n2, off2 = D.bars ? st2 / 2 : 0; for (var j = 0; j < n2; j++) { if (d.loMeas[j] != null) { D.loMeas.push([di * 24 + j * st2 + off2, d.loMeas[j] / 1000]); } } }
             });
             D.hasIst = data.days.some(function (d) { return d.pvKwhIst != null || d.loKwhIst != null; });
 
@@ -278,10 +295,20 @@
             D.loMVis = D.loMeas.length > 1 && !userHide.lom;
             D.loVis = D.loPresent && !userHide.load;
             (function () {
-                var maxV = 0, useBand = D.showBand && D.bandOp > 0;
+                var maxV = 0, useBand = D.showBand && D.bandOp > 0 && !D.bars;
                 if (D.pvVis) { (useBand ? D.pvBand : D.pvLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
                 if (D.loVis) { (useBand ? D.loBand : D.loLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
+                // Balken: auch die gemessenen Werte können über der Prognose liegen
+                if (D.bars) { D.pvMBars.forEach(function (b) { if (b[2] > maxV) { maxV = b[2]; } }); D.loMeas.forEach(function (p) { if (p[1] > maxV) { maxV = p[1]; } }); }
                 D.yMax = D.yMaxManual > 0 ? D.yMaxManual : Math.max(0.5, Math.ceil(maxV * 1.08 * 2) / 2);
+            })();
+            // Hinweis, wenn die Prognose gröber als 15 min vorliegt (nur Balkenansicht)
+            (function () {
+                var h = document.getElementById('viewHint'); if (!h) { return; }
+                if (D.bars && D.coarseMin > 0) {
+                    h.style.display = 'block'; h.style.color = D.MUTED;
+                    h.textContent = 'Balken: Die Prognose liegt in ' + D.coarseMin + ' min Auflösung vor - für 15-Minuten-Balken in PV- und Lastprognose die zeitliche Auflösung auf 15 min stellen.';
+                } else { h.style.display = 'none'; h.textContent = ''; }
             })();
 
             // „jetzt"-Marker am Heute-Segment (mit Gestern verschiebt es sich um 24 h).
@@ -338,7 +365,10 @@
             var legH = (legEl.style.display === 'none') ? 0
                 : legEl.offsetHeight + (parseFloat(legCS.marginTop) || 0) + (parseFloat(legCS.marginBottom) || 0);
             var daysH = daysEl.offsetHeight + (parseFloat(daysCS.marginTop) || 0) + (parseFloat(daysCS.marginBottom) || 0);
-            return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH));
+            // Hinweiszeile der Balkenansicht (nur sichtbar bei gröberer Auflösung als 15 min)
+            var hintEl = document.getElementById('viewHint'), hintH = 0;
+            if (hintEl && hintEl.style.display === 'block') { var hCS = getComputedStyle(hintEl); hintH = hintEl.offsetHeight + (parseFloat(hCS.marginTop) || 0) + (parseFloat(hCS.marginBottom) || 0); }
+            return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH - hintH));
         }
 
         // ---- Highcharts (privat) ----------------------------------------
@@ -353,12 +383,17 @@
 
             var TEXT = D.TEXT, MUTED = D.MUTED, GRID = D.GRID, TIP = D.TIP, days = D.days, nDays = D.nDays;
             var pvC = D.pvC, loC = D.loC, scale = D.scale, lw = D.lw;
-            var stype = D.smooth ? 'spline' : 'line', showBand = D.showBand, bandOp = D.bandOp;
+            var stype = (D.smooth && !D.bars) ? 'spline' : 'line', showBand = D.showBand && !D.bars, bandOp = D.bandOp;
             var fpx = function (n) { return (n * scale) + 'px'; };
             var pvVis = D.pvVis, loVis = D.loVis;
 
             var series = [];
-            if (pvVis) {
+            if (pvVis && D.bars) {
+                // Balken je Zeitscheibe: Soll als helle Säule über die volle Slot-Breite, Ist schmaler und deckend davor.
+                // pointRange = Slot-Breite in Stunden, damit die Säulen die Zeitachse lückenlos füllen.
+                series.push({ id: 'pv', type: 'column', name: 'PV', data: D.pvLine, color: Highcharts.color(pvC).setOpacity(0.38).get('rgba'),
+                    pointRange: D.stH, pointPadding: 0.04, groupPadding: 0, borderWidth: 0, grouping: false, zIndex: 1 });
+            } else if (pvVis) {
                 series.push({ id: 'pv', type: stype, name: 'PV', data: D.pvLine, color: pvC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'PV-Band', data: D.pvBand, color: pvC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'pv', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
             }
@@ -366,8 +401,9 @@
                 series.push({ id: 'load', type: stype, name: 'Verbrauch', data: D.loLine, color: loC, lineWidth: lw, zIndex: 3 });
                 if (showBand && bandOp > 0) { series.push({ type: 'arearange', name: 'Verbrauch-Band', data: D.loBand, color: loC, fillOpacity: bandOp, lineWidth: 0, linkedTo: 'load', enableMouseTracking: false, showInLegend: false, zIndex: 1 }); }
             }
-            if (D.pvMVis) { series.push({ type: stype, name: 'PV gemessen', data: D.pvMeas, color: D.pvMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
-            if (D.loMVis) { series.push({ type: stype, name: 'Verbrauch gemessen', data: D.loMeas, color: D.loMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
+            if (D.pvMVis && D.bars) { series.push({ id: 'pvm', type: 'column', name: 'PV gemessen', data: D.pvMeas, color: D.pvMC, pointRange: D.stH, pointPadding: 0.2, groupPadding: 0, borderWidth: 0, grouping: false, showInLegend: false, zIndex: 2 }); }
+            else if (D.pvMVis) { series.push({ type: stype, name: 'PV gemessen', data: D.pvMeas, color: D.pvMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: false, showInLegend: false, zIndex: 3 }); }
+            if (D.loMVis) { series.push({ id: D.bars ? 'lom' : undefined, type: stype, name: 'Verbrauch gemessen', data: D.loMeas, color: D.loMC, dashStyle: 'ShortDash', lineWidth: Math.max(1, lw - 0.5), enableMouseTracking: !!D.bars, showInLegend: false, zIndex: 3 }); }
             var nowPts = [];
             if (D.nowX != null) {
                 if (pvVis && D.actualPV != null) { nowPts.push({ x: D.nowX, y: D.actualPV / 1000, color: (D.pvMeas.length > 1 ? D.pvMC : pvC) }); }
@@ -408,17 +444,21 @@
                     var x = this.x, di = Math.floor(x / 24 + 1e-6), hod = x - di * 24, hh = Math.floor(hod + 1e-6), mm = Math.round((hod - hh) * 60); if (mm >= 60) { hh++; mm -= 60; }
                     var head = cap((days[di] || days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
                     var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
+                    // Balken: kW ist die Ø-Leistung der Zeitscheibe, daneben die Energie der Zeitscheibe in kWh
+                    var kwhOf = function (v) { return D.bars ? ' <span style="color:' + MUTED + '">(' + (v * D.stH).toFixed(3) + ' kWh)</span>' : ''; };
                     this.points.forEach(function (p) {
+                        if (p.series.userOptions.id === 'pvm') { html += '<div><span style="color:' + D.pvMC + '">●</span> PV Ist: <b>' + p.y.toFixed(2) + ' kW</b>' + kwhOf(p.y) + '</div>'; }
+                        if (p.series.userOptions.id === 'lom') { html += '<div><span style="color:' + D.loMC + '">●</span> Verbrauch Ist: <b>' + p.y.toFixed(2) + ' kW</b>' + kwhOf(p.y) + '</div>'; }
                         if (p.series.userOptions.id === 'pv') {
                             // Kein P10/P90 bei PV (Dietmar, 26.08.2026): die PV-Prognose ist
                             // physikbasiert statt k-NN-Quantile wie bei der Last — echte
                             // Streuwerte gibt es dafür nicht, nur bei Verbrauch.
                             pvV = p.y;
-                            html += '<div><span style="color:' + pvC + '">●</span> PV: <b>' + p.y.toFixed(2) + ' kW</b></div>';
+                            html += '<div><span style="color:' + pvC + '">●</span> PV' + (D.bars ? ' Soll' : '') + ': <b>' + p.y.toFixed(2) + ' kW</b>' + kwhOf(p.y) + '</div>';
                         }
                         if (p.series.userOptions.id === 'load') {
                             loV = p.y; var lb = nearestBand(D.loBand, p.x);
-                            html += '<div><span style="color:' + loC + '">●</span> Verbrauch: <b>' + p.y.toFixed(2) + ' kW</b>' + (lb ? ' <span style="color:' + MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                            html += '<div><span style="color:' + loC + '">●</span> Verbrauch' + (D.bars ? ' Soll' : '') + ': <b>' + p.y.toFixed(2) + ' kW</b>' + kwhOf(p.y) + (lb ? ' <span style="color:' + MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
                         }
                     });
                     if (pvV != null && loV != null) { var s = pvV - loV; html += '<div style="color:' + MUTED + ';margin-top:2px">Saldo ' + (s >= 0 ? '+' : '') + s.toFixed(2) + ' kW</div>'; }
@@ -540,18 +580,49 @@
                     }
                 });
             }
-            bandSeries(D.pvBand, D.pvC, pvVis);
-            bandSeries(D.loBand, D.loC, loVis);
+            if (!D.bars) {
+                bandSeries(D.pvBand, D.pvC, pvVis);
+                bandSeries(D.loBand, D.loC, loVis);
+            }
+            // Balken je Zeitscheibe: Rechtecke über die volle Slot-Breite (custom-Serie, robust auf der Wert-Achse);
+            // inset = Anteil je Seite, der freibleibt (schmalerer Ist-Balken vor dem Soll-Balken).
+            function rectSeries(bars, color, opacity, inset, z) {
+                if (!bars.length) { return; }
+                series.push({
+                    type: 'custom', silent: true, z: z, clip: true, animation: false, data: [0],
+                    renderItem: function (params, api) {
+                        var els = [], i, b, p0, p1, w, pad, h;
+                        for (i = 0; i < bars.length; i++) {
+                            b = bars[i]; p0 = api.coord([b[0], 0]); p1 = api.coord([b[1], b[2]]);
+                            w = p1[0] - p0[0]; pad = Math.max(0, w * inset); h = p0[1] - p1[1];
+                            if (h <= 0) { continue; }
+                            els.push({ type: 'rect', shape: { x: p0[0] + pad, y: p1[1], width: Math.max(0.5, w - 2 * pad), height: h }, style: { fill: color, opacity: opacity } });
+                        }
+                        return { type: 'group', children: els };
+                    }
+                });
+            }
+            if (D.bars) {
+                if (pvVis) {
+                    rectSeries(D.pvBars, D.pvC, 0.38, 0.04, 1);
+                    // unsichtbare Linie nur für den Tooltip (Achsen-Tooltip braucht Linien-/Punktdaten)
+                    series.push({ id: 'pv', name: 'PV', type: 'line', data: D.pvLine, symbol: 'none', lineStyle: { opacity: 0 }, itemStyle: { opacity: 0 }, z: 1, animation: false });
+                }
+                if (D.pvMVis) {
+                    rectSeries(D.pvMBars, D.pvMC, 0.95, 0.2, 2);
+                    series.push({ name: 'PV Ist', type: 'line', data: D.pvMeas, symbol: 'none', lineStyle: { opacity: 0 }, itemStyle: { opacity: 0 }, z: 1, animation: false });
+                }
+            }
 
-            if (D.pvMVis) { series.push({ type: 'line', data: D.pvMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
-            if (D.loMVis) { series.push({ type: 'line', data: D.loMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
+            if (D.pvMVis && !D.bars) { series.push({ type: 'line', data: D.pvMeas, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
+            if (D.loMVis) { series.push({ name: D.bars ? 'Verbrauch Ist' : undefined, type: 'line', data: D.loMeas, symbol: 'none', smooth: D.smooth && !D.bars, lineStyle: { color: D.loMC, width: Math.max(1, D.lw - 0.5), type: 'dashed' }, silent: true, animation: false, z: 3 }); }
 
             var markData = [];
             for (var di = 1; di < D.nDays; di++) { markData.push({ xAxis: di * 24, lineStyle: { color: D.SEP, type: 'solid', width: 1 } }); }
             if (D.nowX != null) { markData.push({ xAxis: D.nowX, lineStyle: { color: NOW_LINE_COLOR, type: 'dashed', width: 1 } }); }
             var markLine = { silent: true, symbol: 'none', label: { show: false }, data: markData, animation: false };
             var attached = false;
-            if (pvVis) { var sp = { id: 'pv', name: 'PV', type: 'line', data: D.pvLine, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvC, width: D.lw }, itemStyle: { color: D.pvC }, z: 3, animation: false }; if (!attached) { sp.markLine = markLine; attached = true; } series.push(sp); }
+            if (pvVis && !D.bars) { var sp = { id: 'pv', name: 'PV', type: 'line', data: D.pvLine, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.pvC, width: D.lw }, itemStyle: { color: D.pvC }, z: 3, animation: false }; if (!attached) { sp.markLine = markLine; attached = true; } series.push(sp); }
             if (loVis) { var sl = { id: 'load', name: 'Verbrauch', type: 'line', data: D.loLine, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loC, width: D.lw }, itemStyle: { color: D.loC }, z: 3, animation: false }; if (!attached) { sl.markLine = markLine; attached = true; } series.push(sl); }
             if (!attached && markData.length) { series.push({ type: 'line', data: [], silent: true, markLine: markLine }); }
 
@@ -577,17 +648,20 @@
                         var x = ps[0].axisValue, di = Math.floor(x / 24 + 1e-6), hod = x - di * 24, hh = Math.floor(hod + 1e-6), mm = Math.round((hod - hh) * 60); if (mm >= 60) { hh++; mm -= 60; }
                         var head = cap((D.days[di] || D.days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
                         var html = '<div style="font-weight:500;margin-bottom:2px">' + head + '</div>', pvV = null, loV = null;
+                        var kwhOf = function (v) { return D.bars ? ' <span style="color:' + D.MUTED + '">(' + (v * D.stH).toFixed(3) + ' kWh)</span>' : ''; };
                         ps.forEach(function (p) {
+                            if (p.seriesName === 'PV Ist') { html += '<div><span style="color:' + D.pvMC + '">●</span> PV Ist: <b>' + p.value[1].toFixed(2) + ' kW</b>' + kwhOf(p.value[1]) + '</div>'; }
+                            if (p.seriesName === 'Verbrauch Ist') { html += '<div><span style="color:' + D.loMC + '">●</span> Verbrauch Ist: <b>' + p.value[1].toFixed(2) + ' kW</b>' + kwhOf(p.value[1]) + '</div>'; }
                             if (p.seriesName === 'PV') {
                                 // Kein P10/P90 bei PV (Dietmar, 26.08.2026): die PV-Prognose ist
                                 // physikbasiert statt k-NN-Quantile wie bei der Last — echte
                                 // Streuwerte gibt es dafür nicht, nur bei Verbrauch.
                                 pvV = p.value[1];
-                                html += '<div><span style="color:' + D.pvC + '">●</span> PV: <b>' + p.value[1].toFixed(2) + ' kW</b></div>';
+                                html += '<div><span style="color:' + D.pvC + '">●</span> PV' + (D.bars ? ' Soll' : '') + ': <b>' + p.value[1].toFixed(2) + ' kW</b>' + kwhOf(p.value[1]) + '</div>';
                             }
                             if (p.seriesName === 'Verbrauch') {
                                 loV = p.value[1]; var lb = nearestBand(D.loBand, p.value[0]);
-                                html += '<div><span style="color:' + D.loC + '">●</span> Verbrauch: <b>' + p.value[1].toFixed(2) + ' kW</b>' + (lb ? ' <span style="color:' + D.MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
+                                html += '<div><span style="color:' + D.loC + '">●</span> Verbrauch' + (D.bars ? ' Soll' : '') + ': <b>' + p.value[1].toFixed(2) + ' kW</b>' + kwhOf(p.value[1]) + (lb ? ' <span style="color:' + D.MUTED + '">(P10–P90 ' + lb[1].toFixed(2) + '–' + lb[2].toFixed(2) + ' kW)</span>' : '') + '</div>';
                             }
                         });
                         if (pvV != null && loV != null) { var s = pvV - loV; html += '<div style="color:' + D.MUTED + ';margin-top:2px">Saldo ' + (s >= 0 ? '+' : '') + s.toFixed(2) + ' kW</div>'; }
