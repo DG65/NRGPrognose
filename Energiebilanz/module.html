@@ -253,6 +253,7 @@
                 yMaxManual: data.yMaxManual || 0, showGrid: (data.showGrid !== false), showLegend: (data.showLegend !== false),
                 showIstRow: (data.showIstRow !== false), font: data.font || 'sans-serif',
                 bars: (data.view === 'bars'), coarseMin: 0, stH: 0.25,
+                maxKwp: (data.showMaxLine && data.maxKwp > 0) ? data.maxKwp : 0, showViewHint: (data.showViewHint !== false),
                 pvBars: [], loBars: [], pvMBars: [],
                 pvPresent: false, loPresent: false, pvLine: [], pvBand: [], loLine: [], loBand: []
             };
@@ -300,12 +301,14 @@
                 if (D.loVis) { (useBand ? D.loBand : D.loLine).forEach(function (p) { var v = useBand ? p[2] : p[1]; if (v > maxV) { maxV = v; } }); }
                 // Balken: auch die gemessenen Werte können über der Prognose liegen
                 if (D.bars) { D.pvMBars.forEach(function (b) { if (b[2] > maxV) { maxV = b[2]; } }); D.loMeas.forEach(function (p) { if (p[1] > maxV) { maxV = p[1]; } }); }
+                // Anlagenleistung als Linie: die Y-Achse reicht bis knapp darüber, damit sie sichtbar ist
+                if (D.maxKwp > 0 && D.maxKwp > maxV) { maxV = D.maxKwp; }
                 D.yMax = D.yMaxManual > 0 ? D.yMaxManual : Math.max(0.5, Math.ceil(maxV * 1.08 * 2) / 2);
             })();
             // Hinweis, wenn die Prognose gröber als 15 min vorliegt (nur Balkenansicht)
             (function () {
                 var h = document.getElementById('viewHint'); if (!h) { return; }
-                if (D.bars && D.coarseMin > 0) {
+                if (D.bars && D.coarseMin > 0 && D.showViewHint) {
                     h.style.display = 'block'; h.style.color = D.MUTED;
                     h.textContent = 'Balken: Die Prognose liegt in ' + D.coarseMin + ' min Auflösung vor - für 15-Minuten-Balken in PV- und Lastprognose die zeitliche Auflösung auf 15 min stellen.';
                 } else { h.style.display = 'none'; h.textContent = ''; }
@@ -439,7 +442,9 @@
                     labels: { y: Math.round(9 * scale + 6), style: { color: MUTED, fontSize: fpx(9) }, formatter: function () { return pad(this.value % 24); } } },
                 // Achsenbeschriftung/-titel aus (zeigt stattdessen #yAxisOverlay, das beim
                 // Scrollen sichtbar bleibt) — Gitterlinien bleiben wie gehabt.
-                yAxis: { min: 0, max: D.yMax, title: { text: null }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { enabled: false } },
+                yAxis: { min: 0, max: D.yMax, title: { text: null }, gridLineColor: GRID, gridLineWidth: D.showGrid ? 1 : 0, labels: { enabled: false },
+                    plotLines: (D.maxKwp > 0) ? [{ value: D.maxKwp, color: MUTED, width: 1.5, dashStyle: 'Dash', zIndex: 4,
+                        label: { text: 'Anlage ' + D.maxKwp.toFixed(2) + ' kWp', align: 'left', x: 6, y: -4, style: { color: MUTED, fontSize: fpx(10) } } }] : [] },
                 tooltip: { shared: true, useHTML: true, backgroundColor: TIP, borderColor: GRID, borderRadius: 6, style: { color: TEXT, fontSize: fpx(11) }, formatter: function () {
                     var x = this.x, di = Math.floor(x / 24 + 1e-6), hod = x - di * 24, hh = Math.floor(hod + 1e-6), mm = Math.round((hod - hh) * 60); if (mm >= 60) { hh++; mm -= 60; }
                     var head = cap((days[di] || days[0]).label) + ' ' + pad(hh) + ':' + pad(mm);
@@ -626,6 +631,12 @@
             if (loVis) { var sl = { id: 'load', name: 'Verbrauch', type: 'line', data: D.loLine, symbol: 'none', smooth: D.smooth, lineStyle: { color: D.loC, width: D.lw }, itemStyle: { color: D.loC }, z: 3, animation: false }; if (!attached) { sl.markLine = markLine; attached = true; } series.push(sl); }
             if (!attached && markData.length) { series.push({ type: 'line', data: [], silent: true, markLine: markLine }); }
 
+            if (D.maxKwp > 0) {
+                series.push({ type: 'line', data: [], silent: true, animation: false, markLine: { silent: true, symbol: 'none', animation: false,
+                    lineStyle: { color: D.MUTED, type: 'dashed', width: 1.5 },
+                    label: { show: true, position: 'insideStartTop', color: D.MUTED, fontSize: fs(10), formatter: 'Anlage ' + D.maxKwp.toFixed(2) + ' kWp' },
+                    data: [{ yAxis: D.maxKwp }] } });
+            }
             var dots = [];
             if (D.nowX != null) {
                 if (pvVis && D.actualPV != null) { dots.push({ value: [D.nowX, D.actualPV / 1000], itemStyle: { color: (D.pvMeas.length > 1 ? D.pvMC : D.pvC), borderColor: D.TIP, borderWidth: 2 } }); }

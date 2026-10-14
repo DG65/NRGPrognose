@@ -24,6 +24,16 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz): Auflösungshinweis ausblendbar, Anlagenleistung als Linie (14.10.2026, Forum Ghostraider #52,
+  Build 143).** Torsten: „Hinweis zur 15-Minuten-Auflösung oben ausblenden - für mich ist eine 60-Minuten-Ansicht
+  sinnvoller" und „maximale Anlagenleistung als gestrichelte horizontale Linie". (1) Neue WebFront-Variable
+  `ShowViewHint` (Standard an): schaltet die Hinweiszeile der Balkenansicht ab; die Balken bleiben in der Auflösung der
+  Quelle (60 min = Stundenbalken, kein Zwang zu 15 min). (2) Neue Variable `ShowMaxLine` (Standard aus): gestrichelte
+  Linie auf Höhe der installierten Modulleistung, Summe der kWp aus `PVF_GetGenerators().totalKwp` der aufgelösten
+  PV-Prognose-Instanz, beschriftet „Anlage 9,18 kWp"; die Y-Achse reicht dann mindestens bis dorthin. Gilt in Kurven-
+  und Balkenansicht, beide Engines. Bewusst Modulleistung (DC), nicht die Wechselrichter-AC-Leistung - die kennt die
+  Prognose nicht. Ohne PV-Prognose-Instanz bleibt die Linie weg. Lokal an gestellten Daten in beiden Engines geprüft.
+  „Neu in Version"-Banner (Build 143).
 - **Neu (Energiebilanz): Darstellung „Balken je Zeitscheibe" (14.10.2026, Idee Ghostraider #48, Auslegung Dietmar,
   Build 142).** Neue WebFront-Einstellung „Darstellung" (Variable `ChartView`, Profil `EFTILE.View`; im Doppelpfeil
   neben der Diagramm-Engine; Standard Kurve, Bestandsinstanzen unverändert): je Zeitscheibe ein Balken für das Soll

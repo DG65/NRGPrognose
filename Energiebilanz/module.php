@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 142)';
+    private const NEWS_VERSION = '0.21 (Build 143)';
     private const NEWS_ITEMS = [
+        '📏 Zwei Wünsche aus dem Forum (danke!): Der Hinweis zur Auflösung in der Balkenansicht lässt sich ausblenden („Hinweis zur Auflösung in der Balkenansicht anzeigen“), und die Anlagenleistung (Summe der Modul-kWp aus der PV-Prognose) kann als gestrichelte Linie eingeblendet werden („Anlagenleistung als gestrichelte Linie zeigen“), um den Abstand zum Maximum zu sehen. Beides im WebFront über den Doppelpfeil.',
         '📊 Neue Darstellung „Balken je Zeitscheibe“ (Idee aus dem Forum, danke!): Im WebFront über den Doppelpfeil unter „Darstellung“ wählbar. Je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie darüber - für alle ausgewählten Tage. Voraussetzung für 15-Minuten-Balken ist, dass PV- und Lastprognose mit 15 min Auflösung rechnen; bei gröberer Auflösung zeigt die Kachel einen Hinweis. Die Standarddarstellung bleibt die Kurve.',
         '🩹 Gemessene Linie verschwindet nicht mehr: Bei einem defekten Stunden-Aggregat im Archiv („Ungültige Aggregation hour“) fehlte die Linie „PV (Ist)“/„Verbrauch (Ist)“ ganz (Hinweis aus dem Forum, danke!) - jetzt wird sie ersatzweise aus den Rohwerten gebildet. Über den Ist-Feldern zeigt eine Zeile, ob die Variable archiviert ist, ob die Linie eingeschaltet ist und wie viele Messwerte heute ankommen.',
         '🏷️ Klarere Legende (Anregung aus dem Forum, danke!): Die Prognosekurven heißen jetzt „PV (Soll)“ und „Verbrauch (Soll)“, sobald es ein Ist-Gegenstück gibt, der Momentanwert in der Legende „Ist jetzt“ — dieselbe Sprache wie im Tagesstreifen („Soll“ / „Ist“). Ohne Ist-Werte bleibt es bei „PV“ und „Verbrauch“.',
@@ -141,6 +142,10 @@ class Energiebilanz extends IPSModule
             // nicht auf die zugrundeliegenden Ist-Werte selbst (ShowActualPV/
             // ShowActualLoad steuern weiterhin die gestrichelte Linie im Chart).
             'ShowIstRow'         => ['„Ist"-Zeile im Tagesstreifen anzeigen', 56, true],
+            // Forum Ghostraider #52 (14.10.2026): Hinweis zur Auflösung in der Balkenansicht ausblendbar; Anlagenleistung
+            // (Summe kWp der PV-Prognose) als gestrichelte Linie, um den Abstand zum Maximum zu sehen.
+            'ShowViewHint'       => ['Hinweis zur Auflösung in der Balkenansicht anzeigen', 57, true],
+            'ShowMaxLine'        => ['Anlagenleistung (Modul-kWp) als gestrichelte Linie zeigen', 58, false],
             'ColorBackgroundAuto' => ['Hintergrund automatisch (IPS-Theme/transparent)', 43, true],
         ];
         foreach ($bool as $ident => $spec) {
@@ -394,7 +399,7 @@ class Energiebilanz extends IPSModule
     public function RequestAction($Ident, $Value)
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
-                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ColorBackgroundAuto', 'ActualOwnPV', 'ActualOwnLoad'];
+                       'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ShowViewHint', 'ShowMaxLine', 'ColorBackgroundAuto', 'ActualOwnPV', 'ActualOwnLoad'];
         $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartView', 'ChartEngine',
                        'ColorPV', 'ColorLoad', 'ColorActualPV', 'ColorActualLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
@@ -817,6 +822,8 @@ class Energiebilanz extends IPSModule
         $this->SetValue('PowerUnit', 2);
         $this->SetValue('ShowActualPV', false);
         $this->SetValue('ShowActualLoad', false);
+        $this->SetValue('ShowViewHint', true);
+        $this->SetValue('ShowMaxLine', false);
         $this->SetValue('ShowYesterday', false);
         $this->SetValue('MeasuredCacheSec', 120);
         $this->SetValue('ChartView', 0);
@@ -852,6 +859,15 @@ class Energiebilanz extends IPSModule
 
     // ---------------------------------------------------------------------
 
+    /** Summe der Modulleistung (kWp) aus der aufgelösten PV-Prognose-Instanz, 0 = unbekannt. */
+    private function pvMaxKwp(): float
+    {
+        $pv = $this->ResolveSource(self::SOURCE_PV, 'PVSource');
+        if ($pv <= 0 || !function_exists('PVF_GetGenerators')) { return 0.0; }
+        $g = @PVF_GetGenerators($pv);
+        return is_array($g) ? max(0.0, (float) ($g['totalKwp'] ?? 0)) : 0.0;
+    }
+
     private function GetFullUpdateMessage(): string
     {
         $style = [
@@ -872,6 +888,9 @@ class Energiebilanz extends IPSModule
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
             'view'      => ((int) $this->GetValue('ChartView') === 1) ? 'bars' : 'curve',
+            'showViewHint' => (bool) $this->GetValue('ShowViewHint'),
+            'showMaxLine'  => (bool) $this->GetValue('ShowMaxLine'),
+            'maxKwp'       => $this->GetValue('ShowMaxLine') ? $this->pvMaxKwp() : 0.0,
         ];
 
         return json_encode(array_merge($style, $this->buildDaysData(false)));
