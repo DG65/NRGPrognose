@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 144)';
+    private const NEWS_VERSION = '0.21 (Build 145)';
     private const NEWS_ITEMS = [
+        '🔤 Beschriftung lesbar machen (Hinweis aus dem Forum, danke!): Neue Einstellung „Beschriftung“ im WebFront (Doppelpfeil): automatisch (wie bisher, nach Betriebssystem/Browser), hell oder dunkel. Bei einem dunklen WebFront-Theme mit hellem Betriebssystem stellst du sie auf „Hell“, dann sind Achsen und Texte gut lesbar.',
         '📏 Anlagenleistungs-Linie mit eigenem Wert: Im Konfigurationsformular lässt sich unter „Anlagenleistung für die gestrichelte Linie“ ein eigener Wert in kW eintragen (zum Beispiel die tatsächlich erreichte Mittagsleistung einer Ost-/Süd-/West-Anlage). 0 = Summe der Modul-kWp aus der PV-Prognose wie bisher.',
         '📏 Zwei Wünsche aus dem Forum (danke!): Der Hinweis zur Auflösung in der Balkenansicht lässt sich ausblenden („Hinweis zur Auflösung in der Balkenansicht anzeigen“), und die Anlagenleistung (Summe der Modul-kWp aus der PV-Prognose) kann als gestrichelte Linie eingeblendet werden („Anlagenleistung als gestrichelte Linie zeigen“), um den Abstand zum Maximum zu sehen. Beides im WebFront über den Doppelpfeil.',
         '📊 Neue Darstellung „Balken je Zeitscheibe“ (Idee aus dem Forum, danke!): Im WebFront über den Doppelpfeil unter „Darstellung“ wählbar. Je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie darüber - für alle ausgewählten Tage. Voraussetzung für 15-Minuten-Balken ist, dass PV- und Lastprognose mit 15 min Auflösung rechnen; bei gröberer Auflösung zeigt die Kachel einen Hinweis. Die Standarddarstellung bleibt die Kurve.',
@@ -171,6 +172,8 @@ class Energiebilanz extends IPSModule
             'MeasuredCacheSec' => ['Ist-Verlauf neu berechnen alle … s (Archiv-Cache)', 'EFTILE.CacheSec', 34, 120],
             // Darstellung (Forum Ghostraider #48 / Dietmar, 14.10.2026): Kurve oder Balken je Slot (15 min)
             'ChartView'        => ['Darstellung (Kurve oder Balken je Zeitscheibe)', 'EFTILE.View', 39, 0],
+            // Forum lungo #62 (18.10.2026): dunkles WebFront-Theme bei hellem Betriebssystem -> Beschriftung kaum lesbar
+            'LabelTone'        => ['Beschriftung (Schriftfarbe: automatisch, hell oder dunkel)', 'EFTILE.LabelTone', 43, 0],
             'ChartEngine'      => ['Diagramm-Engine', 'EFTILE.Engine', 40, 0],
             'ColorPV'          => ['Farbe PV-Erzeugung', '~HexColor', 41, self::DEF_PV],
             'ColorLoad'        => ['Farbe Verbrauch', '~HexColor', 42, self::DEF_LOAD],
@@ -231,6 +234,11 @@ class Energiebilanz extends IPSModule
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 0, 'W (Watt)', '', -1);
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 1, 'kW (Kilowatt)', '', -1);
         IPS_SetVariableProfileAssociation('EFTILE.PowerUnit', 2, 'Automatisch erkennen (Profil/Größenordnung)', '', -1);
+
+        if (!IPS_VariableProfileExists('EFTILE.LabelTone')) { IPS_CreateVariableProfile('EFTILE.LabelTone', VARIABLETYPE_INTEGER); }
+        IPS_SetVariableProfileAssociation('EFTILE.LabelTone', 0, 'Automatisch (nach Betriebssystem/Browser)', '', -1);
+        IPS_SetVariableProfileAssociation('EFTILE.LabelTone', 1, 'Hell (für dunkle Kacheln)', '', -1);
+        IPS_SetVariableProfileAssociation('EFTILE.LabelTone', 2, 'Dunkel (für helle Kacheln)', '', -1);
 
         if (!IPS_VariableProfileExists('EFTILE.View')) { IPS_CreateVariableProfile('EFTILE.View', VARIABLETYPE_INTEGER); }
         IPS_SetVariableProfileAssociation('EFTILE.View', 0, 'Kurve (Linien mit Unsicherheitsband)', '', -1);
@@ -404,7 +412,7 @@ class Energiebilanz extends IPSModule
     {
         $boolIdents = ['ShowPV', 'ShowLoad', 'ShowActualPV', 'ShowActualLoad', 'ShowYesterday',
                        'Smooth', 'ShowBand', 'ShowGrid', 'ShowLegend', 'ShowIstRow', 'ShowViewHint', 'ShowMaxLine', 'ColorBackgroundAuto', 'ActualOwnPV', 'ActualOwnLoad'];
-        $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartView', 'ChartEngine',
+        $intIdents  = ['Days', 'PowerUnit', 'MeasuredCacheSec', 'ChartView', 'LabelTone', 'ChartEngine',
                        'ColorPV', 'ColorLoad', 'ColorActualPV', 'ColorActualLoad', 'ColorBackground', 'FontFamily'];
         $floatIdents = ['FontScale', 'LineWidth', 'BandOpacity', 'YMaxManual'];
 
@@ -831,6 +839,7 @@ class Energiebilanz extends IPSModule
         $this->SetValue('ShowYesterday', false);
         $this->SetValue('MeasuredCacheSec', 120);
         $this->SetValue('ChartView', 0);
+        $this->SetValue('LabelTone', 0);
         $this->SetValue('ChartEngine', 0);
         $this->SetValue('ColorPV', self::DEF_PV);
         $this->SetValue('ColorLoad', self::DEF_LOAD);
@@ -899,6 +908,7 @@ class Energiebilanz extends IPSModule
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
             'view'      => ((int) $this->GetValue('ChartView') === 1) ? 'bars' : 'curve',
+            'labelTone' => max(0, min(2, (int) $this->GetValue('LabelTone'))),
             'showViewHint' => (bool) $this->GetValue('ShowViewHint'),
             'showMaxLine'  => (bool) $this->GetValue('ShowMaxLine'),
             'maxKwp'       => $this->GetValue('ShowMaxLine') ? $this->maxLineValue() : 0.0,

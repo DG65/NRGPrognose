@@ -24,6 +24,18 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz, PVPrognose): Beschriftungsfarbe wählbar; Solcast-Zeile nennt letzten/nächsten Abruf (18.10.2026,
+  Forum lungo #61/#62 über die Dashboard-Sitzung, Build 145).** (1) Energiebilanz: „Die Farben der Beschriftungen sind extrem
+  schlecht lesbar." Ursache (im Code bestätigt): Bei „Hintergrund automatisch" (Standard) entschied nur
+  `prefers-color-scheme` des Betriebssystems/Browsers über helle/dunkle Textfarben - ein dunkles WebFront-Theme bei hellem
+  System ergab dunkle Schrift auf dunklem Grund. Neue WebFront-Einstellung `LabelTone` („Beschriftung", Profil
+  `EFTILE.LabelTone`): 0 automatisch (wie bisher), 1 hell (für dunkle Kacheln), 2 dunkel (für helle Kacheln), überstimmt die
+  Erkennung in beiden Darstellungen und beiden Engines. (2) PVPrognose: Die Formular-Zeile der Solcast-Abrufe nennt jetzt
+  „Letzter Abruf: HH:MM; nächster frühestens: HH:MM" (aus Zwischenspeicher-Alter, Intervall bzw. Budget-Abstand und
+  Tageslicht-Fenster; nach Sonnenuntergang auf den nächsten Sonnenaufgang minus Versatz verschoben). „Frühestens", weil der
+  Abruf erst beim nächsten Berechnungslauf läuft. Eine Liste einzelner geplanter Abrufzeiten gibt es bewusst nicht: die
+  tatsächlichen Zeitpunkte hängen vom Berechnungslauf ab. Prüfstand `solcast.php` +6 Fälle. „Neu in Version"-Banner beider
+  Module (Build 145).
 - **Neu (Energiebilanz): eigener Wert für die Anlagenleistungs-Linie (14.10.2026, Forum Ghostraider #54, Build 144).**
   Torsten: Seine Ost-/Süd-/West-Anlage hat 7,38 kWp, erreicht mittags real aber nur ~5 kW - die Linie soll dort stehen.
   Neue Konfigurationseigenschaft `MaxLineKw` (Formular, kW, Standard 0 = Summe der Modul-kWp aus der PV-Prognose wie

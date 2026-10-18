@@ -126,8 +126,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 140)';
+    private const NEWS_VERSION = '0.21 (Build 145)';
     private const NEWS_ITEMS = [
+        '🕒 Solcast-Zeile zeigt, wann es weitergeht: Zusätzlich zu den heutigen Abrufen steht jetzt der Zeitpunkt des letzten Abrufs und der frühestmögliche nächste Abruf in der Formularzeile (Frage aus dem Forum, danke!).',
         '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
         '☀️ Solcast schont das Tageskontingent (Anregung aus dem Forum, danke!): Abrufe laufen nur noch bei Tageslicht (Sonnenaufgang bis Sonnenuntergang aus deinen Koordinaten, einstellbarer Versatz) und höchstens so oft pro Tag, wie das Tagesbudget erlaubt (Standard 10, Gratiskonto). Nachts und bei erreichtem Budget gilt die letzte gültige Antwort. Eine Zeile im Formular zeigt die heutigen Abrufe und ob Intervall und Zahl der Resource-IDs ins Budget passen. Open-Meteo und Forecast.Solar sind nicht betroffen.',
         '❓ Solcast-ID erklärt: Neben dem Schlüsselfeld gibt es den Button „Wo finde ich die Solcast-ID?“ (Frage aus dem Forum, danke!) - er erklärt, dass die Resource-ID der Dach-Site gemeint ist (nicht der API-Schlüssel) und wo man sie bei Solcast findet.',
@@ -544,6 +545,13 @@ class PVPrognose extends IPSModule
             $line .= '.';
         } elseif ($budget <= 0) {
             $line .= '. Intervall ' . $interval . ' h' . ($plan['ids'] > 0 ? ', etwa ' . $perDay . ' Abrufe pro Tag' : '') . '.';
+        }
+        // Wann war der letzte Abruf, wann ist der nächste frühestens möglich (Forum lungo #61: "wo sieht man die geplanten Slots")
+        $t = $this->solcastCallTimes();
+        $dayOf = function (int $ts) { return (date('Y-m-d', $ts) === date('Y-m-d', $this->solcastNow())) ? '' : date('d.m. ', $ts); };
+        if ($plan['ids'] > 0) {
+            $line .= ' Letzter Abruf: ' . ($t['last'] !== null ? $dayOf($t['last']) . date('H:i', $t['last']) : 'noch keiner')
+                . '; nächster frühestens: ' . (($t['next'] !== null && $t['next'] > $this->solcastNow() + 60) ? $dayOf($t['next']) . date('H:i', $t['next']) : 'beim nächsten Berechnungslauf') . '.';
         }
         if ($budget > 0 && $n >= $budget) {
             return '⚠️ ' . $line . ' Das Tagesbudget ist erreicht, bis morgen gilt die letzte gültige Antwort.';
@@ -2254,6 +2262,46 @@ class PVPrognose extends IPSModule
         if (!is_array($info) || !is_int($info['sunrise'] ?? null) || !is_int($info['sunset'] ?? null)) { return null; }
         $off = max(0, $this->ReadPropertyInteger('PVF_SolcastOffsetMin')) * 60;
         return [$info['sunrise'] - $off, $info['sunset'] + $off];
+    }
+
+    /**
+     * Zeitpunkt des letzten Solcast-Abrufs und frühester nächster Abruf (Unix-Zeit, null = unbekannt/jetzt).
+     * Der nächste ergibt sich aus dem ältesten Zwischenspeicher-Eintrag plus Mindestalter (Intervall bzw. Abstand
+     * aus dem Budget), bei aktivem Tageslicht-Fenster zusätzlich in dessen Grenzen verschoben. "Frühestens", weil
+     * der Abruf erst beim nächsten Berechnungslauf stattfindet.
+     *
+     * @return array{last:?int,next:?int}
+     */
+    private function solcastCallTimes(): array
+    {
+        $cache = json_decode((string)$this->ReadAttributeString('PVF_SolcastCache'), true);
+        $rids = [];
+        foreach ($this->pvGenerators() as $g) { $r = trim($g['solcast']); if ($r !== '') { $rids[$r] = true; } }
+        if (!is_array($cache) || count($rids) === 0) { return ['last' => null, 'next' => null]; }
+        $last = null; $oldest = null;
+        foreach (array_keys($rids) as $rid) {
+            $ts = (int)($cache[$rid]['ts'] ?? 0);
+            if ($ts <= 0) { return ['last' => $last, 'next' => null]; }   // eine ID noch nie abgerufen: sofort beim nächsten Lauf
+            $last = ($last === null) ? $ts : max($last, $ts);
+            $oldest = ($oldest === null) ? $ts : min($oldest, $ts);
+        }
+        $plan = $this->solcastBudgetPlan();
+        $minAge = max(max(1, $this->ReadPropertyInteger('PVF_IntervalHours')) * 3600, $plan['gap']);
+        $next = $oldest + $minAge;
+        $now = $this->solcastNow();
+        if ($next < $now) { $next = $now; }
+        if ($this->ReadPropertyBoolean('PVF_SolcastDaylightOnly')) {
+            $win = $this->solcastDaylightWindow();
+            if ($win !== null) {
+                if ($next < $win[0]) { $next = $win[0]; }
+                elseif ($next > $win[1]) {
+                    $off = max(0, $this->ReadPropertyInteger('PVF_SolcastOffsetMin')) * 60;
+                    $tm = @date_sun_info(strtotime('tomorrow 12:00', $now), $this->ReadPropertyFloat('PVF_Latitude'), $this->ReadPropertyFloat('PVF_Longitude'));
+                    $next = (is_array($tm) && is_int($tm['sunrise'] ?? null)) ? $tm['sunrise'] - $off : strtotime('tomorrow 06:00', $now);
+                }
+            }
+        }
+        return ['last' => $last, 'next' => $next];
     }
 
     /** Eigene Solcast-Abrufe des heutigen Tages (Tagesbudget). */

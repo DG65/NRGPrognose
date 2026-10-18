@@ -228,6 +228,9 @@
             var bgDark = isDarkColor(data.bg);
             var dark = (bgDark !== null) ? bgDark
                      : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            // Eigene Wahl der Schriftfarbe (Forum lungo #62): 1 = hell (dunkle Kachel), 2 = dunkel (helle Kachel) überstimmt
+            // die Erkennung - nötig, wenn das WebFront-Theme nicht zum Betriebssystem/Browser passt.
+            if (data.labelTone === 1) { dark = true; } else if (data.labelTone === 2) { dark = false; }
             // Breite: bis zu BASELINE_DAYS passt wie bisher ohne Scroll in den Rahmen;
             // darüber hinaus wird Chart+Tagesstreifen proportional breiter und der
             // Rahmen (#scrollWrap, overflow-x:auto) macht daraus horizontales Scrollen —
