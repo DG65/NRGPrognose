@@ -24,6 +24,16 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Fix (Energiebilanz): veraltete Instanz-Auswahl zeigt 🔗 statt ⚠️ (18.10.2026, Forum somm #69, Build 147).** Stefan fragte
+  „Soll das so sein mit den Hinweisen?" - der Screenshot zeigt die Energiebilanz-Konfiguration mit zwei ⚠️-Zeilen: „PV-Prognose:
+  automatisch übernommen von NRG-Stack PVPrognose (#43016, Vertrag PVF 1.3) ... (die gewählte Instanz #1 existiert nicht mehr, es
+  gilt die automatische Erkennung)", ebenso Lastprognose (#33277, LFC 1.2). Die Zeilen sind die gewollten Verbindungs-Statuszeilen
+  (Build 123/125), die ✅-Zeilen darunter die Ist-Linien-Zeilen (Build 141). Der Fall: In den Einstellungen steht eine
+  nicht mehr vorhandene Instanz (#1; wie sie dort hineinkam, ist unbekannt, Standard ist 0), die Automatik findet die Quelle
+  aber trotzdem - die Verbindung steht, das ⚠️ wirkte wie ein Fehler. Jetzt 🔗 (grün) mit Hinweis „in den Einstellungen ist die
+  nicht mehr vorhandene Instanz #N hinterlegt, sie wird ignoriert - unschädlich". ⚠️ bleibt für echte Probleme (mehrere Instanzen
+  ohne Auswahl, Quelle ohne brauchbare Prognose). Das Auswahlfeld bleibt sichtbar. Prüfstand `formularstatus.php` +1 Fall.
+  „Neu in Version"-Banner (Build 147).
 - **Neu (Energiebilanz): hellere Nebentexte im dunklen Modus (18.10.2026, Forum lungo #64 über die Dashboard-Sitzung,
   Build 146).** Roberto hatte mit „Hintergrund automatisch aus" + #2D3238 einen Workaround und fand Achsenzahlen und den
   Balken-Hinweis weiter klein und blass. Gemessen (WCAG-Verhältnis zu #2D3238, Messung Dashboard-Sitzung): dark-MUTED

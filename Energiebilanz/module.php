@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 146)';
+    private const NEWS_VERSION = '0.21 (Build 147)';
     private const NEWS_ITEMS = [
+        '🔗 Klarere Verbindungszeilen (Rückfrage aus dem Forum, danke!): Steht in den Einstellungen eine nicht mehr vorhandene Instanz, zeigte die Zeile ein ⚠️, obwohl die Verbindung über die automatische Erkennung längst stand. Jetzt zeigt sie 🔗 (verbunden) mit dem Hinweis, dass die alte Auswahl ignoriert wird. ⚠️ bleibt für echte Probleme.',
         '🔤 Lesbarer auf dunklen Kacheln (Rückmeldung aus dem Forum, danke!): Achsenzahlen und Nebentexte sind im dunklen Modus heller (Kontrast zu einem dunkelgrauen Hintergrund von rund 6:1 auf rund 8:1), und der Hinweistext der Balkenansicht steht in der Haupt-Schriftfarbe.',
         '🔤 Beschriftung lesbar machen (Hinweis aus dem Forum, danke!): Neue Einstellung „Beschriftung“ im WebFront (Doppelpfeil): automatisch (wie bisher, nach Betriebssystem/Browser), hell oder dunkel. Bei einem dunklen WebFront-Theme mit hellem Betriebssystem stellst du sie auf „Hell“, dann sind Achsen und Texte gut lesbar.',
         '📏 Anlagenleistungs-Linie mit eigenem Wert: Im Konfigurationsformular lässt sich unter „Anlagenleistung für die gestrichelte Linie“ ein eigener Wert in kW eintragen (zum Beispiel die tatsächlich erreichte Mittagsleistung einer Ost-/Süd-/West-Anlage). 0 = Summe der Modul-kWp aus der PV-Prognose wie bisher.',
@@ -688,7 +689,7 @@ class Energiebilanz extends IPSModule
             $how = 'fest gewählt';
         } else {
             if ($configured > 0) {
-                $stale = ' (die gewählte Instanz #' . $configured . ' existiert nicht mehr, es gilt die automatische Erkennung)';
+                $stale = ' Hinweis: In den Einstellungen ist die nicht mehr vorhandene Instanz #' . $configured . ' hinterlegt, sie wird ignoriert - es gilt die automatische Erkennung, das ist unschädlich.';
             }
             if (count($list) === 1) {
                 $id = (int) $list[0];
@@ -716,7 +717,9 @@ class Energiebilanz extends IPSModule
         $head = ($how === 'fest gewählt')
             ? $label . ': eigene Auswahl ' . $src . ', hat Vorrang vor der Automatik'
             : $label . ': automatisch übernommen von ' . $src;
-        $icon = ($stale !== '') ? '⚠️' : (($how === 'fest gewählt') ? '✏️' : '🔗');
+        // Eine veraltete Auswahl (Instanz gibt es nicht mehr) ist kein Fehler, solange die Automatik die Quelle findet:
+        // Die Verbindung steht, deshalb 🔗 statt ⚠️ (Forum somm #69, 18.10.2026: ⚠️ ließ die Verbindung gestört wirken).
+        $icon = ($how === 'fest gewählt') ? '✏️' : '🔗';
 
         // Welche Werte tatsächlich übernommen werden: Tagesprognose heute.
         $vid = @IPS_GetObjectIDByIdent($todayIdent, $id);
