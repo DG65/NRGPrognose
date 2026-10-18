@@ -60,8 +60,9 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 145)';
+    private const NEWS_VERSION = '0.21 (Build 146)';
     private const NEWS_ITEMS = [
+        '🔤 Lesbarer auf dunklen Kacheln (Rückmeldung aus dem Forum, danke!): Achsenzahlen und Nebentexte sind im dunklen Modus heller (Kontrast zu einem dunkelgrauen Hintergrund von rund 6:1 auf rund 8:1), und der Hinweistext der Balkenansicht steht in der Haupt-Schriftfarbe.',
         '🔤 Beschriftung lesbar machen (Hinweis aus dem Forum, danke!): Neue Einstellung „Beschriftung“ im WebFront (Doppelpfeil): automatisch (wie bisher, nach Betriebssystem/Browser), hell oder dunkel. Bei einem dunklen WebFront-Theme mit hellem Betriebssystem stellst du sie auf „Hell“, dann sind Achsen und Texte gut lesbar.',
         '📏 Anlagenleistungs-Linie mit eigenem Wert: Im Konfigurationsformular lässt sich unter „Anlagenleistung für die gestrichelte Linie“ ein eigener Wert in kW eintragen (zum Beispiel die tatsächlich erreichte Mittagsleistung einer Ost-/Süd-/West-Anlage). 0 = Summe der Modul-kWp aus der PV-Prognose wie bisher.',
         '📏 Zwei Wünsche aus dem Forum (danke!): Der Hinweis zur Auflösung in der Balkenansicht lässt sich ausblenden („Hinweis zur Auflösung in der Balkenansicht anzeigen“), und die Anlagenleistung (Summe der Modul-kWp aus der PV-Prognose) kann als gestrichelte Linie eingeblendet werden („Anlagenleistung als gestrichelte Linie zeigen“), um den Abstand zum Maximum zu sehen. Beides im WebFront über den Doppelpfeil.',

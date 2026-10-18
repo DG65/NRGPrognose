@@ -243,7 +243,7 @@
             var D = {
                 data: data,
                 renderW: renderW,
-                dark: dark, TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#9fb0c0' : '#5c6b7a',
+                dark: dark, TEXT: dark ? '#e8edf2' : '#1b2430', MUTED: dark ? '#c4cfda' : '#5c6b7a',
                 GRID: dark ? 'rgba(127,135,145,.22)' : 'rgba(20,30,45,.14)', TIP: dark ? 'rgba(28,38,52,.97)' : 'rgba(255,255,255,.98)',
                 SEP: dark ? 'rgba(159,176,192,.34)' : 'rgba(92,107,122,.30)',
                 days: data.days, nDays: data.days.length,
@@ -312,7 +312,7 @@
             (function () {
                 var h = document.getElementById('viewHint'); if (!h) { return; }
                 if (D.bars && D.coarseMin > 0 && D.showViewHint) {
-                    h.style.display = 'block'; h.style.color = D.MUTED;
+                    h.style.display = 'block'; h.style.color = D.TEXT;
                     h.textContent = 'Balken: Die Prognose liegt in ' + D.coarseMin + ' min Auflösung vor - für 15-Minuten-Balken in PV- und Lastprognose die zeitliche Auflösung auf 15 min stellen.';
                 } else { h.style.display = 'none'; h.textContent = ''; }
             })();

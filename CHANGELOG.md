@@ -24,6 +24,15 @@ Funktionen werden hier gesammelt und erst nach dem Test als reguläre `0.20` in 
   Stundenwerten im Archiv „Vorzeichen nicht prüfbar“ (nicht raten). Eine eigene Angabe bleibt unberührt. Ist der Vertrag
   später verbindlich geklärt, kann die Prüfung bleiben (schadet nicht) oder entfallen. Prüfstand `hausverbrauch.php` um
   8 Fälle erweitert, `formularstatus.php` um 3. Kein Banner (Schutz, im Normalfall unsichtbar).
+- **Neu (Energiebilanz): hellere Nebentexte im dunklen Modus (18.10.2026, Forum lungo #64 über die Dashboard-Sitzung,
+  Build 146).** Roberto hatte mit „Hintergrund automatisch aus" + #2D3238 einen Workaround und fand Achsenzahlen und den
+  Balken-Hinweis weiter klein und blass. Gemessen (WCAG-Verhältnis zu #2D3238, Messung Dashboard-Sitzung): dark-MUTED
+  #9fb0c0 = 5,8:1, #c4cfda = 8,2:1, dark-TEXT #e8edf2 = 11,0:1. dark-MUTED von #9fb0c0 auf **#c4cfda** angehoben (Achsen,
+  Soll/Ist-Zeilen, Nebentexte), der Balken-Hinweis (`#viewHint`) nutzt jetzt die Haupt-Schriftfarbe statt MUTED. Bewusst
+  keine getrennten Farbfelder je Textart (bläht das Formular auf; LabelTone + Hintergrundfarbe decken den Fall ab);
+  falls das nicht reicht, wäre ein einziges Feld „Schrift: Kontrast normal/hoch" der nächste Schritt. Hellmodus
+  unverändert (#5c6b7a auf Weiß 5,4:1). Schriftgröße (Faktor) bleibt die Antwort auf „zu klein". „Neu in
+  Version"-Banner (Build 146).
 - **Neu (Energiebilanz, PVPrognose): Beschriftungsfarbe wählbar; Solcast-Zeile nennt letzten/nächsten Abruf (18.10.2026,
   Forum lungo #61/#62 über die Dashboard-Sitzung, Build 145).** (1) Energiebilanz: „Die Farben der Beschriftungen sind extrem
   schlecht lesbar." Ursache (im Code bestätigt): Bei „Hintergrund automatisch" (Standard) entschied nur
