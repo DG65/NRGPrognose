@@ -1,6 +1,11 @@
 {
     "elements": [
         {
+            "type": "Label",
+            "name": "RetireHint",
+            "caption": "ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“, gleiche Darstellung, gleiche Einstellungen). Neue Einrichtungen legen besser gleich die Dashboard-Kachel an. Bis dahin läuft diese Kachel unverändert weiter. PVPrognose und Lastprognose bleiben bestehen."
+        },
+        {
             "type": "ExpansionPanel",
             "caption": "📖 Dokumentation & Hilfe",
             "expanded": false,
@@ -43,7 +48,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Verhältnis zu NRG-Stack Dashboard: Diese Kachel funktioniert komplett eigenständig, keine weitere Installation nötig. NRGDashboard/NRGDashboardForecast ist eine zusätzliche, optionale Visualisierungsschicht, die u. a. diese Prognose als eine von mehreren Quellen konsumiert — kein Ersatz. Diese Instanz (bzw. PVPrognose/Lastprognose) sollte deshalb installiert bleiben, auch wenn NRGDashboard zusätzlich genutzt wird."
+                    "caption": "Verhältnis zu NRG-Stack Dashboard: Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“) abgelöst, die dieselbe Darstellung und dieselben Einstellungen bietet. Bis dahin läuft diese Kachel unverändert weiter. PVPrognose und Lastprognose bleiben in jedem Fall installiert, sie liefern die Werte für beide Kacheln."
                 }
             ]
         },

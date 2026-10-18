@@ -7,6 +7,12 @@
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
+> **Hinweis (18.10.2026):** Diese Kachel wird mittelfristig durch die Prognose-Kachel im
+> **NRG-Dashboard** abgelöst (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“, gleiche
+> Darstellung, gleiche Einstellungen; die Einstellungen werden nicht übernommen). Bis dahin läuft diese
+> Kachel unverändert weiter. `PVPrognose` und `Lastprognose` bleiben in jedem Fall bestehen, sie
+> liefern die Werte für beide Kacheln.
+
 Kombinierte **Visualisierungskachel**, die PV-Erzeugung und Verbrauch gemeinsam (oder einzeln) über
 bis zu 5 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
 Netzbezug/Einspeisung. Prefix: `EFTILE`.
