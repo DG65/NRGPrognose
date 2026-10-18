@@ -60,7 +60,11 @@ class Energiebilanz extends IPSModule
     // Einstellungen, div. Kachel-Feinschliff — 26.08.2026 nachträglich um die
     // beiden Ausblenden-Schalter ergänzt, PFLICHT-CHECK-Rückstand behoben
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
-    private const NEWS_VERSION = '0.21 (Build 148)';
+    // Abkündigungshinweis IN der Kachel (Build 149, Wunsch Dietmar): sichtbar im WebFront, wegklickbar je
+    // Instanz und Hinweisversion (Browser-Speicher). Version erhöhen, wenn der Text sich inhaltlich ändert.
+    private const RETIRE_NOTICE_VERSION = '1';
+    private const RETIRE_NOTICE_TEXT = 'Diese Kachel wird durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“, Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter. Mehr dazu im Symcon-Forum.';
+    private const NEWS_VERSION = '0.21 (Build 149)';
     private const NEWS_ITEMS = [
         'ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“, Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter, du musst jetzt nichts umstellen. Die Einstellungen werden nicht übernommen, in der neuen Kachel setzt du sie einmal von Hand. PVPrognose und Lastprognose bleiben in jedem Fall bestehen.',
         '🔗 Klarere Verbindungszeilen (Rückfrage aus dem Forum, danke!): Steht in den Einstellungen eine nicht mehr vorhandene Instanz, zeigte die Zeile ein ⚠️, obwohl die Verbindung über die automatische Erkennung längst stand. Jetzt zeigt sie 🔗 (verbunden) mit dem Hinweis, dass die alte Auswahl ignoriert wird. ⚠️ bleibt für echte Probleme.',
@@ -918,6 +922,7 @@ class Energiebilanz extends IPSModule
             'showMaxLine'  => (bool) $this->GetValue('ShowMaxLine'),
             'maxKwp'       => $this->GetValue('ShowMaxLine') ? $this->maxLineValue() : 0.0,
             'maxManual'    => ((float) $this->ReadPropertyFloat('MaxLineKw') > 0),
+            'retireNotice' => ['version' => self::RETIRE_NOTICE_VERSION, 'instance' => $this->InstanceID, 'text' => self::RETIRE_NOTICE_TEXT],
         ];
 
         return json_encode(array_merge($style, $this->buildDaysData(false)));

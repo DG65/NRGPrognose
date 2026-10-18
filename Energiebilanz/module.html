@@ -64,6 +64,12 @@
         #scrollHintL span.show, #scrollHintR span.show { opacity: .92; }
         #chart { width: 100%; height: 360px; }
         /* Hinweis der Balkenansicht, wenn die Prognose gröber als 15 min vorliegt */
+        /* Abkündigungshinweis (Build 149): eigene Zeile über der Legende, kein
+           Overlay über dem Diagramm; keine Animation. Farben kommen per JS aus
+           den Kachel-Farben (hell/dunkel/Beschriftung), hier nur das Gerüst. */
+        #retireNote { display: none; align-items: flex-start; gap: 8px; box-sizing: border-box; margin: 0 0 6px; padding: 5px 8px; border-radius: 6px; font-size: 11px; line-height: 1.35; border: 1px solid rgba(127,127,127,.35); background: rgba(127,127,127,.12); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        #retireNote .rt { flex: 1 1 auto; }
+        #retireNote button { flex: 0 0 auto; font: inherit; cursor: pointer; padding: 1px 8px; border-radius: 4px; border: 1px solid rgba(127,127,127,.55); background: transparent; color: inherit; }
         #viewHint { display: none; font-size: 11px; line-height: 1.3; margin: 2px 0 4px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
         /* +5px Abstand zur X-Achsen-Zeitbeschriftung des Charts direkt darüber
            (Dietmars Feedback: zu eng, dadurch waren die Uhrzeiten schlecht
@@ -75,6 +81,7 @@
 
 <body>
     <div class="wrap">
+        <div id="retireNote"><span class="rt"></span><button type="button" id="retireOk" onclick="retireDismiss()">Verstanden</button></div>
         <div id="legend"></div>
         <div id="viewHint"></div>
         <div id="scrollWrap">
@@ -106,6 +113,24 @@
                 left: Math.round(46 * scale), right: Math.round(14 * scale),
                 top: Math.round(18 * scale), bottom: Math.round(28 * scale)
             };
+        }
+
+        function retireKey(rn) { return 'eftile.retire.' + (rn.instance || 0) + '.' + (rn.version || '1'); }
+        function retireDismissed(rn) {
+            try { return window.localStorage.getItem(retireKey(rn)) === '1'; } catch (e) { return false; }
+        }
+        function applyRetireNote(data, color) {
+            var n = document.getElementById('retireNote'); if (!n) { return; }
+            var rn = data.retireNotice;
+            if (!rn || !rn.text || retireDismissed(rn)) { n.style.display = 'none'; return; }
+            n.style.display = 'flex'; n.style.color = color || '';
+            n.querySelector('.rt').textContent = rn.text;
+        }
+        function retireDismiss() {
+            var rn = lastData && lastData.retireNotice; if (!rn) { return; }
+            try { window.localStorage.setItem(retireKey(rn), '1'); } catch (e) { /* ohne Speicher: erscheint beim nächsten Laden wieder */ }
+            document.getElementById('retireNote').style.display = 'none';
+            render();
         }
 
         function handleMessage(payload) {
@@ -209,6 +234,7 @@
             if (!data.hasData || !data.days || !data.days.length) {
                 destroyChart();
                 legEl.style.display = 'none'; daysEl.style.display = 'none';
+                applyRetireNote(data, '');
                 el.innerHTML = '<div class="empty">' + (data.message || 'Keine Daten') + '</div>';
                 updateScrollHint();
                 return;
@@ -308,6 +334,10 @@
                 if (D.maxKwp > 0 && D.maxKwp > maxV) { maxV = D.maxKwp; }
                 D.yMax = D.yMaxManual > 0 ? D.yMaxManual : Math.max(0.5, Math.ceil(maxV * 1.08 * 2) / 2);
             })();
+            // Abkündigungshinweis (Build 149): Text/Version kommen aus module.php; "Verstanden"
+            // merkt sich die Kachel je Instanz und Hinweisversion im Browser (ohne localStorage
+            // erscheint er bei jedem Laden). Eigene Zeile oberhalb, verdeckt das Diagramm nicht.
+            applyRetireNote(data, D.TEXT);
             // Hinweis, wenn die Prognose gröber als 15 min vorliegt (nur Balkenansicht)
             (function () {
                 var h = document.getElementById('viewHint'); if (!h) { return; }
@@ -374,7 +404,10 @@
             // Hinweiszeile der Balkenansicht (nur sichtbar bei gröberer Auflösung als 15 min)
             var hintEl = document.getElementById('viewHint'), hintH = 0;
             if (hintEl && hintEl.style.display === 'block') { var hCS = getComputedStyle(hintEl); hintH = hintEl.offsetHeight + (parseFloat(hCS.marginTop) || 0) + (parseFloat(hCS.marginBottom) || 0); }
-            return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH - hintH));
+            // Abkündigungshinweis (eigene Zeile über der Legende)
+            var noteEl = document.getElementById('retireNote'), noteH = 0;
+            if (noteEl && noteEl.style.display === 'flex') { var nCS = getComputedStyle(noteEl); noteH = noteEl.offsetHeight + (parseFloat(nCS.marginTop) || 0) + (parseFloat(nCS.marginBottom) || 0); }
+            return Math.max(140, Math.round(totalH - padTop - padBottom - legH - daysH - hintH - noteH));
         }
 
         // ---- Highcharts (privat) ----------------------------------------
