@@ -62,11 +62,11 @@ class Energiebilanz extends IPSModule
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
     // Abkündigungshinweis IN der Kachel (Build 149, Wunsch Dietmar): sichtbar im WebFront, wegklickbar je
     // Instanz und Hinweisversion (Browser-Speicher). Version erhöhen, wenn der Text sich inhaltlich ändert.
-    private const RETIRE_NOTICE_VERSION = '1';
-    private const RETIRE_NOTICE_TEXT = 'Diese Kachel wird durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“, Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter. Mehr dazu im Symcon-Forum.';
-    private const NEWS_VERSION = '0.21 (Build 149)';
+    private const RETIRE_NOTICE_VERSION = '2';
+    private const RETIRE_NOTICE_TEXT = 'Diese Kachel wird durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter. Mehr dazu im Symcon-Forum.';
+    private const NEWS_VERSION = '0.21 (Build 150)';
     private const NEWS_ITEMS = [
-        'ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“, Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter, du musst jetzt nichts umstellen. Die Einstellungen werden nicht übernommen, in der neuen Kachel setzt du sie einmal von Hand. PVPrognose und Lastprognose bleiben in jedem Fall bestehen.',
+        'ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter, du musst jetzt nichts umstellen. Die Einstellungen werden nicht übernommen, in der neuen Kachel setzt du sie einmal von Hand. PVPrognose und Lastprognose bleiben in jedem Fall bestehen.',
         '🔗 Klarere Verbindungszeilen (Rückfrage aus dem Forum, danke!): Steht in den Einstellungen eine nicht mehr vorhandene Instanz, zeigte die Zeile ein ⚠️, obwohl die Verbindung über die automatische Erkennung längst stand. Jetzt zeigt sie 🔗 (verbunden) mit dem Hinweis, dass die alte Auswahl ignoriert wird. ⚠️ bleibt für echte Probleme.',
         '🔤 Lesbarer auf dunklen Kacheln (Rückmeldung aus dem Forum, danke!): Achsenzahlen und Nebentexte sind im dunklen Modus heller (Kontrast zu einem dunkelgrauen Hintergrund von rund 6:1 auf rund 8:1), und der Hinweistext der Balkenansicht steht in der Haupt-Schriftfarbe.',
         '🔤 Beschriftung lesbar machen (Hinweis aus dem Forum, danke!): Neue Einstellung „Beschriftung“ im WebFront (Doppelpfeil): automatisch (wie bisher, nach Betriebssystem/Browser), hell oder dunkel. Bei einem dunklen WebFront-Theme mit hellem Betriebssystem stellst du sie auf „Hell“, dann sind Achsen und Texte gut lesbar.',

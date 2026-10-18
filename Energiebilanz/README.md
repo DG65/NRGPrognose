@@ -8,7 +8,7 @@
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
 > **Hinweis (18.10.2026):** Diese Kachel wird mittelfristig durch die Prognose-Kachel im
-> **NRG-Dashboard** abgelöst (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“, gleiche
+> **NRG-Dashboard** abgelöst (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche
 > Darstellung, gleiche Einstellungen; die Einstellungen werden nicht übernommen). Bis dahin läuft diese
 > Kachel unverändert weiter. `PVPrognose` und `Lastprognose` bleiben in jedem Fall bestehen, sie
 > liefern die Werte für beide Kacheln.
