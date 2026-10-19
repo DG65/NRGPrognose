@@ -39,7 +39,7 @@ Bei Open-Meteo/Forecast.Solar ist P10 = P50 = P90 (eine Linie ohne Band).
 
 | Bereich | Bedeutung |
 |---|---|
-| **Generatoren** | Je Dachfläche/MPP-Tracker eine Zeile (Name, Neigung, Azimut, kWp, optional PowerVar/Faktor/SolcastID). |
+| **Generatoren** | Je Dachfläche/MPP-Tracker eine Zeile (Name, Neigung, Azimut, kWp, optional PowerVar/Faktor/SolcastID). Meldet der Wechselrichter die Erzeugung **negativ** (nachts oft ein kleiner positiver Standby-Bezug), schaltest du in der Spalte „Vorzeichen umkehren“ ein: Die Leistung wird dann als Ertrag gelesen, ein positiver Wert zählt als 0. Die Statuszeile „Vorzeichen“ unter „Selbstkalibrierung“ prüft die Werte der letzten 7 Tage. |
 | **Quelle** | Open-Meteo / Forecast.Solar / Solcast. |
 | **Selbstkalibrierung** (Open-Meteo) | Vergleicht gemessene mit modellierter Erzeugung und lernt einen Korrekturfaktor – fängt Verschattung, Verschmutzung und reale Modulleistung. **Je Generator ab-/anschaltbar** (Spalte „Kalibrieren"): Für abgeregelte Generatoren (DC-MPPT mit Strom-/Spannungslimit, Batterie-voll-Abregelung) ausschalten, damit die Prognose das **Potenzial** statt der künstlich gedrosselten Messung zeigt. |
 | **Auflösung** | 60 / 30 / 15 Minuten – idealerweise deckungsgleich zur Lastprognose. |

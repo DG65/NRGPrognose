@@ -126,8 +126,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 145)';
+    private const NEWS_VERSION = '0.21 (Build 151)';
     private const NEWS_ITEMS = [
+        '➖ Erzeugung negativ gemeldet? (Frage aus dem Forum, danke!): Manche Wechselrichter und Zähler zählen die Erzeugung negativ (z. B. −3000 W bei 3 kW) und melden nachts einen kleinen positiven Standby-Bezug. In der Generatorliste gibt es dafür die neue Spalte „Vorzeichen umkehren“: Eingeschaltet wird die Leistung als Ertrag gelesen, ein positiver Wert zählt als 0. Die Zeile „Vorzeichen“ unter „Selbstkalibrierung“ sagt dir, ob deine Werte der letzten 7 Tage dazu passen. Ohne Umkehr würde die Selbstkalibrierung eine negative Erzeugung als negativen Ertrag lernen.',
         '🕒 Solcast-Zeile zeigt, wann es weitergeht: Zusätzlich zu den heutigen Abrufen steht jetzt der Zeitpunkt des letzten Abrufs und der frühestmögliche nächste Abruf in der Formularzeile (Frage aus dem Forum, danke!).',
         '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
         '☀️ Solcast schont das Tageskontingent (Anregung aus dem Forum, danke!): Abrufe laufen nur noch bei Tageslicht (Sonnenaufgang bis Sonnenuntergang aus deinen Koordinaten, einstellbarer Versatz) und höchstens so oft pro Tag, wie das Tagesbudget erlaubt (Standard 10, Gratiskonto). Nachts und bei erreichtem Budget gilt die letzte gültige Antwort. Eine Zeile im Formular zeigt die heutigen Abrufe und ob Intervall und Zahl der Resource-IDs ins Budget passen. Open-Meteo und Forecast.Solar sind nicht betroffen.',
@@ -394,6 +395,7 @@ class PVPrognose extends IPSModule
         $builders = [
             'ConnStatusArchive' => 'archiveStatusLine',
             'ConnStatusUnit'    => 'unitStatusLine',
+            'ConnStatusSign'    => 'signStatusLine',
             'ConnStatusSolcast' => 'solcastStatusLine',
             'ConnStatusSolcastBudget' => 'solcastBudgetStatusLine',
             'ConnStatusEms'     => 'emsStatusLine',
@@ -476,6 +478,51 @@ class PVPrognose extends IPSModule
             }
         }
         return ($unsure ? '⚠️' : '🔗') . " Einheit (automatisch übernommen):\n" . implode("\n", $lines);
+    }
+
+    /**
+     * Vorzeichen der gemessenen Leistung je Generator (Spalte „Vorzeichen umkehren"). Prüft an den Tageswerten der
+     * letzten 7 Tage, ob eine nicht umgekehrte Variable die Erzeugung negativ liefert (dann ⚠️ mit Hinweis) oder
+     * eine umgekehrte positiv (Umkehr würde alles auf 0 setzen). Nur Hinweis, es wird nichts selbst umgestellt.
+     */
+    private function signStatusLine(): string
+    {
+        $gens = array_values(array_filter($this->pvGenerators(), function ($g) { return $g['powervar'] > 0; }));
+        if (count($gens) === 0) {
+            return 'ℹ️ Vorzeichen: noch keine gemessene Leistung (PowerVar) gewählt. Zählt dein Wechselrichter die Erzeugung negativ, schalte in der Generatorliste „Vorzeichen umkehren“ ein.';
+        }
+        $aid = $this->archiveID();
+        $warn = [];
+        $inverted = [];
+        $checked = 0;
+        foreach ($gens as $g) {
+            $vid = $g['powervar'];
+            $name = ($g['name'] !== '') ? $g['name'] : ('#' . $vid);
+            if ($g['invert']) { $inverted[] = $name; }
+            if ($aid <= 0 || !IPS_VariableExists($vid) || !$this->isLogged($aid, $vid)) { continue; }
+            $rows = $this->aggregatedValuesQuiet($aid, $vid, 1, strtotime('-7 days'), $this->clampEnd(time()));
+            if (!is_array($rows) || count($rows) === 0) { continue; }
+            $maxPos = 0.0; $maxNeg = 0.0;
+            foreach ($rows as $r) {
+                $maxPos = max($maxPos, (float)$r['Max']);
+                $maxNeg = max($maxNeg, -(float)($r['Min'] ?? 0));
+            }
+            $checked++;
+            if (!$g['invert'] && $maxNeg > 0 && $maxNeg > 2 * $maxPos) {
+                $warn[] = $name . ': die Werte sind überwiegend negativ (stärkster Wert −' . round($maxNeg, 1) . ', höchster positiver ' . round($maxPos, 1) . ') – „Vorzeichen umkehren“ einschalten';
+            } elseif ($g['invert'] && $maxPos > 0 && $maxPos >= 2 * $maxNeg) {
+                $warn[] = $name . ': die Werte sind überwiegend positiv (höchster ' . round($maxPos, 1) . ', stärkster negativer −' . round($maxNeg, 1) . ') – „Vorzeichen umkehren“ ausschalten, sonst zählt die Erzeugung als 0';
+            }
+        }
+        if (count($warn) > 0) {
+            return "⚠️ Vorzeichen:\n• " . implode("\n• ", $warn);
+        }
+        if (count($inverted) > 0) {
+            return '✏️ Vorzeichen: bei ' . implode(', ', $inverted) . ' umgekehrt (eigene Angabe) – negative Erzeugung wird als Ertrag gelesen, ein positiver Wert (Standby-Bezug) als 0.';
+        }
+        return $checked > 0
+            ? '✅ Vorzeichen: Erzeugung wird positiv gemessen, nichts umzukehren.'
+            : 'ℹ️ Vorzeichen: noch keine auswertbaren Archivdaten – Erzeugung wird als positiver Wert erwartet; bei negativer Zählweise „Vorzeichen umkehren“ einschalten.';
     }
 
     /**
@@ -1918,6 +1965,9 @@ class PVPrognose extends IPSModule
                     'factor'   => (float)($row['Factor'] ?? 1.0),
                     // Selbstkalibrierung je Generator (fehlt = an → rückwärtskompatibel).
                     'calibrate'=> (bool)($row['Calibrate'] ?? true),
+                    // Vorzeichen der gemessenen Leistung umkehren (fehlt = aus → rückwärtskompatibel): manche
+                    // Wechselrichter/Zähler zählen die Erzeugung negativ (Forum power1625, 19.10.2026).
+                    'invert'   => (bool)($row['Invert'] ?? false),
                     // Modul-Metadaten (nur für externe Nutzung, z.B. InverterHub).
                     // Fläche je Modul aus Länge × Breite (mm → m²); Fallback: früher
                     // direkt eingetragene Fläche (ModuleArea, ältere Beta-Konfig).
@@ -2520,9 +2570,28 @@ class PVPrognose extends IPSModule
         $rows  = $this->aggregatedValuesQuiet($aid, $varID, 0, $start, $end); // stündlich
         if (!is_array($rows) || count($rows) === 0) { return null; }
         $f  = $this->varPowerFactor($varID); // Einheit → W
+        $inv = $this->powerVarInverted($varID);
         $wh = 0.0;
-        foreach ($rows as $r) { $wh += (float)$r['Avg'] * $f; } // Ø-W × 1 h = Wh
+        foreach ($rows as $r) { $wh += $this->signedWatts((float)$r['Avg'] * $f, $inv); } // Ø-W × 1 h = Wh
         return $wh / 1000.0;
+    }
+
+    /** Ist die gemessene Leistung dieser Variable bei einem Generator als „Vorzeichen umkehren" markiert? */
+    private function powerVarInverted(int $vid): bool
+    {
+        foreach ($this->pvGenerators() as $g) {
+            if ($g['powervar'] === $vid && $g['invert']) { return true; }
+        }
+        return false;
+    }
+
+    /**
+     * Gemessene Leistung (W) im Erzeugungs-Vorzeichen: bei umgekehrter Variable wird negative Erzeugung positiv,
+     * ein positiver Wert (Standby-Bezug nachts) wird zu 0 — kein Ertrag.
+     */
+    private function signedWatts(float $w, bool $invert): float
+    {
+        return $invert ? max(0.0, -$w) : $w;
     }
 
     /**
@@ -2725,6 +2794,7 @@ class PVPrognose extends IPSModule
             $rows = $this->aggregatedValuesQuiet($aid, $vid, 0 /* stündlich */, $start, $end);
             if (!is_array($rows) || count($rows) === 0) { continue; }
             $f = $this->varPowerFactor($vid);
+            $inv = $this->powerVarInverted($vid);
             // Je Generator erst sauber auf 0..23 Stunden bringen (Kollision
             // bei Zeitumstellung Oktober behandeln: Wanduhr-Stunde 2 kommt
             // real ZWEIMAL vor, date('G') liefert für beide "2" — gemittelt
@@ -2736,7 +2806,7 @@ class PVPrognose extends IPSModule
             foreach ($rows as $r) {
                 $h = (int)date('G', $r['TimeStamp']);
                 if ($h < 0 || $h >= 24) { continue; }
-                $v = (float)$r['Avg'] * $f;
+                $v = $this->signedWatts((float)$r['Avg'] * $f, $inv);
                 if ($hits[$h] > 0) { $genHourly[$h] = ($genHourly[$h] * $hits[$h] + $v) / ($hits[$h] + 1); }
                 else { $genHourly[$h] = $v; }
                 $hits[$h]++;
@@ -2853,7 +2923,9 @@ class PVPrognose extends IPSModule
             $rows = $this->aggregatedValuesQuiet($aid, $vid, 1, strtotime('-7 days'), $this->clampEnd(time()));
             if (is_array($rows) && count($rows) > 0) {
                 $max = 0.0;
-                foreach ($rows as $r) { $max = max($max, (float)$r['Max']); }
+                // Betrag des Extremwerts: bei negativer Erzeugung (Vorzeichen umkehren) ist das Tagesminimum der
+                // große Wert, das Maximum nur der kleine Standby-Bezug.
+                foreach ($rows as $r) { $max = max($max, (float)$r['Max'], abs((float)($r['Min'] ?? 0))); }
                 if ($max > 0 && $max < 100) { return ['factor' => 1000.0, 'source' => 'magnitude', 'detail' => (string)round($max, 1)]; }
                 if ($max >= 100) { return ['factor' => 1.0, 'source' => 'magnitude', 'detail' => (string)round($max)]; }
             }

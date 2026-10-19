@@ -264,7 +264,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Je Dachfläche/MPP-Tracker eine Zeile mit Neigung, Azimut und kWp. Azimut: 0=Süd, −90=Ost, +90=West, ±180=Nord. Sie werden zur Gesamt-PV summiert. PowerVar (gemessene Leistung, archiviert) wird nur für die Selbstkalibrierung gebraucht; SolcastID nur bei Solcast. Spalte „Kalibrieren\": für einen abgeregelten Generator (DC-MPPT mit Limit) abschalten → reines Potenzial. Module (Anzahl) sowie Modullänge/-breite (mm) fließen nicht in die Prognose ein, sondern ergeben die Gesamtfläche (Anzahl × Länge × Breite, Statusvariable „Modulfläche gesamt\") — u. a. für das Modul InverterHub (PVF_GetModuleArea)."
+                    "caption": "Je Dachfläche/MPP-Tracker eine Zeile mit Neigung, Azimut und kWp. Azimut: 0=Süd, −90=Ost, +90=West, ±180=Nord. Sie werden zur Gesamt-PV summiert. PowerVar (gemessene Leistung, archiviert) wird nur für die Selbstkalibrierung gebraucht; meldet dein Wechselrichter die Erzeugung negativ, schalte in der Spalte „Vorzeichen umkehren“ ein; SolcastID nur bei Solcast. Spalte „Kalibrieren\": für einen abgeregelten Generator (DC-MPPT mit Limit) abschalten → reines Potenzial. Module (Anzahl) sowie Modullänge/-breite (mm) fließen nicht in die Prognose ein, sondern ergeben die Gesamtfläche (Anzahl × Länge × Breite, Statusvariable „Modulfläche gesamt\") — u. a. für das Modul InverterHub (PVF_GetModuleArea)."
                 },
                 {
                     "type": "List",
@@ -380,6 +380,15 @@
                             }
                         },
                         {
+                            "caption": "Vorzeichen umkehren",
+                            "name": "Invert",
+                            "width": "150px",
+                            "add": false,
+                            "edit": {
+                                "type": "CheckBox"
+                            }
+                        },
+                        {
                             "caption": "Solcast-ID",
                             "name": "SolcastId",
                             "width": "180px",
@@ -403,6 +412,25 @@
                                     {
                                         "type": "Label",
                                         "caption": "Ausschalten bei einem ABGEREGELTEN Generator — z. B. ein DC-MPPT-Laderegler mit Strom- oder Spannungslimit, oder ein Generator, der bei voller Batterie abgeregelt wird. Die gemessene Leistung ist dort künstlich gedrosselt und würde die Selbstkalibrierung dauerhaft zu klein lernen lassen (die Prognose zeigt dann weniger, als wetterbedingt möglich wäre). Für einen frei einspeisenden Generator (z. B. AC-gekoppelt ohne Limit) bleibt „Kalibrieren\" an — dort passt die Kalibrierung normal."
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+                },
+                {
+                    "type": "RowLayout",
+                    "items": [
+                        {
+                            "type": "PopupButton",
+                            "caption": "Wann „Vorzeichen umkehren“ einschalten?",
+                            "width": "480px",
+                            "popup": {
+                                "caption": "Wann „Vorzeichen umkehren“ einschalten?",
+                                "items": [
+                                    {
+                                        "type": "Label",
+                                        "caption": "Einschalten, wenn dein Wechselrichter oder Zähler die Erzeugung NEGATIV meldet (z. B. −3000 W bei 3 kW Erzeugung, und nachts ein kleiner positiver Standby-Bezug). Das Modul liest die Leistung dann mit umgekehrtem Vorzeichen als Ertrag; ein positiver Wert (Standby-Bezug) zählt als 0. Liefert die Variable die Erzeugung positiv (der Normalfall), bleibt der Haken aus. Die Statuszeile „Vorzeichen“ unter „Selbstkalibrierung“ sagt dir, ob die Werte der letzten 7 Tage dazu passen."
                                     }
                                 ]
                             }
@@ -460,6 +488,11 @@
                     "minimum": 7,
                     "maximum": 90,
                     "suffix": " d"
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusSign",
+                    "caption": "Vorzeichen: wird beim Öffnen des Formulars geprüft …"
                 },
                 {
                     "type": "Label",
