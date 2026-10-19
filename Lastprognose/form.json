@@ -31,7 +31,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Temperaturvorhersage: Auto findet eine OpenWeatherData-Instanz (demel42) selbst — dort muss die Stundenvorhersage aktiviert sein (hourly_forecast_count > 0). Bei mehreren OWM-Instanzen die gewünschte im Panel explizit wählen (sonst wird die erste genommen). Alternativ Tagesmittel-Variablen oder Ident-Muster für andere Wettermodule. Ohne Quelle: saisonales Normal aus dem Archiv (Klimatologie). Wichtig: es zählt das TAGESMITTEL."
+                    "caption": "Temperaturvorhersage: Auto findet eine OpenWeatherData-Instanz (demel42) selbst — dort muss die Stundenvorhersage aktiviert sein (hourly_forecast_count > 0). Gibt es keine OpenWeatherData-Instanz oder liefert sie keine Stundenvorhersage, nimmt Auto die Temperaturvorhersage einer PVPrognose-Instanz (Open-Meteo, ab Build 152). Bei mehreren OWM-Instanzen die gewünschte im Panel explizit wählen (sonst wird die erste genommen). Alternativ Tagesmittel-Variablen oder Ident-Muster für andere Wettermodule. Ohne Quelle: saisonales Normal aus dem Archiv (Klimatologie). Wichtig: es zählt das TAGESMITTEL."
                 },
                 {
                     "type": "Label",
@@ -515,7 +515,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Separate Tagesprognose je Gerät via Temperaturregression. Heizen: kWh = a + b·Heizgrad. Kühlen: kWh = a + c·Kühlgrad. Beides (Luft-Luft-WP/Klima): V-Kurve a + b·Heizgrad + c·Kühlgrad. Benötigt Geräte-Leistung (W) + Außentemperatur im Archiv."
+                    "caption": "Tagesprognose je Gerät via Temperaturregression. Heizen: kWh = a + b·Heizgrad. Kühlen: kWh = a + c·Kühlgrad. Beides (Luft-Luft-WP/Klima): V-Kurve a + b·Heizgrad + c·Kühlgrad. Benötigt Geräte-Leistung (W) + Außentemperatur im Archiv. Mit dem Schalter unten fließt der Geräteanteil in die Prognose ein: Gesamtverbrauch = Grundlast (ohne die Geräte gelernt) + Geräte (Tages-kWh aus der Regression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression). Die Geräte werden dafür beim Lernen der Grundlast automatisch abgezogen, auch wenn sie nicht in der Abzugsliste stehen."
                 },
                 {
                     "type": "List",
@@ -557,6 +557,11 @@
                             }
                         }
                     ]
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "LFC_WPInForecast",
+                    "caption": "Wärmepumpe/Klima in die Prognose einrechnen (Gesamtverbrauch = Grundlast + Geräte)"
                 },
                 {
                     "type": "NumberSpinner",

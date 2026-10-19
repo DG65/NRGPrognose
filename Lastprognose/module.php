@@ -23,8 +23,8 @@ define('LFC_ARCHIVE_GUID', '{43192F0B-135B-4CE7-A0A7-1475603F3060}');
 // Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
 // Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
 // (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
-define('LFC_CONTRACT_FORECAST', '1.2'); // GetForecast / GetSnapshot (1.2: +generated)
-define('LFC_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+define('LFC_CONTRACT_FORECAST', '1.3'); // GetForecast / GetSnapshot (1.2: +generated; 1.3: +wpIncluded/kwhBase/kwhWp/base/wp, siehe computeForecast)
+define('LFC_CONTRACT_ENERGYWINDOW', '1.2'); // GetEnergyWindow (1.2: +wpIncluded/kwhWp)
 
 // Horizont: gültige Offsets für GetForecast() sind 0..LFC_MAX_OFFSET (0=heute).
 // Deckungsgleich mit PVF_MAX_OFFSET. Grenze kommt vom Auto-Temperaturvorhersage-
@@ -39,6 +39,7 @@ define('LFC_EMS_GUID', '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}');
 // OpenWeatherData (demel42) — für den Auto-Modus der Temperaturvorhersage.
 // GUID stabil über alle Installationen; Instanz wird zur Laufzeit gesucht.
 define('LFC_OWM_GUID',      '{8072158E-53BF-482A-B925-F4FBE522CEF2}');
+define('LFC_PVF_GUID',      '{257DD4E8-9705-462E-89FC-56D0A1038353}'); // PVPrognose: Temperaturvorhersage als zweite Quelle (PVF_GetTemperatureForecast)
 define('LFC_OWM_IDENT_TIME','HourlyForecastBegin_%02d');
 define('LFC_OWM_IDENT_MIN', 'HourlyForecastTemperatureMin_%02d');
 define('LFC_OWM_IDENT_MAX', 'HourlyForecastTemperatureMax_%02d');
@@ -95,6 +96,11 @@ class Lastprognose extends IPSModule
     private $poolEvents = null;
     // Anzahl der im letzten computeForecast() wegen Sondereffekt zurückgestellten Kandidatentage — für die Status-Zeile.
     private $poolExcluded = 0;
+    // Temperaturabhängige Geräte (Build 152): Tageshistorie je Variable und Regressionsmodell je Variable|Modus, request-lokal.
+    private $wpHistCache = [];
+    private $wpModelCache = [];
+    // Grundlast-p50 je Offset aus dem letzten computeForecast() (vor dem Geräteanteil) — für die Residuen-Basis im Snapshot.
+    private $baseP50 = [];
 
     // Bibliotheks-GUID (aus library.json "id", NICHT die Modul-GUID) — für
     // VersionLabel() im Doku-Panel (SUITE.md „Einheitliche Formular-Optik").
@@ -111,8 +117,10 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.20 (Build 126)';
+    private const NEWS_VERSION = '0.21 (Build 152)';
     private const NEWS_ITEMS = [
+        '🌡️ Wärmepumpe und Klima jetzt in der Prognose (Rückmeldung EMS, Live-Messung auf dem Haus von Dietmar): Bisher stand in der Prognose nur die Grundlast, die Geräte aus der Liste „Temperaturabhängige Geräte“ liefen getrennt in den Variablen „LFC_WPkWh…“ mit. Jetzt ist die Prognose Grundlast PLUS Geräte: Tages-kWh aus der Temperaturregression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression. Die Geräte werden beim Lernen der Grundlast automatisch abgezogen. Wer das nicht möchte, schaltet den neuen Schalter unter „Temperaturabhängige Geräte“ aus. Neue, additive Felder in der Prognose: wpIncluded, kwhBase, kwhWp, base, wp.',
+        '🔗 Temperaturvorhersage automatisch von der PVPrognose (Open-Meteo), wenn keine OpenWeatherData-Instanz mit Stundenvorhersage da ist, statt gleich auf das saisonale Normal zurückzufallen. Die Statuszeile zeigt, woher die Temperatur kommt.',
         '🔗 Hausverbrauch automatisch: Bleibt das Feld „Hausverbrauch“ leer und gibt es genau einen MeterHub-Zähler mit der Funktion „Hausverbrauch“ (gemessene Leistung, archiviert, aktuell), übernimmt die Lastprognose dessen Leistung selbst — das Formular zeigt Zähler und Variable. Bei mehreren Zählern wird nichts geraten, eine eigene Variable hat immer Vorrang. Eine bestehende Einstellung bleibt unverändert.',
         '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die OpenWeatherData-Instanz ist bei genau einer Instanz und leerem Feld ausgeblendet und als „🔗 automatisch übernommen“ mit den erhaltenen Tagesmitteln zu sehen. Die Einheit (W/kW) zeigt je Variable, woher sie stammt; das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eigene Angaben (✏️) haben Vorrang, die Zeilen folgen der Auswahl sofort. Der Hausverbrauch wird nicht automatisch ermittelt und bleibt immer ein Eingabefeld.',
         '🧹 Sondertage bleiben aus dem Lernmaterial: Mit einem NRG-Stack-EMS werden Tage, an denen ein externer Eingriff den Verbrauch verfälscht hat (z. B. Grid-Rewards- oder Boost-Ladung, §14a-Lastbegrenzung), nicht mehr für die Ähnliche-Tage-Suche verwendet, statt nur aus der Prognosegüte herausgerechnet zu werden. Ereignisse, die nur die PV-Erzeugung betreffen (Negativpreis), zählen hier nicht. Reicht die saubere Historie nicht für k Nachbarn, werden Sondertage aufgefüllt. Ohne EMS ändert sich nichts.',
@@ -198,6 +206,9 @@ class Lastprognose extends IPSModule
         // ── Temperaturabhängige Geräte (optional, separate Prognose) ─
         // Liste je Gerät: { "PowerVar": <id>, "Mode": 0=Heizen|1=Kühlen|2=beides }.
         $this->RegisterPropertyString('WPDevices',           '[]');
+        // Wärmepumpe/Klima (WPDevices) in p10/p50/p90/mean/kwh einrechnen: Grundlast (ohne die Geräte gelernt) + Geräte-Prognose
+        // aus Temperaturregression und Tagesprofil. Aus = Verhalten wie vor Build 152 (nur Grundlast, Geräte getrennt in LFC_WPkWh*).
+        $this->RegisterPropertyBoolean('LFC_WPInForecast',   true);
         $this->RegisterPropertyFloat('LFC_CDD_Base',         22.0);
         // Legacy-Einzelfeld (vor 0.3) — bleibt als Fallback erhalten.
         $this->RegisterPropertyInteger('VAR_WP_Power',       0);
@@ -658,6 +669,8 @@ class Lastprognose extends IPSModule
             : 'es gilt die Heizgrenztemperatur, weil auch keine Außentemperatur-Historie gewählt ist';
 
         if (count($list) === 0) {
+            $pvf = $this->pvfTemperatures();
+            if ($pvf !== null) { return $this->pvfTemperatureLine($pvf, ''); }
             return 'ℹ️ Temperaturvorhersage: keine OpenWeatherData-Instanz gefunden – ' . $fallback . '.';
         }
         $sel = $this->selectedInt('LFC_OwmInstance');
@@ -678,12 +691,25 @@ class Lastprognose extends IPSModule
             $warn .= ' Es gibt ' . count($list) . ' OpenWeatherData-Instanzen und keine ist gewählt, deshalb wird die erste genommen – bitte die passende festlegen.';
         }
         if (count($days) === 0) {
+            $pvf = $this->pvfTemperatures();
+            if ($pvf !== null) { return $this->pvfTemperatureLine($pvf, ' (OpenWeatherData-Instanz “' . IPS_GetName($owm) . '” liefert keine Stundenvorhersage)'); }
             return '⚠️ ' . $head . ', aber ohne Stundenvorhersage – dort „hourly_forecast_count“ auf mindestens 40 setzen (voller 5-Tage-Horizont); bis dahin: ' . $fallback . '.' . $warn;
         }
         $sample = [];
         foreach ($days as $off => $t) { $sample[] = ($off === 0 ? 'heute' : '+' . $off . ' T') . ' ' . number_format((float)$t, 1, ',', '') . ' °C'; }
         $line = $head . '. Werte: Tagesmittel für ' . count($days) . ' von 5 Tagen (' . implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '') . ').' . $warn;
         return ($warn !== '' ? '⚠️ ' : ($chosen ? '✏️ ' : '🔗 ')) . $line;
+    }
+
+    /** Statuszeile, wenn die Temperaturvorhersage von der PVPrognose kommt. */
+    private function pvfTemperatureLine(array $pvf, string $note): string
+    {
+        $sample = [];
+        foreach ($pvf['days'] as $off => $t) {
+            if ($t !== null) { $sample[] = ($off === 0 ? 'heute' : '+' . $off . ' T') . ' ' . number_format((float)$t, 1, ',', '') . ' °C'; }
+        }
+        return '🔗 Temperaturvorhersage: automatisch übernommen von PVPrognose “' . IPS_GetName($pvf['id']) . '” (#' . $pvf['id'] . ', Open-Meteo)'
+            . $note . '. Werte: Tagesmittel für ' . count($sample) . ' von 5 Tagen (' . implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '') . ').';
     }
 
     /** Wallboxen der Hubs: Schalter, was erkannt und abgezogen wird. */
@@ -962,6 +988,7 @@ class Lastprognose extends IPSModule
             if (count($stale) > 0) {
                 $status .= ' | ⚠️ ' . implode(' · ', $stale);
             }
+            $status .= $this->wpNotice($fcs[0] ?? null);
             $status .= $this->wallboxNotices();
             if ($this->ReadPropertyInteger('VAR_Consumption') <= 0 && $this->detectedConsumption()['state'] === 'auto') {
                 $e = $this->detectedConsumption()['usable'][0];
@@ -981,6 +1008,19 @@ class Lastprognose extends IPSModule
             $this->log(LFC_LOG_BASIC, 'Fehler: ' . $e->getMessage());
             return $msg;
         }
+    }
+
+    /**
+     * Statushinweis zum Geräteanteil (Wärmepumpe/Klima) im Rebuild-Status: eingerechnet (mit kWh heute) oder
+     * Warnung, wenn Geräte konfiguriert sind, aber keine Regression möglich war. Leer ohne Geräte oder bei Schalter aus.
+     */
+    private function wpNotice($todayFc): string
+    {
+        if (!$this->wpInForecast()) { return ''; }
+        if (is_array($todayFc) && !empty($todayFc['wpIncluded'])) {
+            return sprintf(' | 🌡️ inkl. Wärmepumpe/Klima: heute %.1f kWh (Grundlast %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0);
+        }
+        return ' | ⚠️ Wärmepumpe/Klima nicht in der Prognose: zu wenig Archivdaten (Leistung und Außentemperatur) für die Temperaturregression';
     }
 
     /**
@@ -1101,23 +1141,50 @@ class Lastprognose extends IPSModule
         // Band (und optional Pegel) aus den gemessenen Prognosefehlern ableiten.
         list($p10, $p50, $p90, $mean) = $this->applyResiduals($p10, $p50, $p90, $mean);
 
+        // Grundlast festhalten (vor dem Geräteanteil): Basis der Residuen im Snapshot.
+        $round1 = function ($x) { return round($x, 1); };
+        $this->baseP50[$offset] = array_map($round1, $p50);
+        $kwhBase = array_sum($mean) * $this->slotHours() / 1000.0;
+        $baseMean = $mean;
+
+        // Wärmepumpe/Klima einrechnen (Build 152): Grundlast (ohne die Geräte gelernt) + Geräteanteil aus Temperaturregression
+        // und Tagesprofil. Das Band addiert die Bänder der Teile (konservativ: nimmt an, dass beide gleichzeitig daneben liegen).
+        $wp = $this->wpInForecast() ? $this->wpForecastProfile($offset) : null;
+        if ($wp !== null) {
+            for ($i = 0; $i < $slots; $i++) {
+                $p10[$i]  += $wp['p10'][$i];
+                $p50[$i]  += $wp['p50'][$i];
+                $p90[$i]  += $wp['p90'][$i];
+                $mean[$i] += $wp['mean'][$i];
+            }
+        }
+
         // Ø-Leistung (W) je Slot → Energie mit Slot-Dauer in Stunden.
         $kwh = array_sum($mean) * $this->slotHours() / 1000.0;
 
-        return [
+        $fc = [
             'contractVersion' => LFC_CONTRACT_FORECAST,
             'date'      => date('Y-m-d', $targetTs),
             'slots'     => $slots,
             'resolution'=> $this->slotMinutes() . 'min',
             'unit'      => 'W',
-            'p10'       => array_map(function ($x) { return round($x, 1); }, $p10),
-            'p50'       => array_map(function ($x) { return round($x, 1); }, $p50),
-            'p90'       => array_map(function ($x) { return round($x, 1); }, $p90),
-            'mean'      => array_map(function ($x) { return round($x, 1); }, $mean),
+            'p10'       => array_map($round1, $p10),
+            'p50'       => array_map($round1, $p50),
+            'p90'       => array_map($round1, $p90),
+            'mean'      => array_map($round1, $mean),
             'kwh'       => round($kwh, 2),
             'neighbors' => count($neighbors),
             'generated' => time(),
+            // Vertrag 1.3 (additiv): wpIncluded=true heißt, p10/p50/p90/mean/kwh enthalten den Geräteanteil (Wärmepumpe/Klima).
+            'wpIncluded' => ($wp !== null),
         ];
+        if ($wp !== null) {
+            $fc['kwhBase'] = round($kwhBase, 2);                       // Grundlast (kWh)
+            $fc['kwhWp']   = round($wp['kwh'], 2);                      // Geräteanteil (kWh)
+            $fc['base']    = array_map($round1, $baseMean);             // Grundlast, Ø-Leistung je Slot (W)
+            $fc['wp']      = array_map($round1, $wp['mean']);           // Geräteanteil, Ø-Leistung je Slot (W)
+        }
+        return $fc;
     }
 
     public function GetStatusText()
@@ -1160,6 +1227,21 @@ class Lastprognose extends IPSModule
 
         $result['kwh'] = round($kwh, 3);
         $result['coverage'] = round($coveredSec / ($toTs - $fromTs), 3);
+
+        // Vertrag 1.2 (additiv): kwh enthält den Geräteanteil (Wärmepumpe/Klima), wenn die Tagesprognosen im Fenster ihn
+        // enthalten; kwhWp = der darin steckende Anteil. Ohne Geräteanteil: wpIncluded=false, kwhWp=0.
+        $wpAny = false;
+        list($kwhWp) = $this->integrateWindow(
+            $fromTs, $toTs, $this->slotMinutes(), strtotime('today'),
+            function (int $offset) use (&$wpAny) {
+                $fc = $this->GetForecast($offset);
+                if (!is_array($fc) || empty($fc['wpIncluded']) || !isset($fc['wp'])) { return null; }
+                $wpAny = true;
+                return ['mean' => $fc['wp'], 'neighbors' => $fc['neighbors'] ?? 0];
+            }
+        );
+        $result['wpIncluded'] = $wpAny;
+        $result['kwhWp'] = round($wpAny ? $kwhWp : 0.0, 3);
         return $result;
     }
 
@@ -1248,14 +1330,24 @@ class Lastprognose extends IPSModule
             if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1, 'load')) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
-            $prof = $this->getDayProfile($ts);
+            // Ziel passend zum Snapshot (Build 152): 'total' = Prognose enthielt den Geräteanteil → gegen den Gesamtverbrauch
+            // ohne Geräte-Abzug messen; 'base' = nur Grundlast; ohne Angabe = Stand vor Build 152 (nur Abzugsliste).
+            $target = $snaps[$date]['target'] ?? 'legacy';
+            $prof = $this->getDayProfile($ts, in_array($target, ['total', 'base'], true) ? $target : 'legacy');
             if ($prof === null) { continue; }
             $ist = array_sum($prof) * $this->slotHours() / 1000.0;
             if ($ist < 0.5) { continue; }
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
-            // Slot-Residuen nur bei gleicher Auflösung (Snapshot vs. heute).
-            $sp = $snaps[$date]['p50'] ?? null;
+            // Slot-Residuen nur bei gleicher Auflösung (Snapshot vs. heute). Sie gelten der GRUNDLAST (die Residuen-Korrektur
+            // wirkt in computeForecast() vor dem Geräteanteil): bei 'total' gegen die Grundlast-p50 und das Grundlast-Ist.
+            if ($target === 'total') {
+                $sp = $snaps[$date]['baseP50'] ?? null;
+                $prof = $this->getDayProfile($ts, 'base');
+                if ($prof === null) { continue; }
+            } else {
+                $sp = $snaps[$date]['p50'] ?? null;
+            }
             if (!is_array($sp) || count($sp) !== $slots || count($prof) !== $slots) { continue; }
             $maxS = max($sp);
             if ($maxS <= 0) { continue; }
@@ -1395,6 +1487,10 @@ class Lastprognose extends IPSModule
                 'resolution' => $fc['resolution'],
                 'p50'        => $fc['p50'],
                 'kwh'        => $fc['kwh'],
+                // Build 152: Ziel des Vergleichs ('total' = Gesamt inkl. Geräteanteil, 'base' = Grundlast mit abgezogenen
+                // Geräten) und die Grundlast-p50 für die Residuen. Fehlt 'target' (älterer Snapshot): Stand vor Build 152.
+                'target'     => !empty($fc['wpIncluded']) ? 'total' : 'base',
+                'baseP50'    => $this->baseP50[$offset] ?? $fc['p50'],
             ];
         }
 
@@ -1551,13 +1647,13 @@ class Lastprognose extends IPSModule
      * sodass die planbare Grundlast übrig bleibt.
      * Rückgabe null, wenn der Tag kaum Daten hat.
      */
-    private function getDayProfile(int $ts)
+    private function getDayProfile(int $ts, string $mode = 'base')
     {
         $slots = $this->slots();
         $main = $this->dayProfile($this->consumptionVar(), $ts);
         if ($main === null) { return null; }
 
-        foreach ($this->excludeVarIds() as $vid) {
+        foreach ($this->subtractVarIds($mode) as $vid) {
             $sub = $this->dayProfile($vid, $ts);
             if ($sub === null) { continue; }
             for ($s = 0; $s < $slots; $s++) {
@@ -1565,6 +1661,41 @@ class Lastprognose extends IPSModule
             }
         }
         return $main;
+    }
+
+    /**
+     * Abzuziehende Variablen je Ziel (Build 152):
+     *  'base'   = Grundlast: Abzugsliste plus (bei eingerechneter Wärmepumpe) die Geräte der Temperaturregression,
+     *             damit Welten mit und ohne Gerät sich im Lernmaterial nicht mischen,
+     *  'total'  = Gesamt für die Prognosegüte der eingerechneten Prognose: Abzugsliste OHNE die Geräte,
+     *  'legacy' = Stand vor Build 152 (nur Abzugsliste) für ältere Snapshots.
+     */
+    private function subtractVarIds(string $mode): array
+    {
+        $ids = $this->excludeVarIds();
+        if ($mode === 'legacy') { return $ids; }
+        $wp = $this->wpVarIds();
+        if ($mode === 'total') {
+            return array_values(array_filter($ids, function ($v) use ($wp) { return !in_array($v, $wp, true); }));
+        }
+        if ($this->wpInForecast()) {
+            foreach ($wp as $v) { if (!in_array($v, $ids, true)) { $ids[] = $v; } }
+        }
+        return $ids;
+    }
+
+    /** Variablen der temperaturabhängigen Geräte (WPDevices, bestehend), ohne Doppelte. */
+    private function wpVarIds(): array
+    {
+        $out = [];
+        foreach ($this->wpDevices() as $dev) { if (!in_array($dev['var'], $out, true)) { $out[] = $dev['var']; } }
+        return $out;
+    }
+
+    /** Geräteanteil wird eingerechnet: Schalter an UND mindestens ein Gerät mit Variable. */
+    private function wpInForecast(): bool
+    {
+        return $this->ReadPropertyBoolean('LFC_WPInForecast') && count($this->wpVarIds()) > 0;
     }
 
     /**
@@ -2146,9 +2277,36 @@ class Lastprognose extends IPSModule
                     }
                     $this->log(LFC_LOG_VERBOSE, 'OWM gefunden, aber keine Stundenvorhersage (aktiviert?)');
                 }
+                // Zweite Quelle (Build 152): Temperaturvorhersage der PVPrognose (Open-Meteo).
+                $pvf = $this->pvfTemperatures();
+                if ($pvf !== null) { return $pvf['days']; }
                 // Sonst leer lassen → Klimatologie übernimmt in forecastTemp.
                 return $this->emptyTempForecast();
         }
+    }
+
+    /**
+     * Temperaturvorhersage der PVPrognose (PVF_GetTemperatureForecast, Vertrag 1.0, Open-Meteo) als zweite Quelle
+     * nach OpenWeatherData, vor dem saisonalen Normal. Rückgabe ['id' => Instanz, 'days' => [Offset => Tagesmittel|null]]
+     * oder null (keine PVPrognose, Funktion fehlt, keine Werte, unbekannte Vertrags-Major).
+     * Hinter function_exists: ohne PVPrognose bleibt alles wie bisher (Eigenständigkeit).
+     */
+    private function pvfTemperatures()
+    {
+        if (!function_exists('PVF_GetTemperatureForecast')) { return null; }
+        $ids = IPS_GetInstanceListByModuleID(LFC_PVF_GUID);
+        if (!is_array($ids)) { return null; }
+        foreach ($ids as $id) {
+            $days = $this->emptyTempForecast();
+            $any = false;
+            for ($o = 0; $o <= LFC_MAX_OFFSET; $o++) {
+                try { $r = PVF_GetTemperatureForecast($id, $o); } catch (\Throwable $e) { continue 2; }
+                if (!is_array($r) || (int)explode('.', (string)($r['contractVersion'] ?? '1.0'))[0] !== 1) { continue 2; }
+                if (isset($r['mean']) && $r['mean'] !== null) { $days[$o] = (float)$r['mean']; $any = true; }
+            }
+            if ($any) { return ['id' => (int)$id, 'days' => $days]; }
+        }
+        return null;
     }
 
     /** [0=>null, 1=>null, ...] über den vollen Horizont — Fallback-Gerüst. */
@@ -2429,29 +2587,11 @@ class Lastprognose extends IPSModule
      */
     private function wpDeviceForecast(int $vid, int $mode, int $offset)
     {
-        $lookback = $this->ReadPropertyInteger('LFC_LookbackDays');
+        $model = $this->wpModel($vid, $mode);
+        if ($model === null) { return null; }
+
         $hBase    = $this->ReadPropertyFloat('LFC_HDD_Base');
         $cBase    = $this->ReadPropertyFloat('LFC_CDD_Base');
-
-        $X = []; $y = [];
-        for ($d = 1; $d <= $lookback; $d++) {
-            $ts   = strtotime('today -' . $d . ' days');
-            $prof = $this->dayProfile($vid, $ts);
-            $temp = $this->dailyMean($this->ReadPropertyInteger('VAR_TempHistory'), $ts);
-            if ($prof === null || $temp === null) { continue; }
-
-            $hdd = max(0.0, $hBase - $temp);
-            $cdd = max(0.0, $temp - $cBase);
-            $X[] = $this->wpFeatureRow($mode, $hdd, $cdd);
-            $y[] = array_sum($prof) * $this->slotHours() / 1000.0;
-        }
-
-        $need = ($mode === LFC_WP_BOTH) ? 20 : 10;
-        if (count($X) < $need) { return null; }
-
-        $coef = $this->fitLeastSquares($X, $y);
-        if ($coef === null) { return null; }
-
         $targetTs = strtotime('today +' . $offset . ' days');
         $temp     = $this->forecastTemp($targetTs);
         $hdd      = max(0.0, $hBase - $temp);
@@ -2459,8 +2599,128 @@ class Lastprognose extends IPSModule
         $row      = $this->wpFeatureRow($mode, $hdd, $cdd);
 
         $pred = 0.0;
-        foreach ($coef as $i => $b) { $pred += $b * $row[$i]; }
+        foreach ($model['coef'] as $i => $b) { $pred += $b * $row[$i]; }
         return max(0.0, $pred);
+    }
+
+    /**
+     * Tageshistorie eines Geräts über die Lookback-Tiefe: je Tag Tagesmitteltemperatur, Tages-kWh und Slot-Profil (W).
+     * Je Request einmal pro Variable (Build 152) — vorher las jede Gerätevorhersage die ganze Tiefe neu aus dem Archiv,
+     * fünfmal je Rebuild. Tage ohne Profil oder ohne Temperatur fehlen.
+     */
+    private function wpHistory(int $vid): array
+    {
+        if (isset($this->wpHistCache[$vid])) { return $this->wpHistCache[$vid]; }
+        $lookback = $this->ReadPropertyInteger('LFC_LookbackDays');
+        $tempVar  = $this->ReadPropertyInteger('VAR_TempHistory');
+        $rows = [];
+        for ($d = 1; $d <= $lookback; $d++) {
+            $ts   = strtotime('today -' . $d . ' days');
+            $prof = $this->dayProfile($vid, $ts);
+            $temp = $this->dailyMean($tempVar, $ts);
+            if ($prof === null || $temp === null) { continue; }
+            $rows[] = ['ts' => $ts, 't' => $temp, 'kwh' => array_sum($prof) * $this->slotHours() / 1000.0, 'prof' => $prof];
+        }
+        return $this->wpHistCache[$vid] = $rows;
+    }
+
+    /**
+     * Temperaturregression eines Geräts (Koeffizienten) plus Streuung der Tagesergebnisse: Verhältnis Ist/Regression
+     * an Tagen mit mindestens 2 kWh erwartetem Verbrauch (Quantile r10/r50/r90, begrenzt auf 0,3…3). Daraus entsteht das
+     * Unsicherheitsband des Geräteanteils. Rückgabe null bei zu wenig Daten oder singulärer Regression.
+     */
+    private function wpModel(int $vid, int $mode)
+    {
+        $key = $vid . '|' . $mode;
+        if (array_key_exists($key, $this->wpModelCache)) { return $this->wpModelCache[$key]; }
+
+        $hBase = $this->ReadPropertyFloat('LFC_HDD_Base');
+        $cBase = $this->ReadPropertyFloat('LFC_CDD_Base');
+        $X = []; $y = [];
+        foreach ($this->wpHistory($vid) as $row) {
+            $X[] = $this->wpFeatureRow($mode, max(0.0, $hBase - $row['t']), max(0.0, $row['t'] - $cBase));
+            $y[] = $row['kwh'];
+        }
+        $need = ($mode === LFC_WP_BOTH) ? 20 : 10;
+        $coef = (count($X) >= $need) ? $this->fitLeastSquares($X, $y) : null;
+        if ($coef === null) { return $this->wpModelCache[$key] = null; }
+
+        $ratios = [];
+        foreach ($X as $i => $row) {
+            $pred = 0.0;
+            foreach ($coef as $j => $b) { $pred += $b * $row[$j]; }
+            if ($pred >= 2.0) { $ratios[] = $y[$i] / $pred; }
+        }
+        sort($ratios);
+        if (count($ratios) >= 15) {
+            $r10 = $this->clampFactor($this->percentileOf($ratios, 0.10));
+            $r50 = $this->clampFactor($this->percentileOf($ratios, 0.50));
+            $r90 = $this->clampFactor($this->percentileOf($ratios, 0.90));
+        } else { // zu wenig Tage für eine Streuung: vorsichtiges Standardband
+            $r10 = 0.7; $r50 = 1.0; $r90 = 1.35;
+        }
+        return $this->wpModelCache[$key] = ['coef' => $coef, 'r10' => $r10, 'r50' => $r50, 'r90' => $r90, 'days' => count($X)];
+    }
+
+    /**
+     * Typisches Tagesprofil eines Geräts bei einer Temperatur: Mittel der auf Summe 1 normierten Slot-Profile der
+     * 7 Tage mit der ähnlichsten Tagesmitteltemperatur (nur Tage mit mindestens 0,2 kWh). Ohne solche Tage: gleichverteilt.
+     */
+    private function wpShape(int $vid, float $temp): array
+    {
+        $slots = $this->slots();
+        $cands = [];
+        foreach ($this->wpHistory($vid) as $row) {
+            if ($row['kwh'] < 0.2) { continue; }
+            $cands[] = ['d' => abs($row['t'] - $temp), 'prof' => $row['prof']];
+        }
+        if (count($cands) === 0) { return array_fill(0, $slots, 1.0 / $slots); }
+        usort($cands, function ($a, $b) { return $a['d'] <=> $b['d']; });
+        $use = array_slice($cands, 0, 7);
+        $shape = array_fill(0, $slots, 0.0);
+        foreach ($use as $c) {
+            $sum = array_sum($c['prof']);
+            if ($sum <= 0) { continue; }
+            for ($i = 0; $i < $slots; $i++) { $shape[$i] += $c['prof'][$i] / $sum; }
+        }
+        $tot = array_sum($shape);
+        if ($tot <= 0) { return array_fill(0, $slots, 1.0 / $slots); }
+        foreach ($shape as $i => $v) { $shape[$i] = $v / $tot; }
+        return $shape;
+    }
+
+    /**
+     * Geräteanteil für $offset: Summe über alle Geräte aus Regression (Tages-kWh) × Tagesprofil, Band aus der
+     * Streuung der Regression. Slots in W wie die Grundlast. Rückgabe null, wenn kein Gerät ein Modell hat
+     * (zu wenig Archivdaten) — dann bleibt die Prognose bei der Grundlast und es steht eine Warnung im Status.
+     * 'mean' = Erwartungswert der Regression, 'p50' = Median (Regression × r50).
+     */
+    private function wpForecastProfile(int $offset)
+    {
+        $slots    = $this->slots();
+        $targetTs = strtotime('today +' . $offset . ' days');
+        $temp     = $this->forecastTemp($targetTs);
+        $out = ['kwh' => 0.0, 'p10' => array_fill(0, $slots, 0.0), 'p50' => array_fill(0, $slots, 0.0),
+                'p90' => array_fill(0, $slots, 0.0), 'mean' => array_fill(0, $slots, 0.0)];
+        $any = false;
+        foreach ($this->wpDevices() as $dev) {
+            $model = $this->wpModel($dev['var'], $dev['mode']);
+            if ($model === null) { continue; }
+            $kwh = $this->wpDeviceForecast($dev['var'], $dev['mode'], $offset);
+            if ($kwh === null) { continue; }
+            $shape = $this->wpShape($dev['var'], $temp);
+            $wSum  = $kwh * 1000.0 / $this->slotHours(); // Summe der Slot-Leistungen (W), die genau diese Tages-kWh ergibt
+            for ($i = 0; $i < $slots; $i++) {
+                $m = $wSum * $shape[$i];
+                $out['mean'][$i] += $m;
+                $out['p50'][$i]  += $m * $model['r50'];
+                $out['p10'][$i]  += $m * $model['r10'];
+                $out['p90'][$i]  += $m * $model['r90'];
+            }
+            $out['kwh'] += $kwh;
+            $any = true;
+        }
+        return $any ? $out : null;
     }
 
     /** Feature-Zeile (mit Achsenabschnitt 1.0) je nach Betriebsart. */
@@ -2561,6 +2821,7 @@ class Lastprognose extends IPSModule
             'p10' => $zeros, 'p50' => $zeros, 'p90' => $zeros, 'mean' => $zeros,
             'kwh' => 0.0, 'neighbors' => 0,
             'generated' => $generated,
+            'wpIncluded' => false,
         ];
     }
 

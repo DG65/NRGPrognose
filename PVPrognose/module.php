@@ -40,6 +40,7 @@ define('PVF_SRC_SOLCAST',       2);
 define('PVF_CONTRACT_FORECAST',   '1.3'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated)
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+define('PVF_CONTRACT_TEMPERATURE', '1.0'); // GetTemperatureForecast (Außentemperatur-Tagesmittel, z. B. für die Lastprognose)
 // Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
 // Prognosegüte-Kennzahlen statt der bisherigen reinen Textausgabe in PVF_Accuracy.
 define('PVF_CONTRACT_ACCURACY', '1.2'); // GetAccuracy (1.1: +curveShape/slotLevelDays/slotLevelLegacyDays; 1.2: +factorBasis/levelCorrectionApplied)
@@ -264,6 +265,8 @@ class PVPrognose extends IPSModule
         $this->RegisterAttributeString('PVF_TransitionBand', '');
         // Letzter guter Kalibrierfaktor je Generator (PowerVar-ID → {f, ts}), Rückfall bei Abruf-Ausfall.
         $this->RegisterAttributeString('PVF_CalibCache', '');
+        // Außentemperatur-Vorhersage (Open-Meteo) für GetTemperatureForecast: {ts, lat, lon, days:{Y-m-d:[mean,min,max]}}.
+        $this->RegisterAttributeString('PVF_TempFc', '');
     }
 
     public function Destroy()
@@ -1241,6 +1244,68 @@ class PVPrognose extends IPSModule
             $sum += $g['modules'] * $g['modulearea'];
         }
         return round($sum, 2);
+    }
+
+    /**
+     * Außentemperatur-Vorhersage (Tagesmittel, Min, Max in °C) für $offset Tage (0 = heute, bis PVF_MAX_OFFSET).
+     * Für Verbraucher, die eine Temperaturprognose brauchen, ohne eine eigene Wetterquelle zu haben (Lastprognose:
+     * Wärmepumpe). Quelle immer Open-Meteo (kostenlos, ohne Schlüssel) an den Koordinaten dieser Instanz, unabhängig
+     * von der gewählten PV-Quelle; ein einziger kleiner Abruf, 3 Stunden zwischengespeichert, bei Ausfall bis 12 Stunden
+     * alter Stand. `mean` = null, wenn keine Vorhersage vorliegt (Aufrufer fällt auf seine eigene Quelle zurück).
+     * Vertrag PVF_CONTRACT_TEMPERATURE 1.0: {contractVersion, date, mean, min, max, source, generated}.
+     */
+    public function GetTemperatureForecast(int $offset): array
+    {
+        $date = date('Y-m-d', strtotime('today +' . max(0, $offset) . ' days'));
+        $out = ['contractVersion' => PVF_CONTRACT_TEMPERATURE, 'date' => $date, 'mean' => null, 'min' => null, 'max' => null,
+                'source' => 'open-meteo', 'generated' => 0];
+        if ($offset < 0 || $offset > PVF_MAX_OFFSET) { return $out; }
+        $cache = $this->temperatureCache();
+        if ($cache !== null && isset($cache['days'][$date])) {
+            list($mean, $min, $max) = $cache['days'][$date];
+            $out['mean'] = $mean; $out['min'] = $min; $out['max'] = $max; $out['generated'] = (int)$cache['ts'];
+        }
+        return $out;
+    }
+
+    /** Zwischengespeicherte Temperaturvorhersage; holt sie bei Bedarf neu (3 h gültig, bei Ausfall bis 12 h alter Stand). */
+    private function temperatureCache()
+    {
+        $lat = $this->ReadPropertyFloat('PVF_Latitude');
+        $lon = $this->ReadPropertyFloat('PVF_Longitude');
+        $c = json_decode((string)$this->ReadAttributeString('PVF_TempFc'), true);
+        $sameSite = is_array($c) && isset($c['ts'], $c['days'])
+            && abs((float)($c['lat'] ?? 0) - $lat) < 0.0001 && abs((float)($c['lon'] ?? 0) - $lon) < 0.0001;
+        $age = $sameSite ? (time() - (int)$c['ts']) : PHP_INT_MAX;
+        if ($sameSite && $age < 3 * 3600) { return $c; }
+
+        $url = sprintf(
+            'https://api.open-meteo.com/v1/forecast?latitude=%s&longitude=%s&hourly=temperature_2m'
+            . '&forecast_days=%d&timezone=auto&timeformat=unixtime',
+            rawurlencode((string)$lat), rawurlencode((string)$lon), PVF_MAX_OFFSET + 1
+        );
+        $j = $this->httpGetJson($url);
+        $times = (is_array($j) && isset($j['hourly']['time'])) ? $j['hourly']['time'] : null;
+        $temps = (is_array($j) && isset($j['hourly']['temperature_2m'])) ? $j['hourly']['temperature_2m'] : null;
+        if (is_array($times) && is_array($temps)) {
+            $byDay = [];
+            foreach ($times as $i => $t) {
+                if (!isset($temps[$i]) || $temps[$i] === null) { continue; }
+                $byDay[date('Y-m-d', (int)$t)][] = (float)$temps[$i];
+            }
+            $days = [];
+            foreach ($byDay as $d => $v) {
+                if (count($v) < 20) { continue; } // unvollständiger Tag (Abruf mitten im Tag liefert trotzdem 24 Werte; weniger = Lücke)
+                $days[$d] = [round(array_sum($v) / count($v), 2), round(min($v), 1), round(max($v), 1)];
+            }
+            if (count($days) > 0) {
+                $c = ['ts' => time(), 'lat' => $lat, 'lon' => $lon, 'days' => $days];
+                $this->WriteAttributeString('PVF_TempFc', json_encode($c));
+                return $c;
+            }
+        }
+        // Abruf fehlgeschlagen: alter Stand bis 12 h, sonst nichts.
+        return ($sameSite && $age < 12 * 3600) ? $c : null;
     }
 
     /**
