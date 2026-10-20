@@ -1320,6 +1320,9 @@ class Lastprognose extends IPSModule
         $ratios = [];   // Slot-Verhältnisse Ist/Soll → Residuen-Quantile
         $rDays  = 0;
         $excluded = 0;  // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
+        $snapDays = 0;  // Snapshot-Tage der letzten 14 Tage (für die Erklärung im Leer-Fall)
+        $noMeas   = 0;  // davon ohne Messwerte im Archiv (Hausverbrauch nicht archiviert / leer)
+        $lowMeas  = 0;  // davon mit gemessenem Verbrauch unter 0,5 kWh
 
         $specialEvents = $this->fetchSpecialEvents(14);
 
@@ -1327,6 +1330,7 @@ class Lastprognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
+            $snapDays++;
             if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1, 'load')) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
@@ -1334,9 +1338,9 @@ class Lastprognose extends IPSModule
             // ohne Geräte-Abzug messen; 'base' = nur Grundlast; ohne Angabe = Stand vor Build 152 (nur Abzugsliste).
             $target = $snaps[$date]['target'] ?? 'legacy';
             $prof = $this->getDayProfile($ts, in_array($target, ['total', 'base'], true) ? $target : 'legacy');
-            if ($prof === null) { continue; }
+            if ($prof === null) { $noMeas++; continue; }
             $ist = array_sum($prof) * $this->slotHours() / 1000.0;
-            if ($ist < 0.5) { continue; }
+            if ($ist < 0.5) { $lowMeas++; continue; }
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
             // Slot-Residuen nur bei gleicher Auflösung (Snapshot vs. heute). Sie gelten der GRUNDLAST (die Residuen-Korrektur
@@ -1368,7 +1372,15 @@ class Lastprognose extends IPSModule
             // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
             // erkennbar, ob Snapshots fehlen oder alle Tage ausgeschlossen
             // wurden (genau das verschleierte den Wrapper-Bug, s. fetchSpecialEvents()).
-            $txt = 'Noch keine auswertbaren Tage (Snapshots sammeln sich seit v0.14)';
+            // Grund nennen (Forum cbeham, 20.10.2026, dort PVPrognose): ohne Snapshots dauert es bis morgen, sonst fehlt die Messung.
+            if ($snapDays === 0) {
+                $txt = 'Noch keine auswertbaren Tage: es liegen noch keine Snapshots vor (sie entstehen bei jeder Neuberechnung für heute und morgen und werden am Folgetag mit der Messung verglichen)';
+            } else {
+                $why = [];
+                if ($noMeas > 0)  { $why[] = $noMeas . ' ohne Messwerte im Archiv (Hausverbrauch archiviert und mit Werten?)'; }
+                if ($lowMeas > 0) { $why[] = $lowMeas . ' mit gemessenem Verbrauch unter 0,5 kWh'; }
+                $txt = 'Noch keine auswertbaren Tage: ' . $snapDays . ' Snapshot-Tag(e) vorhanden' . (count($why) > 0 ? ', davon ' . implode(', ', $why) : '');
+            }
             if ($excluded > 0) {
                 $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
             }

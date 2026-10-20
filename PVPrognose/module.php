@@ -1477,6 +1477,9 @@ class PVPrognose extends IPSModule
         $excluded  = 0; // Tage mit Sondereffekt (EMS_GetSpecialEvents) ausgeschlossen
         $corrupted = 0; // Tage mit Archivstörung (gehaltener Messwert) ausgeschlossen
         $legacyDays = 0; // Tage mit älterer Kurvenform: zählen für Bias/MAPE, nicht für Slot-Residuen
+        $snapDays = 0;   // Snapshot-Tage der letzten 14 Tage (für die Erklärung im Leer-Fall)
+        $noMeas   = 0;   // davon ohne Messwerte im Archiv (PowerVar nicht archiviert / leer)
+        $lowMeas  = 0;   // davon mit gemessener Erzeugung unter 0,5 kWh
 
         $specialEvents = $this->fetchSpecialEvents(14);
 
@@ -1484,6 +1487,7 @@ class PVPrognose extends IPSModule
             $ts   = strtotime('today -' . $d . ' days');
             $date = date('Y-m-d', $ts);
             if (!isset($snaps[$date])) { continue; }
+            $snapDays++;
             if ($this->dayHasSpecialEvent($specialEvents, $ts, $this->dayEndExclusive($ts) - 1, 'pv')) { $excluded++; continue; }
             $soll = (float)($snaps[$date]['kwh'] ?? 0);
             if ($soll <= 0) { continue; }
@@ -1499,7 +1503,8 @@ class PVPrognose extends IPSModule
                 $k = $this->measuredKwh($vid, $ts);
                 if ($k !== null) { $ist += $k; $any = true; }
             }
-            if (!$any || $ist < 0.5) { continue; }
+            if (!$any) { $noMeas++; continue; }
+            if ($ist < 0.5) { $lowMeas++; continue; }
             $errs[] = ($soll - $ist) / $ist * 100.0;
 
             if ($prof === null) { continue; }
@@ -1536,7 +1541,16 @@ class PVPrognose extends IPSModule
             // Ausschluss-Zähler auch im Leer-Fall anzeigen — sonst ist nicht
             // erkennbar, ob Snapshots fehlen oder alle Tage ausgeschlossen
             // wurden (genau das verschleierte den Wrapper-Bug, s. fetchSpecialEvents()).
-            $txt = 'Noch keine auswertbaren Tage (Snapshots sammeln sich seit v0.14)';
+            // Grund nennen (Forum cbeham, 20.10.2026: nach Wochen immer noch "Snapshots sammeln sich", obwohl sie sich sammeln,
+            // nur die Messwerte fehlen): ohne Snapshots = es dauert bis morgen; mit Snapshots fehlt die Gegenseite.
+            if ($snapDays === 0) {
+                $txt = 'Noch keine auswertbaren Tage: es liegen noch keine Snapshots vor (sie entstehen bei jeder Neuberechnung für heute und morgen und werden am Folgetag mit der Messung verglichen)';
+            } else {
+                $why = [];
+                if ($noMeas > 0)  { $why[] = $noMeas . ' ohne Messwerte im Archiv (Leistungsvariable je Generator archiviert und mit Werten?)'; }
+                if ($lowMeas > 0) { $why[] = $lowMeas . ' mit gemessener Erzeugung unter 0,5 kWh'; }
+                $txt = 'Noch keine auswertbaren Tage: ' . $snapDays . ' Snapshot-Tag(e) vorhanden' . (count($why) > 0 ? ', davon ' . implode(', ', $why) : '');
+            }
             if ($excluded > 0) {
                 $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
             }
