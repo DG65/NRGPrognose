@@ -66,7 +66,7 @@ Idents waren durchgehend unangetastet.
   `.gitignore` bewusst nicht im Repo); Fixtures trotzdem nur mit generischen Koordinaten.
 - `library.json` darf **nur diese 8 Felder** enthalten (sonst lehnt der Module Store ab:
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
-  `compatibility` im Format `{"version": "7.0"}`.
+  `compatibility` im Format `{"version": "9.0"}` (seit Build 154 wie die übrigen Verbundmodule; `date` bei jedem Build auf den aktuellen Unix-Zeitstempel setzen).
 - **Build bei jeder Änderung hochzählen**, nie überschreiben.
 - **Branch `ems-integration`** (Verbund-Konvention, Dietmar 25.07.2026, identischer Name in allen
   Modul-Repos): Auffangbecken für riskante Fixes/Experimente aus der laufenden EMS-Anbindung, solange

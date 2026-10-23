@@ -2,7 +2,7 @@
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
 ![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
-![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
@@ -33,7 +33,7 @@ Beim Überfahren/Antippen werden Werte und Saldo zur Uhrzeit angezeigt.
 
 ## Voraussetzungen
 
-- IP-Symcon ab **7.0** (HTML-Tile-Visualisierung)
+- IP-Symcon ab **9.0** (HTML-Tile-Visualisierung)
 - Mindestens eine der beiden Prognose-Instanzen (Lastprognose und/oder PV-Prognose)
 - Für Ist-Werte: je eine archivierte Leistungsvariable (Einheit W/kW automatisch erkannt)
 - Internet auf dem Anzeigegerät (die Diagramm-Bibliothek wird per CDN geladen)

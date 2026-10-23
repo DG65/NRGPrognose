@@ -2,7 +2,7 @@
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
 ![Modul Version](https://img.shields.io/badge/Modul_Version-0.20--beta-blue)
-![Symcon Version](https://img.shields.io/badge/Symcon_Version-7.0%2B-blue)
+![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
@@ -24,7 +24,7 @@ Die Ähnlichkeit eines Tages wird aus **Tagtyp** (Werktag/Sa/So+Feiertag), **Tag
 
 ## Voraussetzungen
 
-- IP-Symcon ab **7.0**
+- IP-Symcon ab **9.0**
 - Eine **archivierte Leistungsvariable** des Hausverbrauchs (Watt oder Kilowatt – wird automatisch
   erkannt). Kein kWh-Zähler.
 - Optional, aber empfohlen: Außentemperatur (archiviert) und ein Anwesenheitssignal.

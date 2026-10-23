@@ -4,9 +4,9 @@
     "name": "NRG-Stack Prognose",
     "url": "https://github.com/DG65/NRGPrognose",
     "compatibility": {
-        "version": "7.0"
+        "version": "9.0"
     },
     "version": "0.21-beta",
-    "build": 153,
-    "date": 1789948800
+    "build": 154,
+    "date": 1792742908
 }
