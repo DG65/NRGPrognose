@@ -792,7 +792,7 @@ class PVPrognose extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'PVPrognose berechnet für die kommenden Tage aus Wetterdaten (Open-Meteo, Forecast.Solar oder Solcast) und den Daten deiner PV-Anlage eine physikbasierte Erzeugungsprognose mit Unsicherheitsband (P10/P50/P90) — und lernt aus dem Vergleich mit der tatsächlichen Erzeugung laufend dazu.'],
                 ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement, Batteriesteuerung oder ein Energiemanagement-System (EMS), ohne selbst aufs Wetter schauen zu müssen.'],
-                ['type' => 'Label', 'caption' => 'Für die Verbrauchsseite gehört Lastprognose dazu, für eine gemeinsame Übersicht beider Prognosen die Kachel Energiebilanz.'],
+                ['type' => 'Label', 'caption' => 'Für die Verbrauchsseite gehört Lastprognose dazu, für eine gemeinsame Übersicht beider Prognosen die Prognose-Kachel im NRG-Dashboard.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'PVF_AckPurposeIntro($id);'],
             ],
         ];

@@ -123,6 +123,6 @@ Generator** liefert `PVF_GetModuleAreas()` als Liste (`name`, `modules`, `length
 `areaPerModule`, `area`) – gedacht zur Übernahme durch das Modul **InverterHub**.
 
 Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *Lastprognose*
-und der *Energiebilanz*-Kachel.
+und der Prognose-Kachel im NRG-Dashboard.
 
 > **Teil des NRG-Stack** — dem Energie-Modulverbund von DG65 (Messen · Wissen · Entscheiden · Steuern · Zeigen). Welche Modulstände zusammen getestet sind, listet das [Manifest](https://github.com/DG65/NRGEMS/blob/main/SUITE.md).

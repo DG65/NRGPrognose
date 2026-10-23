@@ -39,7 +39,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Tipps: Auflösung deckungsgleich zur Lastprognose wählen (Energiebilanz-Kachel). Die Vorhersage wird alle paar Stunden neu geladen — Intervall 3–6 h reicht; Forecast.Solar nicht zu häufig abrufen (Rate-Limit)."
+                    "caption": "Tipps: Auflösung deckungsgleich zur Lastprognose wählen (Prognose-Kachel im NRG-Dashboard). Die Vorhersage wird alle paar Stunden neu geladen — Intervall 3–6 h reicht; Forecast.Solar nicht zu häufig abrufen (Rate-Limit)."
                 }
             ]
         },

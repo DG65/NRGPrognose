@@ -925,7 +925,7 @@ class Lastprognose extends IPSModule
             'items' => [
                 ['type' => 'Label', 'caption' => 'Lastprognose sagt für die kommenden Tage deinen Stromverbrauch voraus — aus deiner Verbrauchshistorie per Ähnliche-Tage-Verfahren (k-NN), berücksichtigt Wochentag, Jahreszeit, Außentemperatur und Anwesenheit.'],
                 ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement oder ein Energiemanagement-System (EMS), ganz ohne Wetterstation oder manuelles Schätzen.'],
-                ['type' => 'Label', 'caption' => 'Für die Erzeugungsseite gehört PVPrognose dazu, für eine gemeinsame Übersicht beider Prognosen die Kachel Energiebilanz.'],
+                ['type' => 'Label', 'caption' => 'Für die Erzeugungsseite gehört PVPrognose dazu, für eine gemeinsame Übersicht beider Prognosen die Prognose-Kachel im NRG-Dashboard.'],
                 ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'LFC_AckPurposeIntro($id);'],
             ],
         ];

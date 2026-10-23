@@ -2,8 +2,8 @@
 
 ## Was hier liegt
 
-Die **EnergiePrognose-Suite** für IP-Symcon mit drei Modulen. Dachmarke des Gesamtverbunds (10 Module)
-ist **NRG-Stack** (Dietmar, 23.07.2026); „DG65" bleibt Hersteller/Org. Unsere drei Module sind die
+Die **EnergiePrognose-Suite** für IP-Symcon mit zwei Modulen (die Kachel Energiebilanz ist seit Build 162 entfallen, Nachfolger: Prognose-Kachel `NRGDashboardForecast` im NRG-Dashboard). Dachmarke des Gesamtverbunds (10 Module)
+ist **NRG-Stack** (Dietmar, 23.07.2026); „DG65" bleibt Hersteller/Org. Unsere zwei Module sind die
 Prognose-Schicht („Wissen") innerhalb des NRG-Stack. Nur Doku/Anzeige — Idents/Verträge/Klassennamen
 unberührt.
 
@@ -11,12 +11,11 @@ unberührt.
 |---|---|---|---|
 | `Lastprognose/` | `Lastprognose` (unverändert; `NRGLastprognose` nur als Alias) | `LFC` | `{DC5AD508-507F-40EA-8630-0959AED83050}` |
 | `PVPrognose/` | `PVPrognose` (unverändert; `NRGPVPrognose` nur als Alias) | `PVF` | `{257DD4E8-9705-462E-89FC-56D0A1038353}` |
-| `Energiebilanz/` | `Energiebilanz` (unverändert; `NRGEnergiebilanz` nur als Alias) | `EFTILE` | `{481CBE19-C8D9-4B72-B13F-0D249006B709}` |
 
 **Modul-Umbenennung auf NRG-Präfix (Verbund-Konvention, Dietmar 25.07.2026) — `library.json`
 umgesetzt, `module.json`/Klasse NICHT.** `library.json name` → `NRGPrognose` (sicher, reines
 Anzeigefeld ohne Klassenbezug). `module.json name` je Submodul dagegen **unverändert** gelassen
-(`Lastprognose`/`PVPrognose`/`Energiebilanz`), der neue NRG-Name nur zusätzlich in `aliases`.
+(`Lastprognose`/`PVPrognose`), der neue NRG-Name nur zusätzlich in `aliases`.
 
 **Korrektur-Historie (25.07.2026, wichtig):** Ursprünglich hatten wir `module.json name` UND die
 PHP-Klasse konsistent auf `NRGLastprognose` usw. umgestellt (in der Annahme, das sei der sichere Weg,
@@ -58,7 +57,7 @@ Idents waren durchgehend unangetastet.
   Wetter-Zeitstempeln oder `GetEnergyWindow` `sommerzeit.php` (PV, echte Kurven beider Umstellungen)
   und `lastprognose_sommerzeit.php` (Lastprognose Ende-zu-Ende mit gestelltem Archiv) laufen lassen;
   vor Änderungen an Residuen/Kalibrierung/Abruf-Ausfall `lernschleife.php` und `ausfall.php`; vor Änderungen an
-  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, am automatischen Hausverbrauch (MeterHub `house`) `hausverbrauch.php`, an der Fehlerbehandlung um `AC_GetAggregatedValues` (defektes Archiv-Aggregat) `archivstoerung.php`, an der Solcast-Anbindung (Fehlerursachen) `solcast.php`, an Store-Review-Konventionen (`$this->LogMessage`, keine Presentation-Farbschlüssel, keine Variablenlöschung aus Fremdabfragen in `ApplyChanges`) `logging.php`, an der gemessenen Linie der Energiebilanz `istlinie.php`, am Vorzeichen der gemessenen Erzeugung (Spalte „Vorzeichen umkehren“, negative Zählweise) `vorzeichen.php`, am Geräteanteil der Lastprognose (Wärmepumpe/Klima, Temperaturquelle PVPrognose, `LFC_WPInForecast`) `waermepumpe.php`, an `PVF_GetTemperatureForecast` `temperaturvorhersage.php`, am Lernhinweis bei großer Abweichung (PVPrognose) `lernhinweis.php`, an der Meldung der Prognosegüte im Leer-Fall (PVPrognose) `prognosegute.php`, am wählbaren Formularaufbau (Panel „Formular: Aufbau“, SUITE.md 3a) `formularaufbau.php`, an der Suche nach Hub-Instanzen (Instanzen ohne geladenes Modul dürfen keine Warnung ins Formular schreiben) `modulfehlt.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
+  Abzugsliste/Wallbox-Erkennung `wallboxen.php`, an der Veraltet-Warnung `veraltet.php`, an Sondereffekt-Ausschluss (Lernmaterial/Kalibrierung, `affects`) `sondereffekte.php`, am automatischen Hausverbrauch (MeterHub `house`) `hausverbrauch.php`, an der Fehlerbehandlung um `AC_GetAggregatedValues` (defektes Archiv-Aggregat) `archivstoerung.php`, an der Solcast-Anbindung (Fehlerursachen) `solcast.php`, an Store-Review-Konventionen (`$this->LogMessage`, keine Presentation-Farbschlüssel, keine Variablenlöschung aus Fremdabfragen in `ApplyChanges`) `logging.php`, am Vorzeichen der gemessenen Erzeugung (Spalte „Vorzeichen umkehren“, negative Zählweise) `vorzeichen.php`, am Geräteanteil der Lastprognose (Wärmepumpe/Klima, Temperaturquelle PVPrognose, `LFC_WPInForecast`) `waermepumpe.php`, an `PVF_GetTemperatureForecast` `temperaturvorhersage.php`, am Lernhinweis bei großer Abweichung (PVPrognose) `lernhinweis.php`, an der Meldung der Prognosegüte im Leer-Fall (PVPrognose) `prognosegute.php`, am wählbaren Formularaufbau (Panel „Formular: Aufbau“, SUITE.md 3a) `formularaufbau.php`, an der Suche nach Hub-Instanzen (Instanzen ohne geladenes Modul dürfen keine Warnung ins Formular schreiben) `modulfehlt.php`, an Formular/Automatik-Erkennung (Statuszeilen, SUITE.md
   „Verbund-Verbindungen im Formular sichtbar machen“) `formularstatus.php`. Neue automatische Verbindung =
   neue benannte Label-Zeile in `form.json` + Builder in `connectionStatusLines()` + Prüfpunkt dort. Ersetzt die Zeile ein Eingabefeld (Wert kommt automatisch): 🔗 + `visible:false` bei leerem Feld, ✏️ bei eigener Angabe (sichtbar, Vorrang), nie den Auto-Wert ins Feld schreiben; `onChange` → `Preview…()` → `UpdateFormField`. Alle
   ohne IP-Symcon, müssen „ALLES GRÜN“ melden. Liegt lokal in `tools/` (per
@@ -268,15 +267,14 @@ eigenständige IPS-Variable vor (nur als `unit`-Feld in JSON-Nutzlasten) — kei
 
 ## Formular-Optik (Verbund-Standard, Dietmar 24.07.2026)
 
-Betrifft alle drei Formulare (Lastprognose/PVPrognose/Energiebilanz). Referenzimplementierung:
+Betrifft beide Formulare (Lastprognose/PVPrognose). Referenzimplementierung:
 InverterHub. Details/Wortlaut: lokale SUITE.md (siehe oben), Abschnitt
 „Einheitliche Formular-Optik".
 
 **PFLICHT-CHECK bei JEDEM Fix/Update** (nicht nur bei großen Releases, Ergänzung 24.07.2026): Bei
 jeder Änderung an einem der drei Module kurz prüfen — „gehört das ins Neu-Panel? Ändert sich die
 Versionsnummer im Doku-Panel? Braucht ein neues/geändertes Feld ein `🆕`-Präfix?" Ergebnis darf
-„nein" sein, aber die Prüfung selbst darf nicht ausfallen. Ein **vollständiger Umbau aller drei
-Formulare auf die Zielstruktur unten** bleibt trotzdem eine bewusste, angekündigte Aktion (nicht
+„nein" sein, aber die Prüfung selbst darf nicht ausfallen. Ein **vollständiger Umbau aller Formulare auf die Zielstruktur unten** bleibt trotzdem eine bewusste, angekündigte Aktion (nicht
 nebenbei in einem Bugfix-Commit) — bislang noch nicht durchgeführt.
 
 **Zielstruktur, Reihenfolge von oben:**

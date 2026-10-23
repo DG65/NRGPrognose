@@ -7,14 +7,15 @@
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-Energieprognose-Suite mit drei Bausteinen, die dem EMS beide Seiten der Energiebilanz
+Energieprognose-Suite mit zwei Bausteinen, die dem EMS beide Seiten der Energiebilanz
 1–5 Tage voraus liefern:
 
 - **Lastprognose** (Prefix `LFC`) — Verbrauchsprognose über ein Ähnliche-Tage-Verfahren (k-NN).
 - **PV-Prognose** (Prefix `PVF`) — physikbasierte PV-Erzeugungsprognose je Generator über eine
   Wetter-/Solar-API ([Details unten](#pv-prognose--pv-erzeugungsprognose)).
-- **Energiebilanz** (Prefix `EFTILE`) — kombinierte Kachel, die Erzeugung und Verbrauch
-  gemeinsam (oder per Schalter einzeln) zeigt.
+
+> Die frühere Kachel **Energiebilanz** (Prefix `EFTILE`) ist seit Build 162 entfallen. Ihr Nachfolger ist die
+> Prognose-Kachel im **NRG-Dashboard** (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store).
 
 ## Lastprognose — Verbrauchsprognose
 
@@ -139,8 +140,8 @@ $spread = array_sum($fc['p90']) - array_sum($fc['p10']);
 Das **Unsicherheitsband** (P10/P90) erlaubt risikobewusste Entscheidungen:
 bei großer Spreizung konservativer puffern, bei enger Spreizung optimistischer fahren.
 
-> Für die grafische Darstellung der Lastprognose dient die Kachel **Energiebilanz**
-> (siehe unten) mit dem Schalter „PV-Erzeugung anzeigen" = aus.
+> Für die grafische Darstellung der Lastprognose dient die Prognose-Kachel im **NRG-Dashboard**
+> (Modul `NRGDashboardForecast`) mit dem Schalter „PV-Erzeugung anzeigen" = aus.
 
 ## Ausbaustufen
 
@@ -184,36 +185,6 @@ liegt eine Prognose oft anders daneben als mittags. `PVF_GetAccuracy($id)` liefe
 Prognosegüte strukturiert (Bias/Fehlerquote/Tagesanzahl, je Tagesabschnitt) für externe
 Auswertungen; `PVF_GetIntradaySnapshot($id, 'Y-m-d', '06:00'|'10:00')` liefert zusätzliche
 untertägige Prognosestände.
-
-## Energiebilanz — kombinierte Kachel
-
-Zeigt **PV-Erzeugung und Verbrauch** als zwei P10/P50/P90-Bänder in einem Diagramm — der
-EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist Netzbezug/Einspeisung. Findet die PV- und die
-Last-Instanz automatisch per Modul-GUID. Per Schalter **„PV-Erzeugung anzeigen"** / **„Verbrauch
-anzeigen"** lässt sich dieselbe Kachel als kombinierte, reine PV- oder reine Verbrauchs-Ansicht
-nutzen. Hover/Touch zeigt PV-Wert, Verbrauch und **Saldo** zur jeweiligen Uhrzeit.
-
-Optional lassen sich **Ist-Werte** anbinden (momentane PV-Leistung und Hauslast in W): sie erscheinen
-live in der Legende und als Punkt auf der „jetzt"-Linie. Zusätzlich kann der **gemessene Tagesverlauf
-(heute)** als gestrichelte Linie über die Prognose gelegt werden — Prognose gegen Realität über den
-ganzen Tag. Im WebFront blendet ein **Klick auf einen Legendeneintrag** die jeweilige Reihe live
-aus/ein.
-
-**Diagramm-Engine wählbar:** **ECharts** (Apache-2.0, Default — auch kommerziell kostenlos) oder
-**Highcharts** (nur privat/nicht-kommerziell kostenlos). Beide bieten denselben Funktionsumfang und
-ein nahezu identisches Aussehen; geladen wird nur die gewählte Library per CDN.
-
-Konfigurierbar: kWh je Tag (2 Nachkommastellen), Diagrammhöhe, Linienstärke, Kurvenglättung,
-Unsicherheitsband (ein/aus + Transparenz), Gitter/Achsen, Y-Achse manuell, Farben, Schriftart und
-Schriftgröße; Standard ist theme-konform.
-
-> **Charting-Library:** Standardmäßig rendert die Kachel mit **ECharts** (Apache-2.0, auch
-> kommerziell kostenlos). Wahlweise lässt sich auf **Highcharts** umschalten, das per CDN
-> (`code.highcharts.com`) geladen wird — es ist **nicht** Teil dieses Repos. Highcharts ist für
-> **private, nicht-kommerzielle** Nutzung kostenlos; für kommerzielle Nutzung ist eine
-> Highcharts-Lizenz nötig (siehe [highcharts.com/license](https://www.highcharts.com/license)).
-> Beide Libraries werden per CDN geladen — im WebFront muss der Browser das jeweilige CDN
-> erreichen können.
 
 ## Verwandte Projekte
 
