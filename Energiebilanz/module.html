@@ -231,6 +231,9 @@
             var engine = (data.engine === 'highcharts') ? 'highcharts' : 'echarts';
             var el = document.getElementById('chart');
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
+            // Tagesbalken (Build 155): eigene Ansicht ohne Diagramm-Bibliothek, der Tagesstreifen entfällt dabei (sein CSS-Abstand ebenso)
+            var dayMode = (data.view === 'days');
+            daysEl.style.marginTop = dayMode ? '0' : '';
             if (!data.hasData || !data.days || !data.days.length) {
                 destroyChart();
                 legEl.style.display = 'none'; daysEl.style.display = 'none';
@@ -239,6 +242,7 @@
                 updateScrollHint();
                 return;
             }
+            if (dayMode) { destroyChart(); buildDayBars(); return; }
             ensureLib(engine, function () {
                 if (chart && chartEngine !== engine) { destroyChart(); }
                 chartEngine = engine;
@@ -595,6 +599,83 @@
         }
         function toggleSeries(w) { userHide[w] = !userHide[w]; render(); }
 
+
+        // ---- Tagesbalken (Build 155, Forum hfichtinger #94) --------------
+        // Ein Balken je Tag mit der Tagesenergie in kWh (PV und Verbrauch nebeneinander), zur schnellen Einschätzung.
+        // Reines HTML/CSS ohne Diagramm-Bibliothek (kein Laden aus dem Netz, beide Engines-Einstellungen unberührt).
+        // Heller Balken = Soll (Prognose), voller Balken darin = Ist bisher (heute) bzw. Ist des Tages (gestern).
+        function fmtKwh(v) { return (Math.round(v * 10) / 10).toFixed(1).replace('.', ','); }
+        function fmtKwh2(v) { return v.toFixed(2).replace('.', ','); }
+        function dayBarStep(maxV) {
+            var steps = [1, 2, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000, 2000, 5000];
+            for (var i = 0; i < steps.length; i++) { if (maxV / steps[i] <= 4) { return steps[i]; } }
+            return 10000;
+        }
+        function buildDayBars() {
+            var D = prepData(), el = document.getElementById('chart');
+            var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
+            // Legende nur mit den Prognose-Einträgen (Klick blendet aus); Linien und Momentanwerte gibt es in dieser Ansicht nicht
+            D.pvMeas = []; D.loMeas = []; D.actualPV = null; D.actualLoad = null;
+            if (D.showLegend) {
+                legEl.style.display = 'block'; renderLegend(legEl, D);
+                if (D.hasIst && D.showIstRow) {
+                    legEl.innerHTML += '<span style="margin-left:16px;color:' + D.MUTED + '">hell = Soll, voll = Ist bisher</span>';
+                }
+            } else { legEl.style.display = 'none'; legEl.innerHTML = ''; }
+            daysEl.style.display = 'none'; daysEl.innerHTML = '';
+            document.getElementById('yAxisOverlay').innerHTML = '';
+
+            var pvOn = D.pvPresent && !userHide.pv, loOn = D.loPresent && !userHide.load, showIst = D.hasIst && D.showIstRow;
+            var maxV = 0.5;
+            D.days.forEach(function (d) {
+                if (pvOn && d.pv) { maxV = Math.max(maxV, d.pv.kwh || 0); if (showIst && d.pvKwhIst != null) { maxV = Math.max(maxV, d.pvKwhIst); } }
+                if (loOn && d.load) { maxV = Math.max(maxV, d.load.kwh || 0); if (showIst && d.loKwhIst != null) { maxV = Math.max(maxV, d.loKwhIst); } }
+            });
+            var step = dayBarStep(maxV), yMax = (D.yMaxManual > 0) ? D.yMaxManual : Math.ceil(maxV * 1.08 / step) * step;
+            var canvasH = computeCanvasHeight(legEl, daysEl);
+            el.style.width = '100%'; el.style.height = canvasH + 'px';
+
+            var fs = 11 * D.scale, axisW = Math.round(56 * D.scale);
+            var labelH = Math.round((showIst ? 58 : 40) * D.scale), padTop = Math.round(24 * D.scale);
+            var plotH = Math.max(40, canvasH - labelH - padTop), baseY = padTop + plotH;
+            var h = '<div style="position:relative;height:' + canvasH + 'px;font-size:' + fs + 'px;font-family:' + D.font + ';color:' + D.TEXT + '">';
+            for (var v = 0; v <= yMax + 1e-9; v += step) {
+                var y = padTop + plotH * (1 - v / yMax);
+                if (D.showGrid || v === 0) { h += '<div style="position:absolute;left:' + axisW + 'px;right:0;top:' + y.toFixed(1) + 'px;border-top:1px solid ' + (v === 0 ? D.SEP : D.GRID) + '"></div>'; }
+                h += '<div style="position:absolute;left:0;width:' + (axisW - 6) + 'px;top:' + (y - fs * 0.65).toFixed(1) + 'px;text-align:right;color:' + D.MUTED + ';white-space:nowrap">' + v + ' kWh</div>';
+            }
+            h += '<div style="position:absolute;left:' + axisW + 'px;right:0;top:0;bottom:0;display:flex">';
+            function bar(name, color, soll, ist) {
+                var bh = Math.max(soll > 0 ? 2 : 0, plotH * soll / yMax), ih = (ist != null) ? Math.min(bh, plotH * ist / yMax) : 0;
+                var tip = name + ' Soll ' + fmtKwh2(soll) + ' kWh' + (ist != null ? ', Ist ' + fmtKwh2(ist) + ' kWh' : '');
+                return '<div title="' + tip + '" style="flex:0 1 38%;max-width:' + Math.round(70 * D.scale) + 'px;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%">'
+                    + '<div style="font-weight:600;margin-bottom:2px;white-space:nowrap">' + fmtKwh(soll) + '</div>'
+                    + '<div style="position:relative;width:100%;height:' + bh.toFixed(1) + 'px">'
+                    + '<div style="position:absolute;left:0;right:0;top:0;bottom:0;background:' + color + ';opacity:' + (ist != null ? 0.38 : 0.9) + ';border-radius:3px 3px 0 0"></div>'
+                    + (ih > 0 ? '<div style="position:absolute;left:0;right:0;bottom:0;height:' + ih.toFixed(1) + 'px;background:' + color + ';border-radius:' + (ih >= bh - 0.5 ? '3px 3px 0 0' : '0') + '"></div>' : '')
+                    + '</div></div>';
+            }
+            D.days.forEach(function (d) {
+                var lab = String(d.label || '').split(' ('), main = cap(lab[0]), sub = lab.length > 1 ? '(' + lab.slice(1).join(' (') : '';
+                var pv = (pvOn && d.pv) ? d.pv : null, lo = (loOn && d.load) ? d.load : null;
+                var ipv = (pv && showIst) ? d.pvKwhIst : null, ilo = (lo && showIst) ? d.loKwhIst : null;
+                h += '<div style="flex:1;position:relative;min-width:0">'
+                  + '<div style="position:absolute;left:0;right:0;top:0;height:' + baseY + 'px;display:flex;align-items:flex-end;justify-content:center;gap:' + Math.round(6 * D.scale) + 'px">'
+                  + (pv ? bar('PV', D.pvC, pv.kwh || 0, ipv) : '') + (lo ? bar('Verbrauch', D.loC, lo.kwh || 0, ilo) : '')
+                  + '</div>'
+                  + '<div style="position:absolute;left:0;right:0;top:' + (baseY + 5) + 'px;text-align:center;line-height:1.3">'
+                  + '<div style="font-weight:500">' + main + '</div>'
+                  + (sub ? '<div style="color:' + D.MUTED + ';font-size:0.86em">' + sub + '</div>' : '');
+                if (ipv != null || ilo != null) {
+                    h += '<div style="color:' + D.MUTED + ';font-size:0.86em">Ist ' + (ipv != null ? '<span style="color:' + D.pvC + '">' + fmtKwh(ipv) + '</span>' : '') + (ipv != null && ilo != null ? ' · ' : '')
+                      + (ilo != null ? '<span style="color:' + D.loC + '">' + fmtKwh(ilo) + '</span>' : '') + ' kWh</div>';
+                }
+                h += '</div></div>';
+            });
+            el.innerHTML = h + '</div></div>';
+            updateScrollHint(D);
+        }
+
         function buildEC() {
             var D = prepData(), el = document.getElementById('chart');
             var legEl = document.getElementById('legend'), daysEl = document.getElementById('days');
@@ -724,7 +805,7 @@
         }
 
         window.addEventListener('resize', function () {
-            if (!chart) { return; }
+            if (!chart && !(lastData && lastData.view === 'days')) { return; }
             // Volles render() statt nur resize()/reflow(): #scrollWrap-Breite hat sich
             // ggf. geändert, renderW (und damit Chart- und Tagesstreifen-Breite) müssen
             // neu berechnet werden, nicht nur der Inhalt in die alte Breite gezwängt.

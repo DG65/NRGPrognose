@@ -7,11 +7,11 @@
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-> **Hinweis (18.10.2026):** Diese Kachel wird mittelfristig durch die Prognose-Kachel im
-> **NRG-Dashboard** abgelöst (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche
-> Darstellung, gleiche Einstellungen; die Einstellungen werden nicht übernommen). Bis dahin läuft diese
-> Kachel unverändert weiter. `PVPrognose` und `Lastprognose` bleiben in jedem Fall bestehen, sie
-> liefern die Werte für beide Kacheln.
+> **Achtung (23.10.2026):** Diese Kachel wird in der kommenden Woche (ab 26.10.2026) abgekündigt und
+> dann entfernt. Bitte wechsle auf die Prognose-Kachel im **NRG-Dashboard** (Modul `NRGDashboardForecast`,
+> Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche Darstellung, gleiche Einstellungen;
+> die Einstellungen werden nicht übernommen). `PVPrognose` und `Lastprognose` bleiben in jedem Fall bestehen,
+> sie liefern die Werte für beide Kacheln.
 
 Kombinierte **Visualisierungskachel**, die PV-Erzeugung und Verbrauch gemeinsam (oder einzeln) über
 bis zu 5 Tage darstellt – der EMS-Blick: Erzeugung gegen Verbrauch, die Lücke ist
@@ -45,7 +45,7 @@ Beim Überfahren/Antippen werden Werte und Saldo zur Uhrzeit angezeigt.
 | **Quellen** | Werden automatisch erkannt (je eine PV- und Lastprognose-Instanz); nur bei mehreren Instanzen manuell wählen. Jede Reihe per Schalter oder Legenden-Klick ausblendbar. |
 | **Anzuzeigende Tage** | 1–5 (+ optional Gestern = bis zu 6 insgesamt). Bis 3 Tage passen ohne Scrollen in den Kachel-Rahmen; darüber werden Diagramm und Tagesstreifen proportional breiter und lassen sich horizontal scrollen (bei gleicher Kachelbreite), statt sich zusammenzuquetschen. |
 | **Beschriftung** | Im WebFront (Doppelpfeil): Schriftfarbe automatisch (nach Betriebssystem/Browser, Standard), hell oder dunkel. Bei dunklem WebFront-Theme und hellem System auf „Hell" stellen. |
-| **Darstellung** | Im WebFront (Doppelpfeil): **Kurve** (Linien mit Unsicherheitsband, Standard) oder **Balken je Zeitscheibe** - je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie, für alle ausgewählten Tage. Für 15-Minuten-Balken PV- und Lastprognose auf 15 min Auflösung stellen; bei gröberer Auflösung zeigt die Kachel einen Hinweis (abschaltbar). Optional: die Anlagenleistung (Modul-kWp aus der PV-Prognose, oder ein eigener Wert in kW aus dem Konfigurationsformular) als gestrichelte Linie. |
+| **Darstellung** | Im WebFront (Doppelpfeil): **Kurve** (Linien mit Unsicherheitsband, Standard), **Balken je Zeitscheibe** oder **Tagesbalken** (ein Balken je Tag mit der Tagesenergie in kWh, PV und Verbrauch nebeneinander, heute und gestern mit dem Ist als vollem Balken im hellen Soll-Balken; reines HTML ohne Diagramm-Bibliothek). Bei „Balken je Zeitscheibe" ist es je Viertelstunde ein Balken für die Prognose, der sich mit dem tatsächlichen Wert füllt, der Verbrauch als Linie, für alle ausgewählten Tage. Für 15-Minuten-Balken PV- und Lastprognose auf 15 min Auflösung stellen; bei gröberer Auflösung zeigt die Kachel einen Hinweis (abschaltbar). Optional: die Anlagenleistung (Modul-kWp aus der PV-Prognose, oder ein eigener Wert in kW aus dem Konfigurationsformular) als gestrichelte Linie. |
 | **Ist-Werte** | Momentane Leistungsvariablen für PV und Verbrauch; optional der gemessene Tagesverlauf als Linie – mit eigenem Legendeneintrag („PV (Ist)“, „Verbrauch (Ist)“; die Prognosekurven heißen dann „PV (Soll)“ / „Verbrauch (Soll)“, der Momentanwert „Ist jetzt“) und auf Wunsch eigener Farbe (Schalter „Eigene Farbe für die gemessene … Linie“). |
 | **Gestern** | Vortag mit Ist-Kurve und (falls vorhanden) Snapshot-Soll. |
 | **Diagramm-Engine** | **ECharts** (quelloffen, auch kommerziell kostenlos) oder **Highcharts** (nur privat/nicht-kommerziell kostenlos). |

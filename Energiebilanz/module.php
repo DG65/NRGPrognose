@@ -62,11 +62,12 @@ class Energiebilanz extends IPSModule
     // 13.09.2026, s. `nrg-stack-formular-konvention`-Memory).
     // Abkündigungshinweis IN der Kachel (Build 149, Wunsch Dietmar): sichtbar im WebFront, wegklickbar je
     // Instanz und Hinweisversion (Browser-Speicher). Version erhöhen, wenn der Text sich inhaltlich ändert.
-    private const RETIRE_NOTICE_VERSION = '2';
-    private const RETIRE_NOTICE_TEXT = 'Diese Kachel wird durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter. Mehr dazu im Symcon-Forum.';
-    private const NEWS_VERSION = '0.21 (Build 150)';
+    private const RETIRE_NOTICE_VERSION = '3';
+    private const RETIRE_NOTICE_TEXT = 'Achtung: Diese Kachel wird in der kommenden Woche (ab 26.10.2026) abgekündigt und dann entfernt. Bitte wechsle auf die Prognose-Kachel im NRG-Dashboard (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung). Deine Einstellungen werden nicht übernommen, du setzt sie in der neuen Kachel einmal neu.';
+    private const NEWS_VERSION = '0.21 (Build 155)';
     private const NEWS_ITEMS = [
-        'ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung und Einstellungen). Bis dahin läuft sie unverändert weiter, du musst jetzt nichts umstellen. Die Einstellungen werden nicht übernommen, in der neuen Kachel setzt du sie einmal von Hand. PVPrognose und Lastprognose bleiben in jedem Fall bestehen.',
+        '📊 Neue Darstellung „Tagesbalken“ (Wunsch aus dem Forum, danke!): ein Balken je Tag mit der Tagesenergie in kWh, PV und Verbrauch nebeneinander, zur schnellen Einschätzung. Heute (und gestern) zeigen darin zusätzlich den Ist-Wert bisher als vollen Balken im hellen Soll-Balken. Umschalten im WebFront (Doppelpfeil) unter „Darstellung“, dort steht jetzt neben „Kurve“ und „Balken je Zeitscheibe“ auch „Tagesbalken (kWh je Tag)“.',
+        '⚠️ Diese Kachel (Energiebilanz aus der Prognose-Bibliothek) wird in der kommenden Woche (ab 26.10.2026) abgekündigt und dann entfernt. Bitte wechsle auf die Prognose-Kachel im NRG-Dashboard (Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; Modul NRGDashboardForecast, gleiche Darstellung). Die Einstellungen werden nicht übernommen, in der neuen Kachel setzt du sie einmal neu. PVPrognose und Lastprognose bleiben bestehen. Den Hinweis in der Kachel kannst du mit „Verstanden“ ausblenden.',
         '🔗 Klarere Verbindungszeilen (Rückfrage aus dem Forum, danke!): Steht in den Einstellungen eine nicht mehr vorhandene Instanz, zeigte die Zeile ein ⚠️, obwohl die Verbindung über die automatische Erkennung längst stand. Jetzt zeigt sie 🔗 (verbunden) mit dem Hinweis, dass die alte Auswahl ignoriert wird. ⚠️ bleibt für echte Probleme.',
         '🔤 Lesbarer auf dunklen Kacheln (Rückmeldung aus dem Forum, danke!): Achsenzahlen und Nebentexte sind im dunklen Modus heller (Kontrast zu einem dunkelgrauen Hintergrund von rund 6:1 auf rund 8:1), und der Hinweistext der Balkenansicht steht in der Haupt-Schriftfarbe.',
         '🔤 Beschriftung lesbar machen (Hinweis aus dem Forum, danke!): Neue Einstellung „Beschriftung“ im WebFront (Doppelpfeil): automatisch (wie bisher, nach Betriebssystem/Browser), hell oder dunkel. Bei einem dunklen WebFront-Theme mit hellem Betriebssystem stellst du sie auf „Hell“, dann sind Achsen und Texte gut lesbar.',
@@ -178,7 +179,7 @@ class Energiebilanz extends IPSModule
             'PowerUnit'        => ['Einheit der Ist-Leistungsvariablen', 'EFTILE.PowerUnit', 30, 2],
             'MeasuredCacheSec' => ['Ist-Verlauf neu berechnen alle … s (Archiv-Cache)', 'EFTILE.CacheSec', 34, 120],
             // Darstellung (Forum Ghostraider #48 / Dietmar, 14.10.2026): Kurve oder Balken je Slot (15 min)
-            'ChartView'        => ['Darstellung (Kurve oder Balken je Zeitscheibe)', 'EFTILE.View', 39, 0],
+            'ChartView'        => ['Darstellung (Kurve, Balken je Zeitscheibe oder Tagesbalken)', 'EFTILE.View', 39, 0],
             // Forum lungo #62 (18.10.2026): dunkles WebFront-Theme bei hellem Betriebssystem -> Beschriftung kaum lesbar
             'LabelTone'        => ['Beschriftung (Schriftfarbe: automatisch, hell oder dunkel)', 'EFTILE.LabelTone', 43, 0],
             'ChartEngine'      => ['Diagramm-Engine', 'EFTILE.Engine', 40, 0],
@@ -250,6 +251,8 @@ class Energiebilanz extends IPSModule
         if (!IPS_VariableProfileExists('EFTILE.View')) { IPS_CreateVariableProfile('EFTILE.View', VARIABLETYPE_INTEGER); }
         IPS_SetVariableProfileAssociation('EFTILE.View', 0, 'Kurve (Linien mit Unsicherheitsband)', '', -1);
         IPS_SetVariableProfileAssociation('EFTILE.View', 1, 'Balken je Zeitscheibe (15 min, Soll gefüllt mit Ist)', '', -1);
+        // Build 155 (Forum hfichtinger #94): ein Balken je Tag mit der Tagesenergie zur schnellen Einschätzung
+        IPS_SetVariableProfileAssociation('EFTILE.View', 2, 'Tagesbalken (kWh je Tag)', '', -1);
 
         if (!IPS_VariableProfileExists('EFTILE.Engine')) { IPS_CreateVariableProfile('EFTILE.Engine', VARIABLETYPE_INTEGER); }
         IPS_SetVariableProfileAssociation('EFTILE.Engine', 0, 'ECharts (quelloffen, auch kommerziell)', '', -1);
@@ -916,7 +919,7 @@ class Energiebilanz extends IPSModule
             'yMaxManual'=> max(0.0, (float) $this->GetValue('YMaxManual')),
             'font'      => $this->FontStack((int) $this->GetValue('FontFamily')),
             'engine'    => ((int) $this->GetValue('ChartEngine') === 1) ? 'highcharts' : 'echarts',
-            'view'      => ((int) $this->GetValue('ChartView') === 1) ? 'bars' : 'curve',
+            'view'      => ['curve', 'bars', 'days'][max(0, min(2, (int) $this->GetValue('ChartView')))],
             'labelTone' => max(0, min(2, (int) $this->GetValue('LabelTone'))),
             'showViewHint' => (bool) $this->GetValue('ShowViewHint'),
             'showMaxLine'  => (bool) $this->GetValue('ShowMaxLine'),

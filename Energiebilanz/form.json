@@ -3,7 +3,7 @@
         {
             "type": "Label",
             "name": "RetireHint",
-            "caption": "ℹ️ Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard abgelöst (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche Darstellung, gleiche Einstellungen). Neue Einrichtungen legen besser gleich die Dashboard-Kachel an. Bis dahin läuft diese Kachel unverändert weiter. PVPrognose und Lastprognose bleiben bestehen."
+            "caption": "⚠️ Diese Kachel wird in der kommenden Woche (ab 26.10.2026) abgekündigt und dann entfernt. Bitte wechsle auf die Prognose-Kachel im NRG-Dashboard (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche Darstellung, gleiche Einstellungen, die du dort einmal neu setzt). PVPrognose und Lastprognose bleiben bestehen."
         },
         {
             "type": "ExpansionPanel",
@@ -48,7 +48,7 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Verhältnis zu NRG-Stack Dashboard: Diese Kachel wird mittelfristig durch die Prognose-Kachel im NRG-Dashboard (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal) abgelöst, die dieselbe Darstellung und dieselben Einstellungen bietet. Bis dahin läuft diese Kachel unverändert weiter. PVPrognose und Lastprognose bleiben in jedem Fall installiert, sie liefern die Werte für beide Kacheln."
+                    "caption": "Verhältnis zu NRG-Stack Dashboard: Diese Kachel wird in der kommenden Woche (ab 26.10.2026) abgekündigt und dann entfernt. Ihr Nachfolger ist die Prognose-Kachel im NRG-Dashboard (Modul NRGDashboardForecast, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal) mit derselben Darstellung und denselben Einstellungen. PVPrognose und Lastprognose bleiben in jedem Fall installiert, sie liefern die Werte für beide Kacheln."
                 }
             ]
         },
