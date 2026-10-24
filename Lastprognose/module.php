@@ -99,6 +99,10 @@ class Lastprognose extends IPSModule
     // Temperaturabhängige Geräte (Build 152): Tageshistorie je Variable und Regressionsmodell je Variable|Modus, request-lokal.
     private $wpHistCache = [];
     private $wpModelCache = [];
+    // Geräte, deren Archivwerte unplausibel sind (z. B. Zählerstand statt Leistung): Variable => ['median' => kWh/Tag, 'cap' => kWh/Tag].
+    private $wpRejected = [];
+    // Größter Tagesverbrauch (kWh) der Hauptverbrauchsvariable über die Lookback-Tiefe, request-lokal (false = nicht ermittelt).
+    private $maxDayKwhCache = null;
     // Grundlast-p50 je Offset aus dem letzten computeForecast() (vor dem Geräteanteil) — für die Residuen-Basis im Snapshot.
     private $baseP50 = [];
 
@@ -1017,9 +1021,15 @@ class Lastprognose extends IPSModule
     private function wpNotice($todayFc): string
     {
         if (!$this->wpInForecast()) { return ''; }
-        if (is_array($todayFc) && !empty($todayFc['wpIncluded'])) {
-            return sprintf(' | 🌡️ inkl. Wärmepumpe/Klima: heute %.1f kWh (Grundlast %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0);
+        $notes = '';
+        foreach ($this->wpRejected as $vid => $r) {
+            $notes .= sprintf(' | ⚠️ Gerät „%s“ (#%d) nicht in der Prognose: liefert typisch %.0f kWh/Tag, mehr als das Dreifache des größten Tagesverbrauchs (%.0f kWh) - Zählerstand (kWh) statt Leistung (W) oder falsche Einheit?',
+                IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $vid, $r['median'], $r['cap'] / 3.0);
         }
+        if (is_array($todayFc) && !empty($todayFc['wpIncluded'])) {
+            return sprintf(' | 🌡️ inkl. Wärmepumpe/Klima: heute %.1f kWh (Grundlast %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0) . $notes;
+        }
+        if ($notes !== '') { return $notes; }
         return ' | ⚠️ Wärmepumpe/Klima nicht in der Prognose: zu wenig Archivdaten (Leistung und Außentemperatur) für die Temperaturregression';
     }
 
@@ -1686,7 +1696,7 @@ class Lastprognose extends IPSModule
     {
         $ids = $this->excludeVarIds();
         if ($mode === 'legacy') { return $ids; }
-        $wp = $this->wpVarIds();
+        $wp = $this->wpUsableVarIds();
         if ($mode === 'total') {
             return array_values(array_filter($ids, function ($v) use ($wp) { return !in_array($v, $wp, true); }));
         }
@@ -1694,6 +1704,17 @@ class Lastprognose extends IPSModule
             foreach ($wp as $v) { if (!in_array($v, $ids, true)) { $ids[] = $v; } }
         }
         return $ids;
+    }
+
+    /**
+     * Geräte-Variablen, deren Anteil wirklich in die Prognose eingeht: WPDevices ohne die als unplausibel abgelehnten
+     * (siehe wpModel()). Ein abgelehntes Gerät wird weder prognostiziert noch von der Grundlast abgezogen - sonst würde
+     * ein falscher Wert (z. B. ein Zählerstand in kWh, als Watt gelesen) die Grundlast auf 0 drücken.
+     */
+    private function wpUsableVarIds(): array
+    {
+        foreach ($this->wpDevices() as $dev) { $this->wpModel($dev['var'], $dev['mode']); }
+        return array_values(array_filter($this->wpVarIds(), function ($v) { return !isset($this->wpRejected[$v]); }));
     }
 
     /** Variablen der temperaturabhängigen Geräte (WPDevices, bestehend), ohne Doppelte. */
@@ -2637,6 +2658,28 @@ class Lastprognose extends IPSModule
     }
 
     /**
+     * Größter Tagesverbrauch (kWh) der Hauptverbrauchsvariable über die Lookback-Tiefe, aus einem einzigen täglichen
+     * Archiv-Aggregat (Ø-Leistung x 24 h). null, wenn nicht ermittelbar.
+     */
+    private function maxDayKwh()
+    {
+        if ($this->maxDayKwhCache !== null) { return $this->maxDayKwhCache === false ? null : $this->maxDayKwhCache; }
+        $this->maxDayKwhCache = false;
+        $vid = $this->consumptionVar();
+        $aid = $this->getArchiveID();
+        if ($vid <= 0 || $aid === 0 || !$this->isLogged($aid, $vid)) { return null; }
+        $start = strtotime('today -' . max(1, $this->ReadPropertyInteger('LFC_LookbackDays')) . ' days');
+        $rows = @AC_GetAggregatedValues($aid, $vid, 1 /* täglich */, $start, $this->clampEnd(time()), 0);
+        if (!is_array($rows) || count($rows) === 0) { return null; }
+        $f = $this->varPowerFactor($vid);
+        $max = 0.0;
+        foreach ($rows as $r) { $max = max($max, (float)$r['Avg'] * $f * 24.0 / 1000.0); }
+        if ($max <= 0) { return null; }
+        $this->maxDayKwhCache = $max;
+        return $max;
+    }
+
+    /**
      * Temperaturregression eines Geräts (Koeffizienten) plus Streuung der Tagesergebnisse: Verhältnis Ist/Regression
      * an Tagen mit mindestens 2 kWh erwartetem Verbrauch (Quantile r10/r50/r90, begrenzt auf 0,3…3). Daraus entsteht das
      * Unsicherheitsband des Geräteanteils. Rückgabe null bei zu wenig Daten oder singulärer Regression.
@@ -2645,6 +2688,25 @@ class Lastprognose extends IPSModule
     {
         $key = $vid . '|' . $mode;
         if (array_key_exists($key, $this->wpModelCache)) { return $this->wpModelCache[$key]; }
+
+        // Plausibilität (Build 156, Forum somm #119: Wärmepumpen-Anteil 748 kWh/Tag, weil die Geräte-Variable offenbar ein
+        // Zählerstand in kWh war, der als Leistung in W gelesen wurde): liegt der typische Tagesverbrauch des Geräts über dem
+        // Dreifachen des größten Tagesverbrauchs des ganzen Hauses, ist die Variable keine brauchbare Leistungsmessung.
+        $cap = $this->maxDayKwh();
+        if ($cap !== null && $cap > 0) {
+            $kwhs = [];
+            foreach ($this->wpHistory($vid) as $row) { $kwhs[] = $row['kwh']; }
+            if (count($kwhs) >= 5) {
+                sort($kwhs);
+                $median = $kwhs[(int)floor(count($kwhs) / 2)];
+                if ($median > 3.0 * $cap) {
+                    $this->wpRejected[$vid] = ['median' => $median, 'cap' => 3.0 * $cap];
+                    $this->log(LFC_LOG_BASIC, sprintf('Gerät #%d („%s“) liefert typisch %.0f kWh/Tag, mehr als das Dreifache des größten Tagesverbrauchs (%.0f kWh): nicht in der Prognose (Zählerstand statt Leistung? Einheit?)',
+                        $vid, IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $median, $cap));
+                    return $this->wpModelCache[$key] = null;
+                }
+            }
+        }
 
         $hBase = $this->ReadPropertyFloat('LFC_HDD_Base');
         $cBase = $this->ReadPropertyFloat('LFC_CDD_Base');

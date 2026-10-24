@@ -515,7 +515,7 @@
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Tagesprognose je Gerät via Temperaturregression. Heizen: kWh = a + b·Heizgrad. Kühlen: kWh = a + c·Kühlgrad. Beides (Luft-Luft-WP/Klima): V-Kurve a + b·Heizgrad + c·Kühlgrad. Benötigt Geräte-Leistung (W) + Außentemperatur im Archiv. Mit dem Schalter unten fließt der Geräteanteil in die Prognose ein: Gesamtverbrauch = Grundlast (ohne die Geräte gelernt) + Geräte (Tages-kWh aus der Regression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression). Die Geräte werden dafür beim Lernen der Grundlast automatisch abgezogen, auch wenn sie nicht in der Abzugsliste stehen."
+                    "caption": "Tagesprognose je Gerät via Temperaturregression. Heizen: kWh = a + b·Heizgrad. Kühlen: kWh = a + c·Kühlgrad. Beides (Luft-Luft-WP/Klima): V-Kurve a + b·Heizgrad + c·Kühlgrad. Benötigt die Leistung des Geräts (W oder kW, KEIN Zählerstand in kWh) + Außentemperatur im Archiv. Liefert eine Variable offensichtlich unsinnige Werte (mehr als das Dreifache des größten Tagesverbrauchs des Hauses), lässt die Prognose das Gerät weg und meldet es im Status. Mit dem Schalter unten fließt der Geräteanteil in die Prognose ein: Gesamtverbrauch = Grundlast (ohne die Geräte gelernt) + Geräte (Tages-kWh aus der Regression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression). Die Geräte werden dafür beim Lernen der Grundlast automatisch abgezogen, auch wenn sie nicht in der Abzugsliste stehen."
                 },
                 {
                     "type": "List",
