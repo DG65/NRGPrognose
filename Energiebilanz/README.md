@@ -8,7 +8,7 @@
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
 > **Achtung (23.10.2026):** Diese Kachel wird in der kommenden Woche (ab 26.10.2026) abgekündigt und
-> dann entfernt. Bitte wechsle auf die Prognose-Kachel im **NRG-Dashboard** (Modul `NRGDashboardForecast`,
+> dann entfernt. Bitte wechsle auf die Prognose-Kachel im **NRG-Dashboard** (Instanz „NRG-Stack Energieprognose“ (Modul `NRGDashboardForecast`, beim Anlegen nach „Energieprognose“ suchen),
 > Bibliothek „NRG-Stack Dashboard“ im Symcon-Store, Beta-Kanal; gleiche Darstellung, gleiche Einstellungen;
 > die Einstellungen werden nicht übernommen). `PVPrognose` und `Lastprognose` bleiben in jedem Fall bestehen,
 > sie liefern die Werte für beide Kacheln.
