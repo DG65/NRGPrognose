@@ -31,12 +31,11 @@ Idents waren durchgehend unangetastet.
 
 ## Release-Workflow
 
-- ⚠️ **TEMPORÄR (seit 25.07.2026, Dietmar):** Während der laufenden EMS-Integrationsphase geht
-  **ausschließlich auf `ems-integration`** — keine Ausnahme mehr für "sichere" Fixes auf `beta`,
-  bis anders angesagt. Arbeitsbranch also `ems-integration`, nicht `beta`, solange diese Zeile steht.
-- Normalerweise (außerhalb der Integrationsphase) läuft Entwicklung auf dem Branch **`beta`**
-  (= IPS-Beta-Kanal), Version trägt das Suffix `-beta`.
-- **Stable gibt der Nutzer frei** — nicht ungefragt nach `main` mergen/pushen.
+- **Seit 27.10.2026 Stable-Kanal (Dietmar):** Der Symcon-Store liefert `main` aus (Version ohne
+  `-beta`, 0.21 ab Build 158). Entwicklung läuft auf **`beta`**, nach Prüfstand und Migrationsvergleich
+  geht `beta` per Fast-Forward nach `main`, danach ist `main` == `beta`. Den Branch `ems-integration`
+  gibt es nicht mehr (am 27.10.2026 gelöscht, alle Modulverwaltungen zeigen auf `beta`/`main`).
+- **Stable gibt der Nutzer frei** — nicht ungefragt nach `main` mergen/pushen (Auslieferung nur auf Dietmars Wort, der Store liefert `main` an alle Nutzer).
 - **Vor jedem beta→main-Wechsel: Neuinstallations-Simulation** (SUITE.md/EMS-Repo, Commits `875fe1d`+
   `630e15a`, Grundregel "keine eigene Anlage als Norm annehmen"). Formular komplett durchgehen wie ein
   Nutzer OHNE Dietmars Hardware/Region/Sonderkonfiguration: Fabrikat-Nennungen nur als „z. B.", klar
@@ -68,12 +67,6 @@ Idents waren durchgehend unangetastet.
   „Zu viele Eigenschaften"): `id`, `author`, `name`, `url`, `compatibility`, `version`, `build`, `date`.
   `compatibility` im Format `{"version": "9.0"}` (seit Build 154 wie die übrigen Verbundmodule; `date` bei jedem Build auf den aktuellen Unix-Zeitstempel setzen).
 - **Build bei jeder Änderung hochzählen**, nie überschreiben.
-- **Branch `ems-integration`** (Verbund-Konvention, Dietmar 25.07.2026, identischer Name in allen
-  Modul-Repos): Auffangbecken für riskante Fixes/Experimente aus der laufenden EMS-Anbindung, solange
-  das EMS selbst noch gebaut wird — damit während dieser Phase nichts Ungeprüftes direkt bei echten
-  Beta-Testern landet. Erst nach Bewährung Merge nach `beta`. Von `beta` abgezweigt, aktuell noch
-  ohne konkreten Inhalt (Stand 25.07.2026). Normale Weiterentwicklung bleibt auf `beta`, solange kein
-  konkreter EMS-Integrationsgrund für `ems-integration` vorliegt.
 
 ## Zusammenarbeit mit anderen Repos
 
