@@ -49,6 +49,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelAllgemein",
             "caption": "⚙️ Allgemein",
             "expanded": true,
             "items": [
@@ -93,6 +94,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelDaten",
             "caption": "📊 Datenquellen (Archiv)",
             "expanded": true,
             "items": [
@@ -220,6 +222,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelTemperatur",
             "caption": "🔮 Temperaturvorhersage",
             "expanded": false,
             "items": [
@@ -341,6 +344,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelAnwesenheit",
             "caption": "🏠 Anwesenheit (Zukunft)",
             "expanded": false,
             "items": [
@@ -353,6 +357,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelModell",
             "caption": "🧮 Modellparameter",
             "expanded": false,
             "items": [
@@ -510,6 +515,7 @@
         },
         {
             "type": "ExpansionPanel",
+            "name": "PanelGeraete",
             "caption": "🔥 Temperaturabhängige Geräte (optional, separate Prognose)",
             "expanded": false,
             "items": [

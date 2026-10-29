@@ -127,8 +127,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.21 (Build 151)';
+    private const NEWS_VERSION = '0.22 (Build 160)';
     private const NEWS_ITEMS = [
+        '🪟 Neu: Formular-Aufbau selbst wählen: Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so gilt deine Wahl bei jedem Öffnen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt; „Auf Standard zurücksetzen“ stellt alles zurück.',
         '➖ Erzeugung negativ gemeldet? (Frage aus dem Forum, danke!): Manche Wechselrichter und Zähler zählen die Erzeugung negativ (z. B. −3000 W bei 3 kW) und melden nachts einen kleinen positiven Standby-Bezug. In der Generatorliste gibt es dafür die neue Spalte „Vorzeichen umkehren“: Eingeschaltet wird die Leistung als Ertrag gelesen, ein positiver Wert zählt als 0. Die Zeile „Vorzeichen“ unter „Selbstkalibrierung“ sagt dir, ob deine Werte der letzten 7 Tage dazu passen. Ohne Umkehr würde die Selbstkalibrierung eine negative Erzeugung als negativen Ertrag lernen.',
         '🕒 Solcast-Zeile zeigt, wann es weitergeht: Zusätzlich zu den heutigen Abrufen steht jetzt der Zeitpunkt des letzten Abrufs und der frühestmögliche nächste Abruf in der Formularzeile (Frage aus dem Forum, danke!).',
         '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
@@ -240,6 +241,7 @@ class PVPrognose extends IPSModule
         // Einmal-Timer räumt das Formularfeld unmittelbar nach dem Speichern
         // leer — asynchron, damit kein rekursiver ApplyChanges()-Aufruf
         // innerhalb des laufenden ApplyChanges() nötig ist.
+        $this->RegisterPropertyString('FormLayout', '[]');
         $this->RegisterAttributeString('PVF_SolcastSecret', '');
         $this->RegisterTimer('PVF_ClearSolcastKeyTimer', 0, 'PVF_ClearSolcastKey($_IPS[\'TARGET\']);');
 
@@ -306,6 +308,24 @@ class PVPrognose extends IPSModule
         $unitOpen = (strpos($lines['ConnStatusUnit'], '⚠️') === 0 || strpos($lines['ConnStatusUnit'], '✏️') === 0);
         $this->patchElementByName($form['elements'], 'UnitOverridePanel', ['expanded' => $unitOpen]);
 
+        // Fachpanels nach der Einstellung „Formular: Aufbau“ ordnen, auf-/zuklappen oder ausblenden
+        // (SUITE.md 3a). Oben stehen Wozu, Neu und Dokumentation fest, unten Aufbau, Forum und Lizenz.
+        $free   = $this->takeFachPanels($form['elements']);
+        $layout = $this->formLayout(array_keys($free));
+        foreach ($layout as $key => $l) {
+            $panel = $free[$key];
+            if ($l['open'] === 'open') {
+                $panel['expanded'] = true;
+            } elseif ($l['open'] === 'closed') {
+                $panel['expanded'] = false;
+            } elseif ($l['open'] === 'hidden') {
+                // Nicht weglassen: die Felder bleiben im Formular, gespeicherte Werte bleiben beim „Übernehmen“ erhalten
+                $panel['visible'] = false;
+            }
+            $form['elements'][] = $panel;
+        }
+        $form['elements'][] = $this->LayoutPanel($layout, $free);
+
         if (self::FORUM_THREAD_URL !== '' && !$this->ReadAttributeBoolean(self::ATTR_REVIEW_HINT_GONE)) {
             $form['elements'][] = [
                 'type' => 'RowLayout',
@@ -331,6 +351,119 @@ class PVPrognose extends IPSModule
         }
 
         return json_encode($form);
+    }
+
+    /** Fachpanels des Formulars: Schlüssel => Name des ExpansionPanels in form.json, in Standardreihenfolge. */
+    private const FACH_PANELS = ['allgemein' => 'PanelAllgemein', 'quelle' => 'PanelQuelle', 'generatoren' => 'PanelGeneratoren', 'kalibrierung' => 'PanelKalibrierung'];
+
+    /**
+     * Reihenfolge und Aufklapp-Zustand der Fachpanels aus der Einstellung „FormLayout“ (SUITE.md
+     * „Formular: Aufbau“). Unbekannte oder fehlende Einträge fallen auf die Standardreihenfolge
+     * und „Standard“ zurück.
+     *
+     * @param string[] $keys Schlüssel der Fachpanels in Standardreihenfolge
+     * @return array key => ['open' => 'std'|'open'|'closed'|'hidden', 'pos' => int, 'idx' => int], in anzuwendender Reihenfolge
+     */
+    private function formLayout(array $keys): array
+    {
+        $saved = json_decode((string)$this->ReadPropertyString('FormLayout'), true);
+        $by = [];
+        foreach (is_array($saved) ? $saved : [] as $row) {
+            if (is_array($row) && isset($row['Key'])) {
+                $by[(string)$row['Key']] = $row;
+            }
+        }
+        $out = [];
+        foreach ($keys as $i => $k) {
+            $r = $by[$k] ?? [];
+            // Kontrollkästchen; Vorrang bei Widerspruch: ausgeblendet vor zugeklappt vor aufgeklappt, keines = Standard
+            $open = !empty($r['Hidden']) ? 'hidden' : (!empty($r['Closed']) ? 'closed' : (!empty($r['Opened']) ? 'open' : 'std'));
+            $out[$k] = [
+                'open' => $open,
+                'pos'  => isset($r['Pos']) ? max(1, min(99, (int)$r['Pos'])) : $i + 1,
+                'idx'  => $i,
+            ];
+        }
+        uasort($out, function ($a, $b) { return [$a['pos'], $a['idx']] <=> [$b['pos'], $b['idx']]; });
+        return $out;
+    }
+
+    /** Nimmt die Fachpanels aus den Formularelementen heraus: key => Panel; übrige Elemente bleiben stehen. */
+    private function takeFachPanels(array &$elements): array
+    {
+        $free = [];
+        $rest = [];
+        $byName = array_flip(self::FACH_PANELS);
+        foreach ($elements as $el) {
+            $n = (string)($el['name'] ?? '');
+            if (($el['type'] ?? '') === 'ExpansionPanel' && isset($byName[$n])) {
+                $free[$byName[$n]] = $el;
+            } else {
+                $rest[] = $el;
+            }
+        }
+        $elements = $rest;
+        // Standardreihenfolge der Schlüssel herstellen
+        $sorted = [];
+        foreach (array_keys(self::FACH_PANELS) as $k) {
+            if (isset($free[$k])) { $sorted[$k] = $free[$k]; }
+        }
+        return $sorted;
+    }
+
+    /** Wählbarer Aufbau des Formulars: je Fachpanel Aufklapp-Zustand beim Öffnen und Position. */
+    private function LayoutPanel(array $layout, array $free): array
+    {
+        $rows   = [];
+        $hidden = [];
+        foreach ($layout as $key => $l) {
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
+            $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
+                'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
+            if ($l['open'] === 'hidden') {
+                $hidden[] = trim((string)preg_replace('/^[^\p{L}\p{N}]+/u', '', $name));
+            }
+        }
+        $hiddenLine = $hidden
+            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            : [];
+        return [
+            'type' => 'ExpansionPanel', 'name' => 'LayoutPanel', 'expanded' => false,
+            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'items' => array_merge($hiddenLine, [
+                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
+                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht (z. B. „Allgemein“ aufgeklappt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Wozu, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                [
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'loadValuesFromConfiguration' => false,
+                    'values' => $rows,
+                    'columns' => [
+                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
+                    ],
+                ],
+                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo PVF_ResetFormLayout($id);'],
+            ]),
+        ];
+    }
+
+    /** Setzt Aufklapp-Zustand und Reihenfolge der Fachpanels im offenen Formular auf den Standard (gilt nach „Übernehmen“). */
+    public function ResetFormLayout(): string
+    {
+        $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
+        $free = $this->takeFachPanels($form['elements']);
+        $rows = [];
+        $i = 0;
+        foreach (array_keys(self::FACH_PANELS) as $k) {
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$k]['caption'] ?? $k)));
+            $rows[] = ['Key' => $k, 'Panel' => $name, 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
+        }
+        $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
+        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
     }
 
     /**
