@@ -2,12 +2,13 @@
     "elements": [
         {
             "type": "ExpansionPanel",
-            "caption": "📖 Dokumentation & Hilfe",
+            "name": "PanelDokumentation",
+            "caption": "📖 Documentation & help",
             "expanded": false,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Was macht das Modul: 1–5-Tage-Verbrauchsprognose aus dem IPS-Archiv über ein Ähnliche-Tage-Verfahren (k-NN). Für jeden Prognosetag werden die k ähnlichsten Vergangenheitstage gesucht (Tagtyp, Tageslänge, Heizgrad, Anwesenheit) und ihre Profile zu P10/P50/P90 verdichtet."
+                    "caption": "What the module does: 1–5-day consumption forecast from the Symcon archive using a similar-days method (k-NN). For each forecast day, the k most similar past days are searched (day type, day length, heating degree, presence) and their profiles are condensed into P10/P50/P90."
                 },
                 {
                     "type": "Image",
@@ -15,53 +16,53 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Hauptverbrauch: eine archivierte LEISTUNGS-Variable (kein kWh-Zähler). Bleibt das Feld leer, wird ein eindeutiger MeterHub-Zähler mit der Funktion „Hausverbrauch“ automatisch übernommen. Die Einheit W/kW wird automatisch erkannt (Profil-Suffix, sonst Größenordnung) — bei Variablen ohne Profil ggf. manuell festlegen."
+                    "caption": "Main consumption: an archived POWER variable (not a kWh counter). If the field stays empty, a unique MeterHub meter with the function “house consumption” is taken over automatically. The W/kW unit is detected automatically (profile suffix, otherwise order of magnitude) — for variables without a profile, set it manually if needed."
                 },
                 {
                     "type": "Label",
-                    "caption": "Abzugsliste (wichtig): steuerbare Lasten wie Wallbox, Batterie-Ladung oder Wärmepumpe hier eintragen. Sie werden vom Hausverbrauch abgezogen, damit die Prognose die planbare GRUNDLAST lernt — Laden/§14a plant das EMS selbst, sonst wird es doppelt gezählt."
+                    "caption": "Deduction list (important): enter controllable loads such as the wallbox, battery charging or the heat pump here. They are subtracted from the house consumption so that the forecast learns the plannable BASE LOAD — the EMS plans charging/§14a itself, otherwise it would be counted twice."
                 },
                 {
                     "type": "Label",
-                    "caption": "Wärmepumpe/Klima: eigene Prognose je Gerät über Temperaturregression — Heizen (a + b·Heizgrad), Kühlen (a + c·Kühlgrad) oder beides (V-Kurve, z.B. Luft-Luft-WP). Braucht Gerät-Leistung + Außentemperatur im Archiv."
+                    "caption": "Heat pump/air conditioning: a separate forecast per device through temperature regression — heating (a + b·heating degree), cooling (a + c·cooling degree) or both (V curve, e.g. air-to-air heat pump). Needs the device power + outdoor temperature in the archive."
                 },
                 {
                     "type": "Label",
-                    "caption": "Anwesenheit: das wichtigste Zusatzsignal (Urlaub/Homeoffice ist aus dem Kalender nicht ableitbar). Bool/0..1, z.B. Geofencing; invertierbare Logik für Abwesenheits-Variablen."
+                    "caption": "Presence: the most important additional signal (holiday/home office cannot be derived from the calendar). Bool/0..1, e.g. geofencing; invertible logic for absence variables."
                 },
                 {
                     "type": "Label",
-                    "caption": "Temperaturvorhersage: Auto findet eine OpenWeatherData-Instanz (demel42) selbst — dort muss die Stundenvorhersage aktiviert sein (hourly_forecast_count > 0). Gibt es keine OpenWeatherData-Instanz oder liefert sie keine Stundenvorhersage, nimmt Auto die Temperaturvorhersage einer PVPrognose-Instanz (Open-Meteo, ab Build 152). Bei mehreren OWM-Instanzen die gewünschte im Panel explizit wählen (sonst wird die erste genommen). Alternativ Tagesmittel-Variablen oder Ident-Muster für andere Wettermodule. Ohne Quelle: saisonales Normal aus dem Archiv (Klimatologie). Wichtig: es zählt das TAGESMITTEL."
+                    "caption": "Temperature forecast: Auto finds an OpenWeatherData instance (demel42) by itself — the hourly forecast must be enabled there (hourly_forecast_count > 0). If there is no OpenWeatherData instance or it delivers no hourly forecast, Auto uses the temperature forecast of a PVPrognose instance (Open-Meteo, from build 152). With several OWM instances, choose the one you want explicitly in the panel (otherwise the first is taken). Alternatively daily-mean variables or ident patterns for other weather modules. Without a source: seasonal normal from the archive (climatology). Important: the DAILY MEAN counts."
                 },
                 {
                     "type": "Label",
-                    "caption": "Ausgaben: je Tag ein JSON-Profil (p10/p50/p90/mean in W je Slot, kwh) plus kWh-Variablen. EMS-Zugriff: LFC_GetForecast($id, 0..4); P10/P90 = Unsicherheitsband für risikobewusste Entscheidungen."
+                    "caption": "Outputs: one JSON profile per day (p10/p50/p90/mean in W per slot, kwh) plus kWh variables. EMS access: LFC_GetForecast($id, 0..4); P10/P90 = uncertainty band for risk-aware decisions."
                 },
                 {
                     "type": "Label",
-                    "caption": "Prognosegüte: vergleicht die Day-Ahead-Prognose vergangener Tage (Snapshots) mit dem gemessenen Ist. Bias = systematische Abweichung (+ = überschätzt), |Ø-Fehler| = mittlerer Betragsfehler. Werte füllen sich nach einigen Tagen Laufzeit."
+                    "caption": "Forecast accuracy: compares the day-ahead forecast of past days (snapshots) with the measured actual. Bias = systematic deviation (+ = overestimated), |Ø error| = mean absolute error. Values fill up after a few days of running."
                 },
                 {
                     "type": "Label",
-                    "caption": "Tipps: Auflösung 60 min ist robust; 30/15 min brauchen feine Roharchivierung. Bundesland setzen für regionale Feiertage. Historie-Tiefe 365 d deckt alle Jahreszeiten ab."
+                    "caption": "Tips: a resolution of 60 min is robust; 30/15 min need finely archived raw data. Set the federal state for regional public holidays. A history depth of 365 d covers all seasons."
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "name": "PanelAllgemein",
-            "caption": "⚙️ Allgemein",
+            "caption": "⚙️ General",
             "expanded": true,
             "items": [
                 {
                     "type": "CheckBox",
                     "name": "LFC_Active",
-                    "caption": "Prognose aktiv"
+                    "caption": "Forecast active"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_IntervalHours",
-                    "caption": "Neuberechnung alle … Stunden",
+                    "caption": "Recalculate every … hours",
                     "minimum": 1,
                     "maximum": 24,
                     "suffix": " h"
@@ -72,15 +73,15 @@
                     "caption": "Logging",
                     "options": [
                         {
-                            "caption": "Aus",
+                            "caption": "Off",
                             "value": 0
                         },
                         {
-                            "caption": "Basis",
+                            "caption": "Basic",
                             "value": 1
                         },
                         {
-                            "caption": "Ausführlich",
+                            "caption": "Verbose",
                             "value": 2
                         }
                     ]
@@ -88,40 +89,40 @@
                 {
                     "type": "Label",
                     "name": "ConnStatusEms",
-                    "caption": "EMS: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "EMS: checked when the form is opened …"
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "name": "PanelDaten",
-            "caption": "📊 Datenquellen (Archiv)",
+            "caption": "📊 Data sources (archive)",
             "expanded": true,
             "items": [
                 {
                     "type": "Label",
                     "name": "ConnStatusArchive",
-                    "caption": "Archiv: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "Archive: checked when the form is opened …"
                 },
                 {
                     "type": "Label",
-                    "caption": "── Hauptverbrauch (Pflicht) ─────────────────────────"
+                    "caption": "── Main consumption (required) ─────────────────────"
                 },
                 {
                     "type": "Label",
                     "name": "ConnStatusConsumption",
-                    "caption": "Hausverbrauch: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "House consumption: checked when the form is opened …"
                 },
                 {
                     "type": "ExpansionPanel",
                     "name": "ConsumptionOverridePanel",
-                    "caption": "✏️ Eigene Hausverbrauch-Variable verwenden (überschreibt die Automatik)",
+                    "caption": "✏️ Use your own house consumption variable (overrides the automatic detection)",
                     "expanded": true,
                     "items": [
                         {
                             "type": "SelectVariable",
                             "name": "VAR_Consumption",
-                            "caption": "Hausverbrauch — LEISTUNG (muss archiviert sein)",
+                            "caption": "House consumption — POWER (must be archived)",
                             "onChange": "LFC_PreviewSelection($id, 'VAR_Consumption', $VAR_Consumption);"
                         }
                     ]
@@ -129,29 +130,29 @@
                 {
                     "type": "Label",
                     "name": "ConnStatusUnit",
-                    "caption": "Einheit: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "Unit: checked when the form is opened …"
                 },
                 {
                     "type": "ExpansionPanel",
                     "name": "UnitOverridePanel",
-                    "caption": "✏️ Einheit selbst festlegen (überschreibt die Automatik)",
+                    "caption": "✏️ Set unit yourself (overrides the automatic detection)",
                     "expanded": false,
                     "items": [
                         {
                             "type": "Select",
                             "name": "LFC_PowerUnit",
-                            "caption": "Einheit der Leistungsvariablen (Hausverbrauch, Abzugsliste, Geräte)",
+                            "caption": "Unit of the power variables (house consumption, deduction list, devices)",
                             "options": [
                                 {
-                                    "caption": "Automatisch erkennen (Profil/Größenordnung, je Variable)",
+                                    "caption": "Detect automatically (profile/order of magnitude, per variable)",
                                     "value": 2
                                 },
                                 {
-                                    "caption": "W (Watt)",
+                                    "caption": "W (watt)",
                                     "value": 0
                                 },
                                 {
-                                    "caption": "kW (Kilowatt)",
+                                    "caption": "kW (kilowatt)",
                                     "value": 1
                                 }
                             ],
@@ -161,16 +162,16 @@
                 },
                 {
                     "type": "Label",
-                    "caption": "Tipp: z.B. die EMS-Variable 'Hausverbrauch'. Für eine reine Grundlast-Prognose unten WP/Wallbox abziehen."
+                    "caption": "Tip: e.g. the EMS variable 'House consumption'. For a pure base-load forecast, subtract heat pump/wallbox below."
                 },
                 {
                     "type": "Label",
-                    "caption": "── Abzuziehende Verbraucher (optional) ──────────────"
+                    "caption": "── Loads to subtract (optional) ──────────────────"
                 },
                 {
                     "type": "List",
                     "name": "ExcludeVars",
-                    "caption": "Wärmepumpe, Wallbox … (Leistung, Einheit wie oben) werden slotweise abgezogen. WICHTIG: Diese Variablen müssen archiviert sein — sonst können sie nicht abgezogen werden (Hinweis erscheint im Status).",
+                    "caption": "Heat pump, wallbox … (power, unit as above) are subtracted slot by slot. IMPORTANT: these variables must be archived — otherwise they cannot be subtracted (a note appears in the status).",
                     "add": true,
                     "delete": true,
                     "columns": [
@@ -188,63 +189,63 @@
                 {
                     "type": "CheckBox",
                     "name": "LFC_AutoWallboxes",
-                    "caption": "🆕 Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) automatisch abziehen"
+                    "caption": "🆕 Subtract wallboxes of the NRG-Stack hubs (ChargerHub/OCPPHub) automatically"
                 },
                 {
                     "type": "Label",
-                    "caption": "Erkennt die Wallboxen über die Hubs und zieht ihre archivierte Ladeleistung von der Hauslast ab (jede Wallbox nur einmal, auch wenn sie über beide Hubs erreichbar ist). Nur einschalten, wenn deine Hausverbrauch-Variable die Ladeleistung enthält. Wallboxen, die du oben schon von Hand eingetragen hast, dann aus der Liste entfernen — sonst wird doppelt abgezogen. Was erkannt wurde, steht in der Status-Zeile."
+                    "caption": "Detects the wallboxes through the hubs and subtracts their archived charging power from the house load (each wallbox only once, even if it can be reached through both hubs). Only switch it on if your house consumption variable includes the charging power. Remove wallboxes that you have already entered by hand above from the list — otherwise they are subtracted twice. What was detected is shown in the status line."
                 },
                 {
                     "type": "Label",
                     "name": "ConnStatusWallbox",
-                    "caption": "Wallboxen: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "Wallboxes: checked when the form is opened …"
                 },
                 {
                     "type": "Label",
-                    "caption": "── Einflussgrößen (Historie) ────────────────────────"
+                    "caption": "── Influencing factors (history) ───────────────────"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempHistory",
-                    "caption": "Außentemperatur (°C, archiviert)"
+                    "caption": "Outdoor temperature (°C, archived)"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_Presence",
-                    "caption": "Anwesenheit (bool/0..1, archiviert) — z.B. Geofencing"
+                    "caption": "Presence (bool/0..1, archived) — e.g. geofencing"
                 },
                 {
                     "type": "CheckBox",
                     "name": "LFC_PresenceInvert",
-                    "caption": "Logik invertieren — Variable meldet ABwesenheit (true = niemand zu Hause)"
+                    "caption": "Invert logic — variable reports ABSENCE (true = nobody at home)"
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "name": "PanelTemperatur",
-            "caption": "🔮 Temperaturvorhersage",
+            "caption": "🔮 Temperature forecast",
             "expanded": false,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Wichtig: Es werden TAGESMITTEL erwartet (konsistent zur Historie), nicht die aktuelle Temperatur."
+                    "caption": "Important: DAILY MEANS are expected (consistent with the history), not the current temperature."
                 },
                 {
                     "type": "Select",
                     "name": "LFC_TempFcMode",
-                    "caption": "Quelle der Vorhersage",
+                    "caption": "Source of the forecast",
                     "options": [
                         {
-                            "caption": "Auto (OpenWeatherData, sonst Klimatologie)",
+                            "caption": "Auto (OpenWeatherData, otherwise climatology)",
                             "value": 0
                         },
                         {
-                            "caption": "Tagesmittel-Variablen",
+                            "caption": "Daily-mean variables",
                             "value": 1
                         },
                         {
-                            "caption": "Slot-Aggregation über Ident-Muster",
+                            "caption": "Slot aggregation via ident pattern",
                             "value": 2
                         }
                     ]
@@ -252,74 +253,74 @@
                 {
                     "type": "Label",
                     "name": "ConnStatusOwm",
-                    "caption": "Temperaturvorhersage: wird beim Öffnen des Formulars geprüft …"
+                    "caption": "Temperature forecast: checked when the form is opened …"
                 },
                 {
                     "type": "SelectInstance",
                     "name": "LFC_OwmInstance",
-                    "caption": "OpenWeatherData-Instanz (leer = automatisch, nur bei mehreren nötig)",
+                    "caption": "OpenWeatherData instance (empty = automatic, only needed with several)",
                     "onChange": "LFC_PreviewSelection($id, 'LFC_OwmInstance', $LFC_OwmInstance);"
                 },
                 {
                     "type": "Label",
-                    "caption": "Nur nötig, wenn mehrere OpenWeatherData-Instanzen existieren: hier die für die Prognose relevante wählen. Leer/nicht gesetzt → automatisch die erste. Eine hier gewählte Instanz, die keine OpenWeatherData-Instanz ist, wird ignoriert."
+                    "caption": "Only needed if several OpenWeatherData instances exist: choose the one relevant for the forecast here. Empty/not set → automatically the first. An instance chosen here that is not an OpenWeatherData instance is ignored."
                 },
                 {
                     "type": "Label",
-                    "caption": "── Tagesmittel-Variablen (Modus 1) ──────────────────"
+                    "caption": "── Daily-mean variables (mode 1) ───────────────────"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D0",
-                    "caption": "Tagesmittel heute (°C)"
+                    "caption": "Daily mean today (°C)"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D1",
-                    "caption": "Tagesmittel morgen (°C)"
+                    "caption": "Daily mean tomorrow (°C)"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D2",
-                    "caption": "Tagesmittel übermorgen (°C)"
+                    "caption": "Daily mean day after tomorrow (°C)"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D3",
-                    "caption": "Tagesmittel Tag 4 (°C)"
+                    "caption": "Daily mean day 4 (°C)"
                 },
                 {
                     "type": "SelectVariable",
                     "name": "VAR_TempFc_D4",
-                    "caption": "Tagesmittel Tag 5 (°C)"
+                    "caption": "Daily mean day 5 (°C)"
                 },
                 {
                     "type": "Label",
-                    "caption": "── Slot-Variablen selbst aggregieren (Modus 2) ──────"
+                    "caption": "── Aggregate slot variables yourself (mode 2) ───────"
                 },
                 {
                     "type": "Label",
-                    "caption": "Nur nötig für andere Wettermodule (DWD, Meteoblue …). Für OpenWeatherData reicht Modus Auto. Eltern-Objekt = Instanz/Kategorie der Slot-Variablen. Muster mit %d oder %02d für den Slot-Index."
+                    "caption": "Only needed for other weather modules (DWD, Meteoblue …). For OpenWeatherData, Auto mode is enough. Parent object = instance/category of the slot variables. Pattern with %d or %02d for the slot index."
                 },
                 {
                     "type": "SelectInstance",
                     "name": "LFC_FcParentID",
-                    "caption": "Eltern-Objekt der Slot-Variablen"
+                    "caption": "Parent object of the slot variables"
                 },
                 {
                     "type": "ValidationTextBox",
                     "name": "LFC_FcTimeIdent",
-                    "caption": "Ident-Muster Zeitstempel (Unix) je Slot"
+                    "caption": "Ident pattern timestamp (Unix) per slot"
                 },
                 {
                     "type": "ValidationTextBox",
                     "name": "LFC_FcTempIdentLow",
-                    "caption": "Ident-Muster Temperatur (bzw. Min) je Slot"
+                    "caption": "Ident pattern temperature (or min) per slot"
                 },
                 {
                     "type": "ValidationTextBox",
                     "name": "LFC_FcTempIdentHigh",
-                    "caption": "Ident-Muster Max-Temperatur (optional, dann (Min+Max)/2)"
+                    "caption": "Ident pattern max temperature (optional, then (min+max)/2)"
                 },
                 {
                     "type": "RowLayout",
@@ -327,14 +328,14 @@
                         {
                             "type": "NumberSpinner",
                             "name": "LFC_FcStartIndex",
-                            "caption": "Start-Index",
+                            "caption": "Start index",
                             "minimum": 0,
                             "maximum": 200
                         },
                         {
                             "type": "NumberSpinner",
                             "name": "LFC_FcCount",
-                            "caption": "Anzahl Slots",
+                            "caption": "Number of slots",
                             "minimum": 1,
                             "maximum": 200
                         }
@@ -345,26 +346,26 @@
         {
             "type": "ExpansionPanel",
             "name": "PanelAnwesenheit",
-            "caption": "🏠 Anwesenheit (Zukunft)",
+            "caption": "🏠 Presence (future)",
             "expanded": false,
             "items": [
                 {
                     "type": "SelectVariable",
                     "name": "VAR_PresenceFc",
-                    "caption": "Geplante Anwesenheit (bool/0..1) — leer = aktueller Zustand"
+                    "caption": "Planned presence (bool/0..1) — empty = current state"
                 }
             ]
         },
         {
             "type": "ExpansionPanel",
             "name": "PanelModell",
-            "caption": "🧮 Modellparameter",
+            "caption": "🧮 Model parameters",
             "expanded": false,
             "items": [
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_LookbackDays",
-                    "caption": "Historie-Tiefe (Tage)",
+                    "caption": "History depth (days)",
                     "minimum": 30,
                     "maximum": 1095,
                     "suffix": " d"
@@ -372,77 +373,77 @@
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_K",
-                    "caption": "k — Anzahl ähnlicher Tage",
+                    "caption": "k — number of similar days",
                     "minimum": 3,
                     "maximum": 40
                 },
                 {
                     "type": "Select",
                     "name": "LFC_ResidualMode",
-                    "caption": "Unsicherheitsband (P10/P90) bilden aus",
+                    "caption": "Form the uncertainty band (P10/P90) from",
                     "options": [
                         {
-                            "caption": "Streuung der ähnlichen Tage (Standard)",
+                            "caption": "Spread of the similar days (default)",
                             "value": 0
                         },
                         {
-                            "caption": "Tatsächlichen Prognosefehlern — nur Band",
+                            "caption": "Actual forecast errors — band only",
                             "value": 1
                         },
                         {
-                            "caption": "Tatsächlichen Prognosefehlern — Band + Pegelkorrektur",
+                            "caption": "Actual forecast errors — band + level correction",
                             "value": 2
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Standard: das Band kommt aus der Streuung der ähnlichen Tage — es ist dadurch oft deutlich breiter als der reale Prognosefehler. Die beiden anderen Modi bilden das Band aus den gemessenen Abweichungen der letzten Tage (Snapshot gegen Ist), P90 heißt dann tatsächlich „in 90 % der Fälle darunter\". Modus „nur Band\" lässt Prognosewert und kWh unverändert; „Band + Pegelkorrektur\" zieht zusätzlich einen systematischen Fehler (Bias) nach. Greift erst ab 3 auswertbaren Tagen — vorher bleibt der Standard aktiv. Die aktuellen Faktoren stehen in der Variable „Prognosegüte\"."
+                    "caption": "Default: the band comes from the spread of the similar days — it is therefore often considerably wider than the real forecast error. The other two modes form the band from the measured deviations of the last days (snapshot against actual); P90 then really means “below this in 90 % of cases”. The “band only” mode leaves the forecast value and kWh unchanged; “band + level correction” additionally corrects a systematic error (bias). It only takes effect from 3 evaluable days — until then the default stays active. The current factors are shown in the variable “Forecast accuracy”."
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_Latitude",
-                    "caption": "Breitengrad deines Standorts (für Tageslänge, Vorbelegung nur ein Platzhalter)",
+                    "caption": "Latitude of your location (for day length, the preset is only a placeholder)",
                     "digits": 3,
                     "suffix": " °"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_HDD_Base",
-                    "caption": "Heizgrenztemperatur (Basis für Heizgrad)",
+                    "caption": "Heating limit temperature (basis for heating degree)",
                     "digits": 1,
                     "suffix": " °C"
                 },
                 {
                     "type": "Select",
                     "name": "LFC_Resolution",
-                    "caption": "Zeitliche Auflösung",
+                    "caption": "Time resolution",
                     "options": [
                         {
-                            "caption": "60 Minuten (24 Slots, robust)",
+                            "caption": "60 minutes (24 slots, robust)",
                             "value": 60
                         },
                         {
-                            "caption": "30 Minuten (48 Slots)",
+                            "caption": "30 minutes (48 slots)",
                             "value": 30
                         },
                         {
-                            "caption": "15 Minuten (96 Slots, Viertelstunde)",
+                            "caption": "15 minutes (96 slots, quarter hour)",
                             "value": 15
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Hinweis: 30/15 min werden aus den Rohwerten integriert und brauchen entsprechend feine Archivierung über den Historie-Zeitraum. Für ältere Tage ohne Rohdaten fällt die Abdeckung weg (Tag wird übersprungen). 60 min nutzt das robuste Stundenaggregat."
+                    "caption": "Note: 30/15 min are integrated from the raw values and need correspondingly fine archiving over the history period. For older days without raw data the coverage is lost (the day is skipped). 60 min uses the robust hourly aggregate."
                 },
                 {
                     "type": "Select",
                     "name": "LFC_State",
-                    "caption": "Bundesland (für regionale Feiertage)",
+                    "caption": "Federal state (for regional public holidays)",
                     "options": [
                         {
-                            "caption": "— nur bundesweite —",
+                            "caption": "— nationwide only —",
                             "value": ""
                         },
                         {
@@ -450,7 +451,7 @@
                             "value": "BW"
                         },
                         {
-                            "caption": "Bayern",
+                            "caption": "Bavaria",
                             "value": "BY"
                         },
                         {
@@ -470,23 +471,23 @@
                             "value": "HH"
                         },
                         {
-                            "caption": "Hessen",
+                            "caption": "Hesse",
                             "value": "HE"
                         },
                         {
-                            "caption": "Mecklenburg-Vorpommern",
+                            "caption": "Mecklenburg-Western Pomerania",
                             "value": "MV"
                         },
                         {
-                            "caption": "Niedersachsen",
+                            "caption": "Lower Saxony",
                             "value": "NI"
                         },
                         {
-                            "caption": "Nordrhein-Westfalen",
+                            "caption": "North Rhine-Westphalia",
                             "value": "NW"
                         },
                         {
-                            "caption": "Rheinland-Pfalz",
+                            "caption": "Rhineland-Palatinate",
                             "value": "RP"
                         },
                         {
@@ -494,11 +495,11 @@
                             "value": "SL"
                         },
                         {
-                            "caption": "Sachsen",
+                            "caption": "Saxony",
                             "value": "SN"
                         },
                         {
-                            "caption": "Sachsen-Anhalt",
+                            "caption": "Saxony-Anhalt",
                             "value": "ST"
                         },
                         {
@@ -506,7 +507,7 @@
                             "value": "SH"
                         },
                         {
-                            "caption": "Thüringen",
+                            "caption": "Thuringia",
                             "value": "TH"
                         }
                     ]
@@ -516,22 +517,22 @@
         {
             "type": "ExpansionPanel",
             "name": "PanelGeraete",
-            "caption": "🔥 Temperaturabhängige Geräte (optional, separate Prognose)",
+            "caption": "🔥 Temperature-dependent devices (optional, separate forecast)",
             "expanded": false,
             "items": [
                 {
                     "type": "Label",
-                    "caption": "Tagesprognose je Gerät via Temperaturregression. Heizen: kWh = a + b·Heizgrad. Kühlen: kWh = a + c·Kühlgrad. Beides (Luft-Luft-WP/Klima): V-Kurve a + b·Heizgrad + c·Kühlgrad. Benötigt die Leistung des Geräts (W oder kW, KEIN Zählerstand in kWh) + Außentemperatur im Archiv. Liefert eine Variable offensichtlich unsinnige Werte (mehr als das Dreifache des größten Tagesverbrauchs des Hauses), lässt die Prognose das Gerät weg und meldet es im Status. Mit dem Schalter unten fließt der Geräteanteil in die Prognose ein: Gesamtverbrauch = Grundlast (ohne die Geräte gelernt) + Geräte (Tages-kWh aus der Regression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression). Die Geräte werden dafür beim Lernen der Grundlast automatisch abgezogen, auch wenn sie nicht in der Abzugsliste stehen."
+                    "caption": "Daily forecast per device through temperature regression. Heating: kWh = a + b·heating degree. Cooling: kWh = a + c·cooling degree. Both (air-to-air heat pump/air conditioning): V curve a + b·heating degree + c·cooling degree. Needs the power of the device (W or kW, NOT a meter reading in kWh) + outdoor temperature in the archive. If a variable delivers obviously nonsensical values (more than three times the largest daily consumption of the house), the forecast leaves the device out and reports it in the status. With the switch below, the device share enters the forecast: total consumption = base load (learned without the devices) + devices (daily kWh from the regression, daily profile from the days with a similar temperature, uncertainty band from the spread of the regression). For this, the devices are subtracted automatically when learning the base load, even if they are not in the deduction list."
                 },
                 {
                     "type": "List",
                     "name": "WPDevices",
-                    "caption": "Geräte (WP, Klima)",
+                    "caption": "Devices (heat pump, air conditioning)",
                     "add": true,
                     "delete": true,
                     "columns": [
                         {
-                            "caption": "Leistung (W, archiviert)",
+                            "caption": "Power (W, archived)",
                             "name": "PowerVar",
                             "width": "auto",
                             "add": 0,
@@ -540,7 +541,7 @@
                             }
                         },
                         {
-                            "caption": "Betriebsart",
+                            "caption": "Operating mode",
                             "name": "Mode",
                             "width": "200px",
                             "add": 0,
@@ -548,15 +549,15 @@
                                 "type": "Select",
                                 "options": [
                                     {
-                                        "caption": "Heizen",
+                                        "caption": "Heating",
                                         "value": 0
                                     },
                                     {
-                                        "caption": "Kühlen",
+                                        "caption": "Cooling",
                                         "value": 1
                                     },
                                     {
-                                        "caption": "Heizen + Kühlen",
+                                        "caption": "Heating + cooling",
                                         "value": 2
                                     }
                                 ]
@@ -567,18 +568,18 @@
                 {
                     "type": "CheckBox",
                     "name": "LFC_WPInForecast",
-                    "caption": "Wärmepumpe/Klima in die Prognose einrechnen (Gesamtverbrauch = Grundlast + Geräte)"
+                    "caption": "Include heat pump/air conditioning in the forecast (total consumption = base load + devices)"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_CDD_Base",
-                    "caption": "Kühlgrenztemperatur (Basis für Kühlgrad)",
+                    "caption": "Cooling limit temperature (basis for cooling degree)",
                     "digits": 1,
                     "suffix": " °C"
                 },
                 {
                     "type": "Label",
-                    "caption": "Hinweis: Das frühere Einzelfeld wurde durch diese Liste ersetzt. Eine bestehende Konfiguration wirkt übergangsweise als Heiz-Gerät weiter, bis du sie hier als Gerät einträgst."
+                    "caption": "Note: the former single field was replaced by this list. An existing configuration keeps working as a heating device for the time being until you enter it here as a device."
                 }
             ]
         }
@@ -586,35 +587,35 @@
     "actions": [
         {
             "type": "Button",
-            "caption": "Prognose jetzt neu berechnen",
+            "caption": "Recalculate forecast now",
             "onClick": "echo LFC_Rebuild($id);"
         },
         {
             "type": "Button",
-            "caption": "Status anzeigen",
+            "caption": "Show status",
             "onClick": "echo LFC_GetStatusText($id);"
         },
         {
             "type": "Button",
-            "caption": "Prognose morgen (JSON) ausgeben",
+            "caption": "Output tomorrow's forecast (JSON)",
             "onClick": "echo print_r(LFC_GetForecast($id, 1), true);"
         },
         {
             "type": "Button",
-            "caption": "🔄 Übernehmen erzwingen (ohne Formularänderung)",
-            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges() ausgeführt.';"
+            "caption": "🔄 Force apply (without a form change)",
+            "onClick": "IPS_ApplyChanges($id); echo '✅ ApplyChanges()';"
         }
     ],
     "status": [
         {
             "code": 102,
             "icon": "active",
-            "caption": "Aktiv"
+            "caption": "Active"
         },
         {
             "code": 104,
             "icon": "inactive",
-            "caption": "Deaktiviert"
+            "caption": "Deactivated"
         }
     ]
 }

@@ -1,13 +1,15 @@
+🇬🇧 [English version](README.en.md)
+
 # Lastprognose
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.22-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.23-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
 [![PayPal](https://img.shields.io/badge/PayPal-Me-blue?logo=paypal)](https://paypal.me/DietmarGureth)
 
-Erstellt aus deinen IP-Symcon-Archivdaten eine **1–3-Tage-Verbrauchsprognose** und liefert sie als
+Erstellt aus deinen IP-Symcon-Archivdaten eine **1–5-Tage-Verbrauchsprognose** und liefert sie als
 JSON-Profil (P10/P50/P90 je Zeitslot) zur direkten Nutzung durch ein EMS. Prefix der Funktionen: `LFC`.
 
 ## Funktionsweise
@@ -107,6 +109,10 @@ LFC_Rebuild(int $InstanzID);
 $w = LFC_GetEnergyWindow(int $InstanzID, int $fromTs, int $toTs);
 // => ['contractVersion'=>'1.0', 'from'=>.., 'to'=>.., 'kwh'=>.., 'coverage'=>..]
 ```
+
+## Sprachen
+
+Das Modul ist zweisprachig (Deutsch/Englisch): Formular, Statusmeldungen, Hinweise und die Namen neu angelegter Variablen folgen der Symcon-Sprache. Die Quelltexte sind englisch, die deutsche Fassung steht in `locale.json`. Bereits vorhandene Variablen behalten ihren Namen.
 
 Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *PV-Prognose*
 und der Prognose-Kachel im NRG-Dashboard.

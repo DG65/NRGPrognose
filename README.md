@@ -1,7 +1,9 @@
+🇬🇧 [English version](README.en.md)
+
 # EnergiePrognose — Last- & PV-Prognose für IP-Symcon
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.22-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.23-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
@@ -13,6 +15,8 @@ Energieprognose-Suite mit zwei Bausteinen, die dem EMS beide Seiten der Energieb
 - **Lastprognose** (Prefix `LFC`) — Verbrauchsprognose über ein Ähnliche-Tage-Verfahren (k-NN).
 - **PV-Prognose** (Prefix `PVF`) — physikbasierte PV-Erzeugungsprognose je Generator über eine
   Wetter-/Solar-API ([Details unten](#pv-prognose--pv-erzeugungsprognose)).
+
+Beide Module sind zweisprachig (Deutsch/Englisch): Formular, Statusmeldungen und Hinweise folgen der Symcon-Sprache.
 
 > Die frühere Kachel **Energiebilanz** (Prefix `EFTILE`) ist seit Build 162 entfallen. Ihr Nachfolger ist die
 > Prognose-Kachel im **NRG-Dashboard** (Modul `NRGDashboardForecast`, Bibliothek „NRG-Stack Dashboard“ im Symcon-Store).

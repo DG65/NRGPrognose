@@ -121,24 +121,56 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.22 (Build 160)';
+    private const NEWS_VERSION = '0.23 (Build 164)';
     private const NEWS_ITEMS = [
-        '🪟 Neu: Formular-Aufbau selbst wählen: Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so gilt deine Wahl bei jedem Öffnen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt; „Auf Standard zurücksetzen“ stellt alles zurück.',
-        '🌡️ Wärmepumpe und Klima jetzt in der Prognose (Rückmeldung EMS, Live-Messung auf dem Haus von Dietmar): Bisher stand in der Prognose nur die Grundlast, die Geräte aus der Liste „Temperaturabhängige Geräte“ liefen getrennt in den Variablen „LFC_WPkWh…“ mit. Jetzt ist die Prognose Grundlast PLUS Geräte: Tages-kWh aus der Temperaturregression, Tagesprofil aus den Tagen mit ähnlicher Temperatur, Unsicherheitsband aus der Streuung der Regression. Die Geräte werden beim Lernen der Grundlast automatisch abgezogen. Wer das nicht möchte, schaltet den neuen Schalter unter „Temperaturabhängige Geräte“ aus. Neue, additive Felder in der Prognose: wpIncluded, kwhBase, kwhWp, base, wp.',
-        '🔗 Temperaturvorhersage automatisch von der PVPrognose (Open-Meteo), wenn keine OpenWeatherData-Instanz mit Stundenvorhersage da ist, statt gleich auf das saisonale Normal zurückzufallen. Die Statuszeile zeigt, woher die Temperatur kommt.',
-        '🔗 Hausverbrauch automatisch: Bleibt das Feld „Hausverbrauch“ leer und gibt es genau einen MeterHub-Zähler mit der Funktion „Hausverbrauch“ (gemessene Leistung, archiviert, aktuell), übernimmt die Lastprognose dessen Leistung selbst — das Formular zeigt Zähler und Variable. Bei mehreren Zählern wird nichts geraten, eine eigene Variable hat immer Vorrang. Eine bestehende Einstellung bleibt unverändert.',
-        '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die OpenWeatherData-Instanz ist bei genau einer Instanz und leerem Feld ausgeblendet und als „🔗 automatisch übernommen“ mit den erhaltenen Tagesmitteln zu sehen. Die Einheit (W/kW) zeigt je Variable, woher sie stammt; das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eigene Angaben (✏️) haben Vorrang, die Zeilen folgen der Auswahl sofort. Der Hausverbrauch wird nicht automatisch ermittelt und bleibt immer ein Eingabefeld.',
-        '🧹 Sondertage bleiben aus dem Lernmaterial: Mit einem NRG-Stack-EMS werden Tage, an denen ein externer Eingriff den Verbrauch verfälscht hat (z. B. Grid-Rewards- oder Boost-Ladung, §14a-Lastbegrenzung), nicht mehr für die Ähnliche-Tage-Suche verwendet, statt nur aus der Prognosegüte herausgerechnet zu werden. Ereignisse, die nur die PV-Erzeugung betreffen (Negativpreis), zählen hier nicht. Reicht die saubere Historie nicht für k Nachbarn, werden Sondertage aufgefüllt. Ohne EMS ändert sich nichts.',
-        '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde und welche Werte übernommen werden — Archiv, Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung), OpenWeatherData-Instanz samt erhaltenen Tagesmitteln, erkannte Wallboxen und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
-        '🔌 Neu, optional: Wallboxen der NRG-Stack-Hubs (ChargerHub/OCPPHub) können jetzt automatisch von der Hauslast abgezogen werden — Schalter unter „Datenquellen (Archiv)", Standard aus. Jede Wallbox wird nur einmal abgezogen, auch wenn sie über beide Hubs erreichbar ist; was erkannt wurde, steht in der Status-Zeile. Bereits von Hand eingetragene Wallboxen dann aus der Liste entfernen.',
-        'Die Warnung „ohne neuen Messwert" zählt jetzt ab der letzten Aktualisierung statt ab der letzten Wertänderung — eine regelmäßig gemeldete, aber dauerhaft konstante Leistung (z. B. ungenutzte Wallbox mit 0 W) löst sie nicht mehr fälschlich aus.',
-        'Zeitumstellung (25.10. / 28.03.): Historische Umstellungstage fließen bei 15/30 Minuten Auflösung jetzt nach Wanduhr in die Prognose ein statt um bis zu eine halbe Stunde verschoben; die Prognose selbst hat wie immer 96 Wanduhr-Slots.',
-        'Am Tageswechsel werden die gespeicherten Tage um Mitternacht weitergeschoben, sodass auch direkte Leser der Prognose-Variablen nicht mehr die Kurve von gestern als „heute" sehen.',
+        '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
+        '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
+        '🌡️ Heat pump and air conditioning now in the forecast (feedback from the EMS, live measurement on Dietmar’s house): until now the forecast contained only the base load, and the devices from the list “Temperature-dependent devices” ran separately in the variables “LFC_WPkWh…”. Now the forecast is base load PLUS devices: daily kWh from the temperature regression, daily profile from the days with a similar temperature, uncertainty band from the spread of the regression. The devices are subtracted automatically when learning the base load. If you do not want this, switch off the new switch under “Temperature-dependent devices”. New, additive fields in the forecast: wpIncluded, kwhBase, kwhWp, base, wp.',
+        '🔗 Temperature forecast automatically from PVPrognose (Open-Meteo) when there is no OpenWeatherData instance with an hourly forecast, instead of falling back to the seasonal normal right away. The status line shows where the temperature comes from.',
+        '🔗 House consumption automatically: if the field “House consumption” stays empty and there is exactly one MeterHub meter with the function “house consumption” (measured power, archived, current), the load forecast takes over its power itself — the form shows the meter and the variable. With several meters nothing is guessed, and your own variable always takes precedence. An existing setting stays unchanged.',
+        '🔗 Form: what is detected automatically is no longer shown as an empty input field. With exactly one OpenWeatherData instance and an empty field, the field is hidden and the instance is shown as “🔗 taken over automatically” with the daily means received. The unit (W/kW) shows for each variable where it comes from; the field for overriding it sits collapsed under “Set unit yourself” and only opens where the automatic detection is unsure. Your own entries (✏️) take precedence, and the lines follow the selection immediately. The house consumption is not determined automatically and always remains an input field.',
+        '🧹 Special days stay out of the learning material: with an NRG-Stack EMS, days on which an external intervention distorted the consumption (e.g. Grid Rewards or boost charging, §14a load limitation) are no longer used for the similar-days search, instead of only being removed from the forecast accuracy. Events that only affect the PV generation (negative price) do not count here. If the clean history is not enough for k neighbours, special days are used to fill up. Without an EMS nothing changes.',
+        '🔎 New in the form: status lines show live what was detected automatically and which values are taken over — the archive, the unit per power variable (with source: profile suffix or order of magnitude), the OpenWeatherData instance with the daily means received, detected wallboxes and the EMS link. If it says ⚠️ or ⛔ there, the line tells you what to do.',
+        '🔌 New, optional: wallboxes of the NRG-Stack hubs (ChargerHub/OCPPHub) can now be subtracted from the house load automatically — switch under “Data sources (archive)”, off by default. Each wallbox is subtracted only once, even if it can be reached through both hubs; what was detected is shown in the status line. Remove wallboxes already entered by hand from the list.',
+        'The warning “without a new measured value” now counts from the last update instead of the last value change — a regularly reported but permanently constant power (e.g. an unused wallbox at 0 W) no longer triggers it by mistake.',
+        'Daylight saving time change (25 Oct / 28 Mar): historic changeover days now enter the forecast by wall clock at 15/30-minute resolution instead of being shifted by up to half an hour; the forecast itself has 96 wall-clock slots as always.',
+        'At the change of day, the stored days are shifted on at midnight, so that even direct readers of the forecast variables no longer see yesterday’s curve as “today”.',
     ];
 
     // ----------------------------------------------------------------
     //  Modul-Lebenszyklus
     // ----------------------------------------------------------------
+
+    /** Gemerkte Übersetzungen: Symcons Translate() liest bei jedem Aufruf die locale.json (SUITE.md Stolperstein 24). */
+    private static $textMerkliste = [];
+
+    /**
+     * Text in der Sprache der Konsole. Die Quelltexte im Code sind Englisch, die deutsche Fassung steht in
+     * locale.json. Jeder Text fragt Symcon höchstens einmal je Prozess; mit Argumenten wie sprintf (%s, %d, %%).
+     * Formulartexte (caption/label) übersetzt die Konsole selbst (Store-Review, SUITE.md Punkt 25) — t() ist für
+     * Texte mit eingesetzten Werten, Meldungen, Variablennamen und Statuszeilen.
+     */
+    /** Dezimalzahl mit einer Nachkommastelle in der Schreibweise der Sprache (locale.json übersetzt „.“ zu „,“). */
+    private function num(float $v): string
+    {
+        return number_format($v, 1, $this->t('.'), '');
+    }
+
+    private function t(string $text, ...$args): string
+    {
+        if (!isset(self::$textMerkliste[$text])) {
+            try {
+                self::$textMerkliste[$text] = (string)$this->Translate($text);
+            } catch (\Throwable $e) {
+                return $args === [] ? $text : (string)@vsprintf($text, $args);
+            }
+        }
+        $out = self::$textMerkliste[$text];
+        if ($args === []) { return $out; }
+        $args = array_map(function ($a) { return (is_scalar($a) || $a === null) ? $a : (string)json_encode($a); }, $args);
+        $r = @vsprintf($out, $args);
+        return $r === false ? $out : $r;
+    }
 
     public function Create()
     {
@@ -220,27 +252,27 @@ class Lastprognose extends IPSModule
 
         // ── Ausgabe-Variablen ───────────────────────────────────────
         $this->ensureNrgPercentProfile();
-        $this->RegisterVariableString('LFC_Today',     'Prognose heute (JSON)',     '', 10);
-        $this->RegisterVariableString('LFC_Tomorrow',  'Prognose morgen (JSON)',    '', 20);
-        $this->RegisterVariableString('LFC_DayAfter',  'Prognose übermorgen (JSON)','', 30);
-        $this->RegisterVariableFloat( 'LFC_kWhToday',     'Erwartung heute (kWh)',    '~Electricity', 40);
-        $this->RegisterVariableFloat( 'LFC_kWhTomorrow',  'Erwartung morgen (kWh)',   '~Electricity', 50);
-        $this->RegisterVariableFloat( 'LFC_kWhDayAfter',  'Erwartung übermorgen (kWh)','~Electricity', 60);
+        $this->RegisterVariableString('LFC_Today',     $this->t('Forecast today (JSON)'),     '', 10);
+        $this->RegisterVariableString('LFC_Tomorrow',  $this->t('Forecast tomorrow (JSON)'),    '', 20);
+        $this->RegisterVariableString('LFC_DayAfter',  $this->t('Forecast day after tomorrow (JSON)'),'', 30);
+        $this->RegisterVariableFloat( 'LFC_kWhToday',     $this->t('Expected today (kWh)'),    '~Electricity', 40);
+        $this->RegisterVariableFloat( 'LFC_kWhTomorrow',  $this->t('Expected tomorrow (kWh)'),   '~Electricity', 50);
+        $this->RegisterVariableFloat( 'LFC_kWhDayAfter',  $this->t('Expected day after tomorrow (kWh)'),'~Electricity', 60);
         // Horizont-Erweiterung 3→5 Tage (20.08.2026): neue Idents für Tag 3/4,
         // bestehende Today/Tomorrow/DayAfter bewusst unverändert (Archivhistorie).
-        $this->RegisterVariableString('LFC_Day3',      'Prognose in 3 Tagen (JSON)', '', 65);
-        $this->RegisterVariableString('LFC_Day4',      'Prognose in 4 Tagen (JSON)', '', 68);
-        $this->RegisterVariableFloat( 'LFC_kWhDay3',      'Erwartung in 3 Tagen (kWh)', '~Electricity', 63);
-        $this->RegisterVariableFloat( 'LFC_kWhDay4',      'Erwartung in 4 Tagen (kWh)', '~Electricity', 66);
-        $this->RegisterVariableFloat( 'LFC_WPkWhToday',   'Erwartung WP/Klima heute (kWh)',     '~Electricity', 70);
-        $this->RegisterVariableFloat( 'LFC_WPkWhTomorrow','Erwartung WP/Klima morgen (kWh)',    '~Electricity', 71);
-        $this->RegisterVariableFloat( 'LFC_WPkWhDayAfter','Erwartung WP/Klima übermorgen (kWh)','~Electricity', 72);
-        $this->RegisterVariableFloat( 'LFC_WPkWhDay3',    'Erwartung WP/Klima in 3 Tagen (kWh)','~Electricity', 73);
-        $this->RegisterVariableFloat( 'LFC_WPkWhDay4',    'Erwartung WP/Klima in 4 Tagen (kWh)','~Electricity', 74);
+        $this->RegisterVariableString('LFC_Day3',      $this->t('Forecast in 3 days (JSON)'), '', 65);
+        $this->RegisterVariableString('LFC_Day4',      $this->t('Forecast in 4 days (JSON)'), '', 68);
+        $this->RegisterVariableFloat( 'LFC_kWhDay3',      $this->t('Expected in 3 days (kWh)'), '~Electricity', 63);
+        $this->RegisterVariableFloat( 'LFC_kWhDay4',      $this->t('Expected in 4 days (kWh)'), '~Electricity', 66);
+        $this->RegisterVariableFloat( 'LFC_WPkWhToday',   $this->t('Expected heat pump/AC today (kWh)'),     '~Electricity', 70);
+        $this->RegisterVariableFloat( 'LFC_WPkWhTomorrow',$this->t('Expected heat pump/AC tomorrow (kWh)'),    '~Electricity', 71);
+        $this->RegisterVariableFloat( 'LFC_WPkWhDayAfter',$this->t('Expected heat pump/AC day after tomorrow (kWh)'),'~Electricity', 72);
+        $this->RegisterVariableFloat( 'LFC_WPkWhDay3',    $this->t('Expected heat pump/AC in 3 days (kWh)'),'~Electricity', 73);
+        $this->RegisterVariableFloat( 'LFC_WPkWhDay4',    $this->t('Expected heat pump/AC in 4 days (kWh)'),'~Electricity', 74);
         $this->RegisterVariableString('LFC_Status',    'Status',                    '', 80);
-        $this->RegisterVariableInteger('LFC_LastUpdate','Letzte Berechnung',        '~UnixTimestamp', 90);
-        $this->RegisterVariableFloat( 'LFC_ErrorMAPE', 'Prognosefehler |Ø| (%)',    'NRG.Percent', 92);
-        $this->RegisterVariableString('LFC_Accuracy',  'Prognosegüte (Soll vs. Ist)','', 94);
+        $this->RegisterVariableInteger('LFC_LastUpdate',$this->t('Last calculation'),        '~UnixTimestamp', 90);
+        $this->RegisterVariableFloat( 'LFC_ErrorMAPE', $this->t('Forecast error |Ø| (%)'),    'NRG.Percent', 92);
+        $this->RegisterVariableString('LFC_Accuracy',  $this->t('Forecast accuracy (planned vs. actual)'),'', 94);
 
         // ── Timer ───────────────────────────────────────────────────
         // Tages-Snapshots der Prognose (für spätere Soll-vs-Ist-Kontrolle je Tag)
@@ -273,7 +305,7 @@ class Lastprognose extends IPSModule
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
 
         foreach ($form['elements'] as &$el) {
-            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['caption'] ?? '') === '📖 Dokumentation & Hilfe') {
+            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['name'] ?? '') === 'PanelDokumentation') {
                 array_unshift($el['items'], $this->VersionLabel());
                 break;
             }
@@ -326,9 +358,9 @@ class Lastprognose extends IPSModule
                 'type' => 'RowLayout',
                 'name' => 'ForumHint',
                 'items' => [
-                    ['type' => 'Label', 'caption' => '💬 Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'caption' => '💬 Feedback and test reports are welcome in the Symcon forum thread:'],
                     ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
-                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'LFC_DismissForumHint($id);'],
+                    ['type' => 'Button', 'caption' => 'Do not show again', 'onClick' => 'LFC_DismissForumHint($id);'],
                 ],
             ];
         }
@@ -412,7 +444,7 @@ class Lastprognose extends IPSModule
         $rows   = [];
         $hidden = [];
         foreach ($layout as $key => $l) {
-            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', $this->t((string)($free[$key]['caption'] ?? $key))));
             $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
                 'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
             if ($l['open'] === 'hidden') {
@@ -420,28 +452,28 @@ class Lastprognose extends IPSModule
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => $this->t('🙈 Hidden: %s — to show again, remove the tick under “Hidden”. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
             : [];
         return [
             'type' => 'ExpansionPanel', 'name' => 'LayoutPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'caption' => $this->t('🪟 Form: layout%s', $hidden ? $this->t(' (%d hidden)', count($hidden)) : ''),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht (z. B. „Allgemein“ aufgeklappt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Wozu, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Here you set which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so the setting here applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means “Default”: as the module intends it (e.g. “General” expanded). If you choose “Collapsed”, you will not see anything new there right away either. The position is a number; with equal numbers the default order is kept. “Hidden” removes a section from the display without losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick under “Hidden” or click “Reset to default”. If several ticks are set, “Hidden” beats “Collapsed” beats “Expanded”. The sections at the top (purpose, news, documentation) and at the bottom (feedback, about this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Sections', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Section', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo LFC_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo LFC_ResetFormLayout($id);'],
             ]),
         ];
     }
@@ -454,11 +486,11 @@ class Lastprognose extends IPSModule
         $rows = [];
         $i = 0;
         foreach (array_keys(self::FACH_PANELS) as $k) {
-            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$k]['caption'] ?? $k)));
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', $this->t((string)($free[$k]['caption'] ?? $k))));
             $rows[] = ['Key' => $k, 'Panel' => $name, 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+        return $this->t('ℹ️ Reset to default. Click “Apply” below to save.');
     }
 
     /**
@@ -544,7 +576,7 @@ class Lastprognose extends IPSModule
             try {
                 $out[$name] = $this->$method();
             } catch (\Throwable $e) {
-                $out[$name] = '⚠️ Status konnte nicht ermittelt werden: ' . $e->getMessage();
+                $out[$name] = $this->t('⚠️ Could not determine status: %s', $e->getMessage());
             }
         }
         return $out;
@@ -571,7 +603,7 @@ class Lastprognose extends IPSModule
     protected function hubHouseMeters(): array
     {
         $out = [];
-        foreach (['MHUB' => 'MeterHub', 'MHUBV' => 'MeterHub (virtuell)'] as $prefix => $hub) {
+        foreach (['MHUB' => 'MeterHub', 'MHUBV' => $this->t('MeterHub (virtual)')] as $prefix => $hub) {
             $fn = $prefix . '_GetFunctions';
             if (!function_exists($fn)) { continue; }
             foreach (IPS_GetInstanceList() as $iid) {
@@ -612,23 +644,23 @@ class Lastprognose extends IPSModule
             $slot = (string)($a['slot'] ?? '');
             $major = (int)explode('.', (string)$a['_contract'])[0];
             if ($major !== self::METERHUB_MAJOR) {
-                $reason = 'Vertrag ' . $a['_contract'] . ' wird nicht unterstützt (Major ' . self::METERHUB_MAJOR . ' erwartet) – Modul-Update prüfen';
+                $reason = $this->t('Contract %s is not supported (major %d expected) – check for a module update', $a['_contract'], self::METERHUB_MAJOR);
             } elseif (!in_array($slot, ['total', 'main'], true)) {
-                $reason = 'nur Teilwert einer Phase (' . $slot . '), nicht der gesamte Hausverbrauch';
+                $reason = $this->t('only a partial value of one phase (%s), not the total house consumption', $slot);
             } elseif ($pid <= 0 || !IPS_VariableExists($pid)) {
-                $reason = 'Leistungsvariable fehlt';
+                $reason = $this->t('power variable missing');
             } elseif (array_key_exists('measured', $a) && $a['measured'] === false) {
-                $reason = 'Leistung nicht gemessen';
+                $reason = $this->t('power not measured');
             } elseif (array_key_exists('energyMeasured', $a) && $a['energyMeasured'] === false) {
                 // Nur der echte MeterHub liefert es (Zählerstand aus der Leistung hochgerechnet, z. B. blue'Log): laut
                 // Vertragsbesitzer nicht als Hausverbrauch-Lernmaterial nehmen. Fehlt das Feld, gilt „gemessen“.
-                $reason = 'Zählerstand hochgerechnet, nicht gemessen';
+                $reason = $this->t('meter reading extrapolated, not measured');
             } elseif ($aid <= 0 || !$this->isLogged($aid, $pid)) {
-                $reason = 'Leistung nicht archiviert';
+                $reason = $this->t('power not archived');
             } else {
                 $v = IPS_GetVariable($pid);
                 $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
-                $reason = ($age > 48 * 3600) ? sprintf('seit %s Tagen ohne neuen Messwert', number_format($age / 86400, 1, ',', '')) : '';
+                $reason = ($age > 48 * 3600) ? $this->t('for %s days without a new measured value', $this->num($age / 86400)) : '';
                 if ($reason === '') { $reason = $this->consumptionSignReason($aid, $pid); }
             }
             if ($reason !== '') { $e['reason'] = $reason; $out['issues'][] = $e; continue; }
@@ -663,7 +695,7 @@ class Lastprognose extends IPSModule
         }
         $n = count($vals);
         if ($n < 12) {
-            return 'Vorzeichen nicht prüfbar: weniger als 12 Stundenwerte der letzten 7 Tage im Archiv';
+            return $this->t('Sign cannot be checked: fewer than 12 hourly values of the last 7 days in the archive');
         }
         sort($vals);
         $median = ($n % 2) ? $vals[intdiv($n, 2)] : ($vals[$n / 2 - 1] + $vals[$n / 2]) / 2;
@@ -671,13 +703,13 @@ class Lastprognose extends IPSModule
         if ($median < 0) {
             // Vertrag (MeterHub-Sitzung, SUITE.md „Vorzeichen-Konvention MHUB/MHUBV“): für function='house' gilt + = Verbrauch.
             // Dauerhaft negativ ist eine falsch gestellte Richtung am Zähler, kein Messwert — nicht still umdrehen, melden.
-            return 'Hausverbrauch dauerhaft negativ (Median der letzten 7 Tage ' . number_format($median, 1, ',', '') . '), Richtung am Zähler prüfen';
+            return $this->t('House consumption permanently negative (median of the last 7 days %s), check the direction at the meter', $this->num($median));
         }
         if ($median == 0) {
-            return 'Vorzeichen unklar: Median der letzten 7 Tage ist 0 (eine Hauslast müsste im Mittel positiv sein)';
+            return $this->t('Sign unclear: the median of the last 7 days is 0 (a house load should be positive on average)');
         }
         if ($negShare > 0.2) {
-            return 'Vorzeichen unklar: ' . round($negShare * 100) . ' % der Stundenwerte sind negativ';
+            return $this->t('Sign unclear: %d %% of the hourly values are negative', round($negShare * 100));
         }
         return '';
     }
@@ -687,32 +719,31 @@ class Lastprognose extends IPSModule
     {
         $sel = $this->selectedInt('VAR_Consumption');
         $det = $this->detectedConsumption();
-        $meter = function (array $e) { return 'MeterHub “' . $e['label'] . '” (#' . $e['instance'] . ')'; };
+        $meter = function (array $e) { return $this->t('MeterHub “%s” (#%d)', $e['label'], $e['instance']); };
 
         if ($sel > 0) {
             if (!IPS_VariableExists($sel)) {
-                return '⚠️ Hausverbrauch: die gewählte Variable #' . $sel . ' existiert nicht.';
+                return $this->t('⚠️ House consumption: the chosen variable #%d does not exist.', $sel);
             }
-            $line = '✏️ Hausverbrauch: eigene Variable „' . IPS_GetName($sel) . '“ (#' . $sel . '), hat Vorrang vor der Automatik.';
+            $line = $this->t('✏️ House consumption: own variable “%s” (#%d), takes precedence over the automatic detection.', IPS_GetName($sel), $sel);
             if ($det['state'] === 'auto' && $det['varID'] !== $sel) {
-                $line .= ' Zum Vergleich: ' . $meter($det['usable'][0]) . ' würde den Hausverbrauch automatisch liefern (Leistung #' . $det['varID'] . ').';
+                $line .= ' ' . $this->t('For comparison: %s would supply the house consumption automatically (power #%d).', $meter($det['usable'][0]), $det['varID']);
             }
             return $line;
         }
         switch ($det['state']) {
             case 'auto':
                 $e = $det['usable'][0];
-                return '🔗 Hausverbrauch: automatisch übernommen von ' . $meter($e) . ', Funktion „Hausverbrauch“, Vertrag MHUB ' . $e['contract']
-                    . ' – Leistung „' . IPS_GetName($e['powerID']) . '“ (#' . $e['powerID'] . '), archiviert. Erfasst dieser Zähler nicht das, was du als Hausverbrauch meinst (z. B. mit oder ohne Wärmepumpe), unten eine eigene Variable wählen.';
+                return $this->t('🔗 House consumption: taken over automatically from %s, function “house consumption”, contract MHUB %s – power “%s” (#%d), archived. If this meter does not capture what you mean by house consumption (e.g. with or without heat pump), choose your own variable below.',
+                    $meter($e), $e['contract'], IPS_GetName($e['powerID']), $e['powerID']);
             case 'ambiguous':
-                return '⚠️ Hausverbrauch: ' . count($det['usable']) . ' MeterHub-Zähler mit Funktion „Hausverbrauch“ gefunden ('
-                    . implode(', ', array_map(function ($e) { return '“' . $e['label'] . '” #' . $e['instance']; }, $det['usable']))
-                    . ') – es wird keiner geraten, bitte unten die Variable selbst wählen.';
+                return $this->t('⚠️ House consumption: %d MeterHub meters with the function “house consumption” found (%s) – none is guessed, please choose the variable yourself below.',
+                    count($det['usable']), implode(', ', array_map(function ($e) { return $this->t('“%s” #%d', $e['label'], $e['instance']); }, $det['usable'])));
             case 'unusable':
-                $parts = array_map(function ($e) { return '“' . $e['label'] . '” (#' . $e['instance'] . '): ' . $e['reason']; }, $det['issues']);
-                return '⚠️ Hausverbrauch: MeterHub-Zähler mit Funktion „Hausverbrauch“ gefunden, aber nicht verwendbar – ' . implode('; ', $parts) . '. Bitte unten die Variable selbst wählen.';
+                $parts = array_map(function ($e) { return $this->t('“%s” (#%d): %s', $e['label'], $e['instance'], $e['reason']); }, $det['issues']);
+                return $this->t('⚠️ House consumption: MeterHub meters with the function “house consumption” found, but not usable – %s. Please choose the variable yourself below.', implode('; ', $parts));
             default:
-                return '⛔ Hausverbrauch: Pflichtangabe fehlt. Es gibt keinen MeterHub-Zähler mit Funktion „Hausverbrauch“ – bitte unten die Leistungsvariable selbst wählen (z. B. der Hausverbrauch deines Energiemanagements).';
+                return $this->t('⛔ House consumption: required entry missing. There is no MeterHub meter with the function “house consumption” – please choose the power variable yourself below (e.g. the house consumption of your energy management).');
         }
     }
 
@@ -721,20 +752,20 @@ class Lastprognose extends IPSModule
     {
         $aid = (int)$this->getArchiveID();
         if ($aid <= 0) {
-            return '⛔ Archiv: keine Archiv-Control-Instanz gefunden – ohne Archiv gibt es keine Prognose.';
+            return $this->t('⛔ Archive: no Archive Control instance found – without an archive there is no forecast.');
         }
-        $head = 'Archiv: verbunden mit “' . IPS_GetName($aid) . '” (#' . $aid . ', automatisch erkannt)';
+        $head = $this->t('Archive: connected to “%s” (#%d, detected automatically)', IPS_GetName($aid), $aid);
         $vid = $this->consumptionVar($this->selectedInt('VAR_Consumption'));
         if ($vid <= 0) {
-            return 'ℹ️ ' . $head . '. Der Hausverbrauch ist noch nicht festgelegt (siehe unten) – ohne ihn gibt es keine Prognose.';
+            return 'ℹ️ ' . $this->t('%s. The house consumption is not set yet (see below) – without it there is no forecast.', $head);
         }
         if (!IPS_VariableExists($vid)) {
-            return '⛔ ' . $head . '. Die gewählte Hausverbrauch-Variable #' . $vid . ' existiert nicht.';
+            return '⛔ ' . $this->t('%s. The chosen house consumption variable #%d does not exist.', $head, $vid);
         }
         if (!$this->isLogged($aid, $vid)) {
-            return '⛔ ' . $head . ', aber der Hausverbrauch „' . IPS_GetName($vid) . '“ (#' . $vid . ') ist nicht archiviert – bitte im Archiv aktivieren.';
+            return '⛔ ' . $this->t('%s, but the house consumption “%s” (#%d) is not archived – please enable it in the archive.', $head, IPS_GetName($vid), $vid);
         }
-        return '✅ ' . $head . '. Übernommen: Verlauf des Hausverbrauchs „' . IPS_GetName($vid) . '“ (#' . $vid . ') für das Lernen der Tagesprofile.';
+        return '✅ ' . $this->t('%s. Taken over: history of the house consumption “%s” (#%d) for learning the daily profiles.', $head, IPS_GetName($vid), $vid);
     }
 
     /** Einheit (W/kW) je Leistungsvariable, mit Quelle der Erkennung. */
@@ -742,39 +773,39 @@ class Lastprognose extends IPSModule
     {
         $mode = $this->selectedInt('LFC_PowerUnit');
         if ($mode === 0 || $mode === 1) {
-            return '✏️ Einheit: fest auf ' . ($mode === 1 ? 'kW' : 'W') . ' eingestellt (eigene Angabe, überschreibt die Automatik) – gilt für Hausverbrauch, Abzugsliste und Geräte.';
+            return $this->t('✏️ Unit: fixed to %s (own setting, overrides the automatic detection) – applies to house consumption, deduction list and devices.', $mode === 1 ? 'kW' : 'W');
         }
 
         $entries = [];
         $cons = $this->consumptionVar($this->selectedInt('VAR_Consumption'));
-        if ($cons > 0) { $entries[$cons] = 'Hausverbrauch'; }
-        foreach ($this->excludeVarIds() as $vid) { if (!isset($entries[$vid])) { $entries[$vid] = 'Abzug'; } }
-        foreach ($this->wpDevices() as $dev) { if (!isset($entries[$dev['var']])) { $entries[$dev['var']] = 'Gerät'; } }
+        if ($cons > 0) { $entries[$cons] = $this->t('House consumption'); }
+        foreach ($this->excludeVarIds() as $vid) { if (!isset($entries[$vid])) { $entries[$vid] = $this->t('Deduction'); } }
+        foreach ($this->wpDevices() as $dev) { if (!isset($entries[$dev['var']])) { $entries[$dev['var']] = $this->t('Device'); } }
         if (count($entries) === 0) {
-            return 'ℹ️ Einheit: noch keine Leistungsvariable gewählt – die Einheit (W/kW) wird je Variable automatisch erkannt, sobald eine gewählt ist.';
+            return $this->t('ℹ️ Unit: no power variable selected yet – the unit (W/kW) is detected automatically per variable as soon as one is selected.');
         }
 
         $lines = [];
         $unsure = false;
         foreach ($entries as $vid => $role) {
-            $name = $role . ' „' . (IPS_VariableExists($vid) ? IPS_GetName($vid) : '?') . '“ (#' . $vid . ')';
+            $name = $this->t('%s “%s” (#%d)', $role, IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $vid);
             if (!IPS_VariableExists($vid)) {
-                $lines[] = '• ' . $name . ': Variable existiert nicht';
+                $lines[] = $this->t('• %s: variable does not exist', $name);
                 $unsure = true;
                 continue;
             }
             $u = $this->autoPowerUnit($vid);
             $unit = ($u['factor'] == 1000.0) ? 'kW' : (($u['factor'] == 1000000.0) ? 'MW' : 'W');
             if ($u['source'] === 'profile') {
-                $lines[] = '• ' . $name . ': ' . $unit . ' – aus dem Profil-Suffix „' . $u['detail'] . '“';
+                $lines[] = $this->t('• %s: %s – from the profile suffix “%s”', $name, $unit, $u['detail']);
             } elseif ($u['source'] === 'magnitude') {
-                $lines[] = '• ' . $name . ': ' . $unit . ' – aus der Größenordnung (Tagesmaximum der letzten 7 Tage ' . $u['detail'] . ')';
+                $lines[] = $this->t('• %s: %s – from the order of magnitude (daily maximum of the last 7 days %s)', $name, $unit, $u['detail']);
             } else {
-                $lines[] = '• ' . $name . ': W angenommen – weder Profil-Suffix noch auswertbare Archivdaten; bei einer kW-Variable bitte oben manuell festlegen';
+                $lines[] = $this->t('• %s: W assumed – neither a profile suffix nor evaluable archive data; for a kW variable please set it manually above', $name);
                 $unsure = true;
             }
         }
-        return ($unsure ? '⚠️' : '🔗') . " Einheit (automatisch übernommen):\n" . implode("\n", $lines);
+        return ($unsure ? '⚠️' : '🔗') . ' ' . $this->t('Unit (taken over automatically):') . "\n" . implode("\n", $lines);
     }
 
     /** Temperaturvorhersage: welche OpenWeatherData-Instanz, welche Werte kommen an. */
@@ -788,65 +819,74 @@ class Lastprognose extends IPSModule
                 if ($vid > 0 && IPS_VariableExists($vid)) { $n++; }
             }
             return ($n > 0)
-                ? '✏️ Temperaturvorhersage: Modus „Tagesmittel-Variablen“ – ' . $n . ' von 5 Tagen eigene Variablen, OpenWeatherData wird nicht verwendet.'
-                : '⚠️ Temperaturvorhersage: Modus „Tagesmittel-Variablen“, aber keine Variable gewählt – es gilt das saisonale Normal aus dem Temperatur-Archiv.';
+                ? $this->t('✏️ Temperature forecast: mode “Daily-mean variables” – %d of 5 days own variables, OpenWeatherData is not used.', $n)
+                : $this->t('⚠️ Temperature forecast: mode “Daily-mean variables”, but no variable chosen – the seasonal normal from the temperature archive applies.');
         }
         if ($mode === LFC_FC_IDENT) {
             $parent = $this->ReadPropertyInteger('LFC_FcParentID');
             return ($parent > 0 && IPS_ObjectExists($parent))
-                ? '✏️ Temperaturvorhersage: Modus „Ident-Muster“ mit Eltern-Objekt „' . IPS_GetName($parent) . '“ (#' . $parent . '), OpenWeatherData wird nicht verwendet.'
-                : '⚠️ Temperaturvorhersage: Modus „Ident-Muster“, aber kein Eltern-Objekt gewählt – es gilt das saisonale Normal aus dem Temperatur-Archiv.';
+                ? $this->t('✏️ Temperature forecast: mode “Ident pattern” with parent object “%s” (#%d), OpenWeatherData is not used.', IPS_GetName($parent), $parent)
+                : $this->t('⚠️ Temperature forecast: mode “Ident pattern”, but no parent object chosen – the seasonal normal from the temperature archive applies.');
         }
 
         $list = IPS_GetInstanceListByModuleID(LFC_OWM_GUID);
         $list = is_array($list) ? array_values($list) : [];
         $tempHist = $this->ReadPropertyInteger('VAR_TempHistory');
         $fallback = ($tempHist > 0 && IPS_VariableExists($tempHist))
-            ? 'es gilt das saisonale Normal aus dem Temperatur-Archiv'
-            : 'es gilt die Heizgrenztemperatur, weil auch keine Außentemperatur-Historie gewählt ist';
+            ? $this->t('the seasonal normal from the temperature archive applies')
+            : $this->t('the heating limit temperature applies, because no outdoor temperature history is chosen either');
 
         if (count($list) === 0) {
             $pvf = $this->pvfTemperatures();
             if ($pvf !== null) { return $this->pvfTemperatureLine($pvf, ''); }
-            return 'ℹ️ Temperaturvorhersage: keine OpenWeatherData-Instanz gefunden – ' . $fallback . '.';
+            return $this->t('ℹ️ Temperature forecast: no OpenWeatherData instance found – %s.', $fallback);
         }
         $sel = $this->selectedInt('LFC_OwmInstance');
         $owm = (int)$this->owmInstance($sel);
         $chosen = ($sel > 0 && $owm === $sel);
         $ignored = ($sel > 0 && !$chosen);
-        $src = 'OpenWeatherData “' . IPS_GetName($owm) . '” (#' . $owm . ')';
+        $src = $this->t('OpenWeatherData “%s” (#%d)', IPS_GetName($owm), $owm);
         $head = $chosen
-            ? 'Temperaturvorhersage: eigene Auswahl ' . $src . ', hat Vorrang vor der Automatik'
-            : 'Temperaturvorhersage: automatisch übernommen von ' . $src;
+            ? $this->t('Temperature forecast: own choice %s, takes precedence over the automatic detection', $src)
+            : $this->t('Temperature forecast: taken over automatically from %s', $src);
 
         $res = $this->aggregateForecastSlots($owm, LFC_OWM_IDENT_TIME, LFC_OWM_IDENT_MIN, LFC_OWM_IDENT_MAX, 0, LFC_OWM_MAX_SLOTS);
         $days = array_filter($res, function ($v) { return $v !== null; });
         $warn = '';
         if ($ignored) {
-            $warn .= ' Die gewählte Instanz #' . $sel . ' ist keine OpenWeatherData-Instanz und wird ignoriert – bitte neu wählen oder leeren.';
+            $warn .= ' ' . $this->t('The chosen instance #%d is not an OpenWeatherData instance and is ignored – please choose again or clear it.', $sel);
         } elseif (count($list) > 1 && !$chosen) {
-            $warn .= ' Es gibt ' . count($list) . ' OpenWeatherData-Instanzen und keine ist gewählt, deshalb wird die erste genommen – bitte die passende festlegen.';
+            $warn .= ' ' . $this->t('There are %d OpenWeatherData instances and none is chosen, so the first is taken – please choose the right one.', count($list));
         }
         if (count($days) === 0) {
             $pvf = $this->pvfTemperatures();
-            if ($pvf !== null) { return $this->pvfTemperatureLine($pvf, ' (OpenWeatherData-Instanz “' . IPS_GetName($owm) . '” liefert keine Stundenvorhersage)'); }
-            return '⚠️ ' . $head . ', aber ohne Stundenvorhersage – dort „hourly_forecast_count“ auf mindestens 40 setzen (voller 5-Tage-Horizont); bis dahin: ' . $fallback . '.' . $warn;
+            if ($pvf !== null) { return $this->pvfTemperatureLine($pvf, IPS_GetName($owm)); }
+            return $this->t('⚠️ %s, but without an hourly forecast – set “hourly_forecast_count” to at least 40 there (full 5-day horizon); until then: %s.', $head, $fallback) . $warn;
         }
         $sample = [];
-        foreach ($days as $off => $t) { $sample[] = ($off === 0 ? 'heute' : '+' . $off . ' T') . ' ' . number_format((float)$t, 1, ',', '') . ' °C'; }
-        $line = $head . '. Werte: Tagesmittel für ' . count($days) . ' von 5 Tagen (' . implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '') . ').' . $warn;
+        foreach ($days as $off => $t) { $sample[] = $this->tempSample((int)$off, (float)$t); }
+        $line = $this->t('%s. Values: daily mean for %d of 5 days (%s).', $head, count($days), implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '')) . $warn;
         return ($warn !== '' ? '⚠️ ' : ($chosen ? '✏️ ' : '🔗 ')) . $line;
     }
 
     /** Statuszeile, wenn die Temperaturvorhersage von der PVPrognose kommt. */
-    private function pvfTemperatureLine(array $pvf, string $note): string
+    private function pvfTemperatureLine(array $pvf, string $owmName): string
     {
         $sample = [];
         foreach ($pvf['days'] as $off => $t) {
-            if ($t !== null) { $sample[] = ($off === 0 ? 'heute' : '+' . $off . ' T') . ' ' . number_format((float)$t, 1, ',', '') . ' °C'; }
+            if ($t !== null) { $sample[] = $this->tempSample((int)$off, (float)$t); }
         }
-        return '🔗 Temperaturvorhersage: automatisch übernommen von PVPrognose “' . IPS_GetName($pvf['id']) . '” (#' . $pvf['id'] . ', Open-Meteo)'
-            . $note . '. Werte: Tagesmittel für ' . count($sample) . ' von 5 Tagen (' . implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '') . ').';
+        $list = implode(', ', array_slice($sample, 0, 3)) . (count($sample) > 3 ? ' …' : '');
+        // $owmName <> '': eine OpenWeatherData-Instanz ist da, liefert aber keine Stundenvorhersage
+        return ($owmName !== '')
+            ? $this->t('🔗 Temperature forecast: taken over automatically from PVPrognose “%s” (#%d, Open-Meteo) (OpenWeatherData instance “%s” delivers no hourly forecast). Values: daily mean for %d of 5 days (%s).', IPS_GetName($pvf['id']), $pvf['id'], $owmName, count($sample), $list)
+            : $this->t('🔗 Temperature forecast: taken over automatically from PVPrognose “%s” (#%d, Open-Meteo). Values: daily mean for %d of 5 days (%s).', IPS_GetName($pvf['id']), $pvf['id'], count($sample), $list);
+    }
+
+    /** Tagesmittel einer Vorhersage für die Statuszeile: „heute 12,3 °C“ / „+1 T 11,0 °C“. */
+    private function tempSample(int $off, float $t): string
+    {
+        return ($off === 0) ? $this->t('today %s °C', $this->num($t)) : $this->t('+%d d %s °C', $off, $this->num($t));
     }
 
     /** Wallboxen der Hubs: Schalter, was erkannt und abgezogen wird. */
@@ -854,28 +894,31 @@ class Lastprognose extends IPSModule
     {
         if (!$this->ReadPropertyBoolean('LFC_AutoWallboxes')) {
             $n = count($this->hubChargers());
-            return ($n > 0)
-                ? 'ℹ️ Wallboxen: automatische Erkennung aus (Standard). Die Hubs melden ' . $n . ' Wallbox-Eintrag/-Einträge – einschalten, wenn der Hausverbrauch die Ladeleistung enthält.'
-                : 'ℹ️ Wallboxen: automatische Erkennung aus (Standard); keine Hubs (ChargerHub/OCPPHub) mit Wallboxen gefunden – Wallboxen bei Bedarf über die Abzugsliste eintragen.';
+            if ($n === 0) {
+                return $this->t('ℹ️ Wallboxes: automatic detection off (default); no hubs (ChargerHub/OCPPHub) with wallboxes found – enter wallboxes via the deduction list if needed.');
+            }
+            return ($n === 1)
+                ? $this->t('ℹ️ Wallboxes: automatic detection off (default). The hubs report 1 wallbox entry – switch it on if the house consumption includes the charging power.')
+                : $this->t('ℹ️ Wallboxes: automatic detection off (default). The hubs report %d wallbox entries – switch it on if the house consumption includes the charging power.', $n);
         }
         $w = $this->detectedWallboxes();
         $parts = [];
         foreach ($w['use'] as $x) {
-            $age = ($x['ageDays'] === null) ? '' : (($x['ageDays'] < 1) ? ', Wert aktuell' : ', zuletzt aktualisiert vor ' . number_format($x['ageDays'], 1, ',', '') . ' Tagen');
-            $parts[] = '• ' . $x['label'] . ' (' . $x['hub'] . ', Ladeleistung #' . $x['powerID'] . $age . ')';
+            $age = ($x['ageDays'] === null) ? '' : (($x['ageDays'] < 1) ? $this->t(', value current') : $this->t(', last updated %s days ago', $this->num((float)$x['ageDays'])));
+            $parts[] = $this->t('• %s (%s, charging power #%d%s)', $x['label'], $x['hub'], $x['powerID'], $age);
         }
         $warn = false;
         foreach ($w['use'] as $x) { if (($x['ageDays'] ?? 0) > 7) { $warn = true; } }
-        foreach ($w['skipped'] as $x) { $parts[] = '• ' . $x['label'] . ': ignoriert – ' . $x['reason']; $warn = true; }
+        foreach ($w['skipped'] as $x) { $parts[] = $this->t('• %s: ignored – %s', $x['label'], $x['reason']); $warn = true; }
         $manual = array_filter((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true), function ($r) { return (int)($r['VariableID'] ?? 0) > 0; });
         if (count($w['use']) === 0 && count($w['skipped']) === 0) {
-            return 'ℹ️ Wallboxen: automatische Erkennung an, aber keine Wallbox mit archivierter Ladeleistung gefunden.';
+            return $this->t('ℹ️ Wallboxes: automatic detection on, but no wallbox with an archived charging power found.');
         }
         if (count($w['use']) > 0 && count($manual) > 0) {
-            $parts[] = 'Hinweis: die manuelle Abzugsliste ist zusätzlich aktiv – enthält sie dieselben Wallboxen, werden sie doppelt abgezogen.';
+            $parts[] = $this->t('Note: the manual deduction list is also active – if it contains the same wallboxes, they are subtracted twice.');
             $warn = true;
         }
-        return ($warn ? '⚠️' : '✅') . ' Wallboxen: ' . count($w['use']) . " automatisch erkannt und abgezogen:\n" . implode("\n", $parts);
+        return ($warn ? '⚠️' : '✅') . ' ' . $this->t('Wallboxes: %d detected and subtracted automatically:', count($w['use'])) . "\n" . implode("\n", $parts);
     }
 
     /** EMS-Kopplung für Sondereffekte: Prognosegüte, Fehler-Korrektur und k-NN-Lernmaterial. */
@@ -883,27 +926,27 @@ class Lastprognose extends IPSModule
     {
         $ems = function_exists('EMS_GetSpecialEvents') ? $this->emsInstance() : 0;
         if ($ems <= 0) {
-            return 'ℹ️ EMS: nicht gefunden – Tage mit Sondereffekten (Grid Rewards, Boost, §14a-Lastbegrenzung …) werden weder aus dem Lernmaterial noch aus der Prognosegüte herausgerechnet, alle Tage zählen.';
+            return $this->t('ℹ️ EMS: not found – days with special effects (Grid Rewards, boost, §14a load limitation …) are removed neither from the learning material nor from the forecast accuracy, every day counts.');
         }
         $lookback = $this->ReadPropertyInteger('LFC_LookbackDays');
         $events = $this->poolSpecialEvents($lookback);
-        $head = 'EMS: verbunden mit “' . IPS_GetName($ems) . '” (#' . $ems . ', automatisch erkannt)';
+        $head = $this->t('EMS: connected to “%s” (#%d, detected automatically)', IPS_GetName($ems), $ems);
         if ($this->specialEventsVersionMismatch !== null) {
-            return '⚠️ ' . $head . ', aber der Vertrag EMS_GetSpecialEvents hat Version ' . $this->specialEventsVersionMismatch . ' (unterstützt: ' . self::EMS_EVENTS_MAJOR . '.x) – Kopplung bis zum Modul-Update aus.';
+            return '⚠️ ' . $this->t('%s, but the contract EMS_GetSpecialEvents has version %s (supported: %d.x) – link switched off until the module is updated.', $head, $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         if ($this->specialEventsContract === null) {
-            return '⚠️ ' . $head . ', aber EMS_GetSpecialEvents liefert keine Ereignisliste – Sondereffekte werden nicht berücksichtigt.';
+            return '⚠️ ' . $this->t('%s, but EMS_GetSpecialEvents returns no event list – special effects are not taken into account.', $head);
         }
         $days = 0;
         for ($d = 1; $d <= $lookback; $d++) {
             $ts = strtotime('today -' . $d . ' days');
             if ($this->dayHasSpecialEvent($events, $ts, $this->dayEndExclusive($ts) - 1, 'load')) { $days++; }
         }
-        $line = '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
-            . ' Sonderereignis(se), davon betreffen ' . $days . ' Tag(e) der letzten ' . $lookback . ' die Last – diese Tage bleiben aus dem Lernmaterial (Ähnliche-Tage-Suche), der Prognosegüte und der Fehler-Korrektur (Band) heraus.'
-            . ' Ereignisse, die nur die PV-Erzeugung betreffen (z. B. Negativpreis), zählen hier nicht.';
+        $line = '✅ ' . $this->t('%s, contract EMS_GetSpecialEvents %s. Taken over: %d special event(s), of which %d day(s) of the last %d affect the load – these days stay out of the learning material (similar-days search), the forecast accuracy and the error correction (band).',
+                $head, $this->specialEventsContract, count($events), $days, $lookback)
+            . ' ' . $this->t('Events that only affect the PV generation (e.g. negative price) do not count here.');
         if (version_compare($this->specialEventsContract, '1.1', '<')) {
-            $line .= ' Hinweis: Vertrag ' . $this->specialEventsContract . ' liefert kein Feld „affects“ – jedes Ereignis gilt dann für Last und PV.';
+            $line .= ' ' . $this->t('Note: contract %s provides no field “affects” – every event then applies to load and PV.', $this->specialEventsContract);
         }
         return $line;
     }
@@ -921,12 +964,12 @@ class Lastprognose extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Lastprognose sagt für die kommenden Tage deinen Stromverbrauch voraus — aus deiner Verbrauchshistorie per Ähnliche-Tage-Verfahren (k-NN), berücksichtigt Wochentag, Jahreszeit, Außentemperatur und Anwesenheit.'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement oder ein Energiemanagement-System (EMS), ganz ohne Wetterstation oder manuelles Schätzen.'],
-                ['type' => 'Label', 'caption' => 'Für die Erzeugungsseite gehört PVPrognose dazu, für eine gemeinsame Übersicht beider Prognosen die Prognose-Kachel im NRG-Dashboard.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'LFC_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'Lastprognose predicts your electricity consumption for the coming days — from your consumption history using a similar-days method (k-NN), taking weekday, season, outdoor temperature and presence into account.'],
+                ['type' => 'Label', 'caption' => 'The benefit: a reliable planning basis for load management or an energy management system (EMS), without a weather station or manual estimating.'],
+                ['type' => 'Label', 'caption' => 'For the generation side, PVPrognose (PV forecast) is the counterpart; for a combined overview of both forecasts there is the forecast tile in the NRG dashboard.'],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'LFC_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -942,8 +985,8 @@ class Lastprognose extends IPSModule
     {
         $lib = @IPS_GetLibrary(self::LIBRARY_GUID);
         $txt = (is_array($lib) && isset($lib['Version']))
-            ? 'ℹ️ Lastprognose — Teil der NRG-Stack Prognose-Suite, Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
-            : 'ℹ️ Lastprognose';
+            ? $this->t('ℹ️ Load forecast — part of the NRG-Stack forecast suite, version %s (build %s)', $lib['Version'], $lib['Build'] ?? '?')
+            : $this->t('ℹ️ Load forecast');
         return ['type' => 'Label', 'caption' => $txt];
     }
 
@@ -953,12 +996,12 @@ class Lastprognose extends IPSModule
         if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
             return null;
         }
-        $items = [['type' => 'Label', 'caption' => '🆕 Neu — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        $items = [['type' => 'Label', 'caption' => '🆕 New — please take a quick look and check your settings if necessary:']];
         foreach (self::NEWS_ITEMS as $line) {
-            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $this->t($line)];
         }
-        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'LFC_AckNews($id);'];
-        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'LFC_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => $this->t('🆕 New in version %s', self::NEWS_VERSION), 'expanded' => true, 'items' => $items];
     }
 
     public function AckNews(): void
@@ -982,14 +1025,14 @@ class Lastprognose extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of genuine enthusiasm for my own installation — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use needs a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Do you like the module and still want to leave something? I would be happy about a small donation — completely voluntary, nothing owed in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -1005,12 +1048,12 @@ class Lastprognose extends IPSModule
             $this->SetTimerInterval('LFC_RebuildTimer', $hours * 3600 * 1000);
             $this->SetTimerInterval('LFC_DayRollTimer', $this->msToNextMidnight());
             $this->SetStatus(102);
-            $this->log(LFC_LOG_BASIC, 'Aktiv, Neuberechnung alle ' . $hours . ' h');
+            $this->log(LFC_LOG_BASIC, $this->t('Active, recalculation every %d h', $hours));
         } else {
             $this->SetTimerInterval('LFC_RebuildTimer', 0);
             $this->SetTimerInterval('LFC_DayRollTimer', 0);
             $this->SetStatus(104);
-            $this->log(LFC_LOG_BASIC, 'Deaktiviert');
+            $this->log(LFC_LOG_BASIC, $this->t('Deactivated'));
         }
     }
 
@@ -1078,7 +1121,7 @@ class Lastprognose extends IPSModule
     public function Rebuild(): string
     {
         if ($this->consumptionVar() <= 0) {
-            $msg = '⛔ Keine Verbrauchsvariable konfiguriert und kein eindeutiger MeterHub-Hausverbrauchszähler gefunden.';
+            $msg = $this->t('⛔ No consumption variable configured and no unique MeterHub house consumption meter found.');
             $this->SetValue('LFC_Status', $msg);
             return $msg;
         }
@@ -1107,8 +1150,8 @@ class Lastprognose extends IPSModule
             }
 
             $this->SetValue('LFC_LastUpdate', time());
-            $status = sprintf(
-                '✅ heute %.1f / morgen %.1f / übermorgen %.1f / Tag 4 %.1f / Tag 5 %.1f kWh',
+            $status = $this->t(
+                '✅ today %.1f / tomorrow %.1f / day after tomorrow %.1f / day 4 %.1f / day 5 %.1f kWh',
                 $this->GetValue('LFC_kWhToday'),
                 $this->GetValue('LFC_kWhTomorrow'),
                 $this->GetValue('LFC_kWhDayAfter'),
@@ -1118,8 +1161,8 @@ class Lastprognose extends IPSModule
             // Nicht archivierte Variablen melden (werden ignoriert / nicht abgezogen).
             $missing = $this->unloggedVars();
             if (count($missing) > 0) {
-                $status .= ' | ⚠ nicht archiviert (ignoriert): ' . implode(', ', $missing);
-                $this->log(LFC_LOG_BASIC, 'Nicht archivierte Variablen: ' . implode(', ', $missing));
+                $status .= ' | ' . $this->t('⚠ not archived (ignored): %s', implode(', ', $missing));
+                $this->log(LFC_LOG_BASIC, $this->t('Variables not archived: %s', implode(', ', $missing)));
             }
             $stale = $this->checkDataPlausibility();
             if (count($stale) > 0) {
@@ -1129,20 +1172,20 @@ class Lastprognose extends IPSModule
             $status .= $this->wallboxNotices();
             if ($this->ReadPropertyInteger('VAR_Consumption') <= 0 && $this->detectedConsumption()['state'] === 'auto') {
                 $e = $this->detectedConsumption()['usable'][0];
-                $status .= sprintf(' | 🔗 Hausverbrauch automatisch von MeterHub „%s“ (Leistung #%d)', $e['label'], $e['powerID']);
+                $status .= ' | ' . $this->t('🔗 House consumption automatically from MeterHub “%s” (power #%d)', $e['label'], $e['powerID']);
             }
             if ($this->poolExcluded > 0) {
-                $status .= sprintf(' | ℹ️ Lernmaterial ohne %d Tag(e) mit Sondereffekt (EMS)', $this->poolExcluded);
+                $status .= ' | ' . $this->t('ℹ️ Learning material without %d day(s) with a special effect (EMS)', $this->poolExcluded);
             }
             $this->SetValue('LFC_Status', $status);
             $this->SetStatus(102);
-            $this->log(LFC_LOG_BASIC, 'Neuberechnung abgeschlossen');
+            $this->log(LFC_LOG_BASIC, $this->t('Recalculation completed'));
             return $status;
 
         } catch (Exception $e) {
-            $msg = '⛔ Fehler: ' . $e->getMessage();
+            $msg = $this->t('⛔ Error: %s', $e->getMessage());
             $this->SetValue('LFC_Status', $msg);
-            $this->log(LFC_LOG_BASIC, 'Fehler: ' . $e->getMessage());
+            $this->log(LFC_LOG_BASIC, $this->t('Error: %s', $e->getMessage()));
             return $msg;
         }
     }
@@ -1156,14 +1199,14 @@ class Lastprognose extends IPSModule
         if (!$this->wpInForecast()) { return ''; }
         $notes = '';
         foreach ($this->wpRejected as $vid => $r) {
-            $notes .= sprintf(' | ⚠️ Gerät „%s“ (#%d) nicht in der Prognose: liefert typisch %.0f kWh/Tag, mehr als das Dreifache des größten Tagesverbrauchs (%.0f kWh) - Zählerstand (kWh) statt Leistung (W) oder falsche Einheit?',
+            $notes .= ' | ' . $this->t('⚠️ Device “%s” (#%d) not in the forecast: typically delivers %.0f kWh/day, more than three times the largest daily consumption (%.0f kWh) - meter reading (kWh) instead of power (W) or wrong unit?',
                 IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $vid, $r['median'], $r['cap'] / 3.0);
         }
         if (is_array($todayFc) && !empty($todayFc['wpIncluded'])) {
-            return sprintf(' | 🌡️ inkl. Wärmepumpe/Klima: heute %.1f kWh (Grundlast %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0) . $notes;
+            return ' | ' . $this->t('🌡️ incl. heat pump/AC: today %.1f kWh (base load %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0) . $notes;
         }
         if ($notes !== '') { return $notes; }
-        return ' | ⚠️ Wärmepumpe/Klima nicht in der Prognose: zu wenig Archivdaten (Leistung und Außentemperatur) für die Temperaturregression';
+        return ' | ' . $this->t('⚠️ Heat pump/AC not in the forecast: too little archive data (power and outdoor temperature) for the temperature regression');
     }
 
     /**
@@ -1240,7 +1283,7 @@ class Lastprognose extends IPSModule
         if (count($held) > 0 && count($cands) < $k) {
             usort($held, function ($a, $b) { return $a['dist'] <=> $b['dist']; });
             $fill = array_slice($held, 0, $k - count($cands));
-            $this->log(LFC_LOG_BASIC, sprintf('Nur %d Tage ohne Sondereffekt, k=%d: %d Tag(e) mit Sondereffekt zum Auffüllen verwendet',
+            $this->log(LFC_LOG_BASIC, $this->t('Only %d days without a special effect, k=%d: %d day(s) with a special effect used to fill up',
                 count($cands), $k, count($fill)));
             $cands = array_merge($cands, $fill);
         }
@@ -1517,15 +1560,17 @@ class Lastprognose extends IPSModule
             // wurden (genau das verschleierte den Wrapper-Bug, s. fetchSpecialEvents()).
             // Grund nennen (Forum cbeham, 20.10.2026, dort PVPrognose): ohne Snapshots dauert es bis morgen, sonst fehlt die Messung.
             if ($snapDays === 0) {
-                $txt = 'Noch keine auswertbaren Tage: es liegen noch keine Snapshots vor (sie entstehen bei jeder Neuberechnung für heute und morgen und werden am Folgetag mit der Messung verglichen)';
+                $txt = $this->t('No evaluable days yet: there are no snapshots yet (they are created with every recalculation for today and tomorrow and compared with the measurement on the following day)');
             } else {
                 $why = [];
-                if ($noMeas > 0)  { $why[] = $noMeas . ' ohne Messwerte im Archiv (Hausverbrauch archiviert und mit Werten?)'; }
-                if ($lowMeas > 0) { $why[] = $lowMeas . ' mit gemessenem Verbrauch unter 0,5 kWh'; }
-                $txt = 'Noch keine auswertbaren Tage: ' . $snapDays . ' Snapshot-Tag(e) vorhanden' . (count($why) > 0 ? ', davon ' . implode(', ', $why) : '');
+                if ($noMeas > 0)  { $why[] = $this->t('%d without measured values in the archive (house consumption archived and with values?)', $noMeas); }
+                if ($lowMeas > 0) { $why[] = $this->t('%d with measured consumption below 0.5 kWh', $lowMeas); }
+                $txt = (count($why) > 0)
+                    ? $this->t('No evaluable days yet: %d snapshot day(s) present, of which %s', $snapDays, implode(', ', $why))
+                    : $this->t('No evaluable days yet: %d snapshot day(s) present', $snapDays);
             }
             if ($excluded > 0) {
-                $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+                $txt .= ' | ' . $this->t('%d day(s) excluded due to a special effect', $excluded);
             }
             $this->SetValue('LFC_Accuracy', $txt);
             return;
@@ -1533,21 +1578,21 @@ class Lastprognose extends IPSModule
         $bias = array_sum($errs) / count($errs);
         $mape = array_sum(array_map('abs', $errs)) / count($errs);
         $this->SetValue('LFC_ErrorMAPE', round($mape, 1));
-        $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
+        $txt = $this->t('%d days: bias %+.1f %% · |Ø error| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode((string)$this->ReadAttributeString('LFC_Residuals'), true);
         if (is_array($res) && isset($res['q10'])) {
-            $txt .= sprintf(' | Residuen ×%.2f…×%.2f (Median ×%.2f, %d Tage)',
+            $txt .= ' | ' . $this->t('residuals ×%.2f…×%.2f (median ×%.2f, %d days)',
                 $res['q10'], $res['q90'], $res['q50'], $res['days']);
         }
         if ($excluded > 0) {
-            $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+            $txt .= ' | ' . $this->t('%d day(s) excluded due to a special effect', $excluded);
         }
         if ($this->specialEventsVersionMismatch !== null) {
-            $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
+            $txt .= ' | ' . $this->t('⚠️ EMS contract %s not supported (major %d expected) — special-effect exclusion inactive, check for a module update',
                 $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         $this->SetValue('LFC_Accuracy', $txt);
-        $this->log(LFC_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
+        $this->log(LFC_LOG_BASIC, $this->t('Forecast accuracy (%d days): bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
     }
 
     /**
@@ -1922,7 +1967,7 @@ class Lastprognose extends IPSModule
             $ok = array_values(array_filter($cands, function ($c) { return $c['exists'] && $c['measured'] && $c['logged']; }));
             if (count($ok) === 0) {
                 $c = $cands[0];
-                $reason = !$c['exists'] ? 'Ladeleistung fehlt' : (!$c['measured'] ? 'Leistung nicht gemessen' : 'Ladeleistung nicht archiviert');
+                $reason = !$c['exists'] ? $this->t('charging power missing') : (!$c['measured'] ? $this->t('power not measured') : $this->t('charging power not archived'));
                 $out['skipped'][] = ['label' => $c['label'], 'reason' => $reason];
                 continue;
             }
@@ -1965,15 +2010,15 @@ class Lastprognose extends IPSModule
         $w = $this->detectedWallboxes();
         $out = '';
         if (count($w['use']) > 0) {
-            $out .= ' | 🔌 Wallboxen automatisch abgezogen: ' . implode(', ', array_map(function ($x) { return $x['label'] . ' (' . $x['hub'] . ')'; }, $w['use']));
+            $out .= ' | ' . $this->t('🔌 Wallboxes subtracted automatically: %s', implode(', ', array_map(function ($x) { return $x['label'] . ' (' . $x['hub'] . ')'; }, $w['use'])));
             $stale = array_filter($w['use'], function ($x) { return ($x['ageDays'] ?? 0) > 7; });
-            foreach ($stale as $x) { $out .= sprintf(' | ⚠️ %s: seit %.1f Tagen ohne Aktualisierung', $x['label'], $x['ageDays']); }
+            foreach ($stale as $x) { $out .= ' | ' . $this->t('⚠️ %s: no update for %.1f days', $x['label'], $x['ageDays']); }
             $manual = array_filter((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true), function ($r) { return (int)($r['VariableID'] ?? 0) > 0; });
-            if (count($manual) > 0) { $out .= ' | ℹ️ Manuelle Abzugsliste zusätzlich aktiv — enthält sie dieselben Wallboxen, werden sie doppelt abgezogen'; }
+            if (count($manual) > 0) { $out .= ' | ' . $this->t('ℹ️ Manual deduction list also active — if it contains the same wallboxes, they are subtracted twice'); }
         } else {
-            $out .= ' | ℹ️ Automatische Wallbox-Erkennung: keine Wallbox mit archivierter Ladeleistung gefunden';
+            $out .= ' | ' . $this->t('ℹ️ Automatic wallbox detection: no wallbox with an archived charging power found');
         }
-        foreach ($w['skipped'] as $x) { $out .= sprintf(' | ⚠️ %s (%s) — ignoriert', $x['label'], $x['reason']); }
+        foreach ($w['skipped'] as $x) { $out .= ' | ' . $this->t('⚠️ %s (%s) — ignored', $x['label'], $x['reason']); }
         return $out;
     }
 
@@ -2175,7 +2220,7 @@ class Lastprognose extends IPSModule
             try {
                 $this->poolEvents = $this->fetchSpecialEvents($lookbackDays);
             } catch (\Throwable $e) {
-                $this->log(LFC_LOG_BASIC, 'EMS_GetSpecialEvents für das Lernmaterial nicht lesbar: ' . $e->getMessage());
+                $this->log(LFC_LOG_BASIC, $this->t('EMS_GetSpecialEvents not readable for the learning material: %s', $e->getMessage()));
                 $this->poolEvents = [];
             }
         }
@@ -2220,8 +2265,8 @@ class Lastprognose extends IPSModule
             // Kompatibilität nur innerhalb derselben Major — Kopplung
             // deaktivieren statt Felder blind zu deuten, und sichtbar melden.
             $this->specialEventsVersionMismatch = $verStr;
-            $this->log(LFC_LOG_BASIC, sprintf(
-                'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+            $this->log(LFC_LOG_BASIC, $this->t(
+                'EMS_GetSpecialEvents returns contract %s, only major %d is supported — special-effect exclusion disabled until the module is updated.',
                 $verStr, self::EMS_EVENTS_MAJOR
             ));
             return [];
@@ -2298,7 +2343,7 @@ class Lastprognose extends IPSModule
     private function unloggedVars(): array
     {
         $aid = $this->getArchiveID();
-        if ($aid === 0) { return ['(kein Archive Control gefunden)']; }
+        if ($aid === 0) { return [$this->t('(no Archive Control found)')]; }
 
         $missing = [];
         $check = function (int $vid) use ($aid, &$missing) {
@@ -2354,18 +2399,18 @@ class Lastprognose extends IPSModule
             $v   = IPS_GetVariable($vid);
             $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
             if ($age > $staleSec) {
-                $warnings[] = sprintf('%s: seit %.1f Tagen ohne neuen Messwert', $label, $age / 86400);
+                $warnings[] = $this->t('%s: no new measured value for %.1f days', $label, $age / 86400);
             }
         };
 
-        $check($this->consumptionVar(), 'Hausverbrauch', 48 * 3600);
+        $check($this->consumptionVar(), $this->t('House consumption'), 48 * 3600);
         foreach ((array)json_decode((string)$this->ReadPropertyString('ExcludeVars'), true) as $row) {
             $vid = (int)($row['VariableID'] ?? 0);
-            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'Abzugsliste', 30 * 86400);
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : $this->t('Deduction list'), 30 * 86400);
         }
         foreach ((array)json_decode((string)$this->ReadPropertyString('WPDevices'), true) as $row) {
             $vid = (int)($row['PowerVar'] ?? 0);
-            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : 'WP-Gerät', 30 * 86400);
+            $check($vid, $vid > 0 && IPS_VariableExists($vid) ? IPS_GetName($vid) : $this->t('Heat pump device'), 30 * 86400);
         }
 
         return $warnings;
@@ -2441,7 +2486,7 @@ class Lastprognose extends IPSModule
                     if (array_filter($res, function ($v) { return $v !== null; }) !== []) {
                         return $res;
                     }
-                    $this->log(LFC_LOG_VERBOSE, 'OWM gefunden, aber keine Stundenvorhersage (aktiviert?)');
+                    $this->log(LFC_LOG_VERBOSE, $this->t('OWM found, but no hourly forecast (enabled?)'));
                 }
                 // Zweite Quelle (Build 152): Temperaturvorhersage der PVPrognose (Open-Meteo).
                 $pvf = $this->pvfTemperatures();
@@ -2511,7 +2556,7 @@ class Lastprognose extends IPSModule
         $count   = $this->ReadPropertyInteger('LFC_FcCount');
 
         if ($parent <= 0 || !IPS_ObjectExists($parent) || $patLow === '' || $patTime === '') {
-            $this->log(LFC_LOG_VERBOSE, 'Temp-Vorhersage Ident-Modus unvollständig konfiguriert');
+            $this->log(LFC_LOG_VERBOSE, $this->t('Temperature forecast ident mode configured incompletely'));
             return $this->emptyTempForecast();
         }
         return $this->aggregateForecastSlots($parent, $patTime, $patLow, $patHigh, $start, $count);
@@ -2648,7 +2693,7 @@ class Lastprognose extends IPSModule
         if (isset($this->unitCache[$vid])) { return $this->unitCache[$vid]; }
         $f = $this->autoPowerFactor($vid);
         $this->unitCache[$vid] = $f;
-        $this->log(LFC_LOG_VERBOSE, 'Einheit Variable ' . $vid . ': ' . ($f == 1000.0 ? 'kW' : 'W') . ' (automatisch)');
+        $this->log(LFC_LOG_VERBOSE, $this->t('Unit of variable %d: %s (automatic)', $vid, $f == 1000.0 ? 'kW' : 'W'));
         return $f;
     }
 
@@ -2834,7 +2879,7 @@ class Lastprognose extends IPSModule
                 $median = $kwhs[(int)floor(count($kwhs) / 2)];
                 if ($median > 3.0 * $cap) {
                     $this->wpRejected[$vid] = ['median' => $median, 'cap' => 3.0 * $cap];
-                    $this->log(LFC_LOG_BASIC, sprintf('Gerät #%d („%s“) liefert typisch %.0f kWh/Tag, mehr als das Dreifache des größten Tagesverbrauchs (%.0f kWh): nicht in der Prognose (Zählerstand statt Leistung? Einheit?)',
+                    $this->log(LFC_LOG_BASIC, $this->t('Device #%d (“%s”) typically delivers %.0f kWh/day, more than three times the largest daily consumption (%.0f kWh): not in the forecast (meter reading instead of power? unit?)',
                         $vid, IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $median, $cap));
                     return $this->wpModelCache[$key] = null;
                 }
