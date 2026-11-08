@@ -1,7 +1,9 @@
+🇬🇧 [English version](README.en.md)
+
 # PV-Prognose
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.22-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.23-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
@@ -121,6 +123,10 @@ Ertragsprognose ein, sondern werden zur **Gesamtfläche** aufsummiert (Anzahl ×
 Statusvariable `PVF_ModuleArea` sowie über `PVF_GetModuleArea()` bereitgestellt. Die Fläche **je
 Generator** liefert `PVF_GetModuleAreas()` als Liste (`name`, `modules`, `lengthMM`, `widthMM`,
 `areaPerModule`, `area`) – gedacht zur Übernahme durch das Modul **InverterHub**.
+
+## Sprachen
+
+Das Modul ist zweisprachig (Deutsch/Englisch): Formular, Statusmeldungen, Hinweise und die Namen neu angelegter Variablen folgen der Symcon-Sprache. Die Quelltexte sind englisch, die deutsche Fassung steht in `locale.json`. Bereits vorhandene Variablen behalten ihren Namen.
 
 Teil der **[EnergiePrognose-Suite](https://github.com/DG65/NRGPrognose)** – zusammen mit *Lastprognose*
 und der Prognose-Kachel im NRG-Dashboard.

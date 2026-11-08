@@ -127,32 +127,58 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.22 (Build 160)';
+    private const NEWS_VERSION = '0.23 (Build 163)';
     private const NEWS_ITEMS = [
-        '🪟 Neu: Formular-Aufbau selbst wählen: Im neuen Panel „Formular: Aufbau“ (unten, vor dem Forum-Hinweis) legst du je Bereich fest, ob er beim Öffnen aufgeklappt, zugeklappt oder ausgeblendet ist und an welcher Position er steht. Symcon merkt sich das Auf- und Zuklappen nicht selbst, so gilt deine Wahl bei jedem Öffnen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt; „Auf Standard zurücksetzen“ stellt alles zurück.',
-        '➖ Erzeugung negativ gemeldet? (Frage aus dem Forum, danke!): Manche Wechselrichter und Zähler zählen die Erzeugung negativ (z. B. −3000 W bei 3 kW) und melden nachts einen kleinen positiven Standby-Bezug. In der Generatorliste gibt es dafür die neue Spalte „Vorzeichen umkehren“: Eingeschaltet wird die Leistung als Ertrag gelesen, ein positiver Wert zählt als 0. Die Zeile „Vorzeichen“ unter „Selbstkalibrierung“ sagt dir, ob deine Werte der letzten 7 Tage dazu passen. Ohne Umkehr würde die Selbstkalibrierung eine negative Erzeugung als negativen Ertrag lernen.',
-        '🕒 Solcast-Zeile zeigt, wann es weitergeht: Zusätzlich zu den heutigen Abrufen steht jetzt der Zeitpunkt des letzten Abrufs und der frühestmögliche nächste Abruf in der Formularzeile (Frage aus dem Forum, danke!).',
-        '🧮 Solcast rechnet selbst, wie oft abgerufen werden darf: Aus dem Tagesbudget und der Zahl der verschiedenen Resource-IDs ergibt sich die Zahl der möglichen Abrufrunden pro Tag, die das Modul gleichmäßig über das Tageslicht verteilt. Ist dein eingestelltes Intervall kürzer, als das Konto hergibt, wird es automatisch gestreckt - das Budget ist dann nicht mehr vormittags aufgebraucht. Die Formularzeile zeigt Runden und tatsächlichen Abstand.',
-        '☀️ Solcast schont das Tageskontingent (Anregung aus dem Forum, danke!): Abrufe laufen nur noch bei Tageslicht (Sonnenaufgang bis Sonnenuntergang aus deinen Koordinaten, einstellbarer Versatz) und höchstens so oft pro Tag, wie das Tagesbudget erlaubt (Standard 10, Gratiskonto). Nachts und bei erreichtem Budget gilt die letzte gültige Antwort. Eine Zeile im Formular zeigt die heutigen Abrufe und ob Intervall und Zahl der Resource-IDs ins Budget passen. Open-Meteo und Forecast.Solar sind nicht betroffen.',
-        '❓ Solcast-ID erklärt: Neben dem Schlüsselfeld gibt es den Button „Wo finde ich die Solcast-ID?“ (Frage aus dem Forum, danke!) - er erklärt, dass die Resource-ID der Dach-Site gemeint ist (nicht der API-Schlüssel) und wo man sie bei Solcast findet.',
-        '🔎 Solcast: klare Fehlerursache statt „API/Netzwerk?“ - die Status-Zeile nennt jetzt, ob der Schlüssel fehlt oder abgelehnt wurde, für einen Generator die Resource-ID (Spalte „Solcast-ID“) fehlt oder unbekannt ist, das Tageskontingent erschöpft ist oder keine Verbindung besteht. Fehlt die Resource-ID, steht das auch schon im Formular über dem Schlüsselfeld.',
-        '🔑 Solcast-Schlüssel sichtbar: Nach dem Speichern bleibt das Eingabefeld aus Sicherheitsgründen leer, das sah aus, als sei nichts gespeichert (Hinweis aus dem Forum, danke!). Eine Zeile darüber zeigt jetzt, ob ein Schlüssel hinterlegt ist (mit Zeichenanzahl, ohne den Schlüssel selbst).',
-        '🩹 Robuster gegen defekte Archivdaten: Ein einzelnes kaputtes Stunden-Aggregat im Archiv (kam bei drei Variablen live vor) ließ die Selbstkalibrierung für den betroffenen Tag als PHP-Warnung im System-Log auftauchen, obwohl der Tag ohnehin sauber übersprungen wurde. Die Warnung ist jetzt unterdrückt, das Ergebnis unverändert.',
-        '🔗 Formular: Was automatisch erkannt wird, steht nicht mehr als leeres Eingabefeld da. Die Einheit (W/kW) der gemessenen Leistung zeigt je Generator, woher sie stammt („🔗 automatisch übernommen“); das Feld zum Überschreiben liegt eingeklappt unter „Einheit selbst festlegen“ und klappt nur auf, wo die Automatik unsicher ist. Eine eigene Angabe (✏️) hat Vorrang, die Zeile folgt der Auswahl sofort.',
-        '🧹 Abgeregelte Tage bleiben aus der Selbstkalibrierung: Mit einem NRG-Stack-EMS werden Tage, an denen die Erzeugung abgeregelt war (Netzbetreiber-Dimmung, negativer Börsenpreis), nicht mehr für den Kalibrierfaktor verwendet — sonst würde die gedrosselte Messung als „Modell zu hoch“ gelernt und die Prognose zu niedrig ausfallen. Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), zählen hier nicht. Ohne EMS ändert sich nichts.',
-        '🔎 Neu im Formular: Statuszeilen zeigen live, was automatisch erkannt wurde — Archiv und Archivierung der gemessenen Leistung, die Einheit je Leistungsvariable (mit Quelle: Profil-Suffix oder Größenordnung) und die EMS-Kopplung. Steht dort ⚠️ oder ⛔, sagt die Zeile, was zu tun ist.',
-        '📈 Prognose-Korrektur behoben: Die „Immer genauer werden"-Korrektur (Pegel) glich einen konstanten Fehler bisher nur etwa zur Hälfte aus — sie lernte gegen die schon korrigierte statt gegen die rohe Prognose. Jetzt wird der Fehler voll ausgeglichen. Je nach bisherigem Fehler kann die PV-Prognose dadurch spürbar höher oder niedriger ausfallen (bei einer bisher zu niedrigen Prognose im Mittel um rund ein Zehntel und mehr höher). Die Korrektur lernt dafür einige Tage neu.',
-        '🛟 Robuster im Übergang und bei Netzproblemen: Während die Korrektur neu lernt, bleibt das Unsicherheitsband (P10/P90) erhalten, und fällt die Kalibrier-Abfrage aus, gilt der zuletzt gute Kalibrierfaktor (bis 3 Tage) statt stillschweigend 1,0.',
-        'Plausibilitätsgrenze: Kein Wert der Prognose (P10/P50/P90) liegt mehr über der installierten Modulleistung (mit 10 % Reserve für kurze Spitzen) — das Unsicherheitsband konnte mittags sonst weit darüber liegen.',
-        'Neu dabei: Der Korrekturfaktor je Tagesabschnitt ist auf 0,5 bis 2,0 begrenzt, und ausgesprochene Wechselwetter-Tage (stark schwankendes Verhältnis Ist/Prognose) zählen nicht für den Pegel.',
-        '☀️ PV-Kurve zeitlich korrigiert (Quelle Open-Meteo): Die 15-/30-Minuten-Kurve lag bisher etwa 30 Minuten zu früh, weil der Stundenmittelwert auf den Stundenbeginn statt auf die Stundenmitte gelegt wurde. Die Werte verschieben sich dadurch um ca. 30 Minuten nach hinten (Morgen später, Abend später), die Tagesenergie bleibt gleich.',
-        'Bias und Fehlerquote der Prognosegüte laufen unverändert durch; die Tagesgang-Korrektur schaltet sich mit den neuen Tagen schrittweise wieder zu.',
-        'Zeitumstellung (25.10. / 28.03.): Wetterzeiten werden jetzt eindeutig gelesen, Energiefenster für das EMS rechnen nach Wanduhr. Robuster bei Netzausfall und am Tageswechsel: Fällt ein Wetter-Abruf teilweise aus, bleibt die letzte gültige Prognose erhalten, und die gespeicherten Tage werden um Mitternacht weitergeschoben.',
+        '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
+        '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
+        '➖ Generation reported as negative? (question from the forum, thanks!): some inverters and meters count the generation as negative (e.g. −3000 W at 3 kW) and report a small positive standby draw at night. For this, the generator list has the new column “Invert sign”: when switched on, the power is read as yield and a positive value counts as 0. The line “Sign” under “Self-calibration” tells you whether your values of the last 7 days match. Without inverting, the self-calibration would learn a negative generation as a negative yield.',
+        '🕒 Solcast line shows when it continues: in addition to today’s calls, the form line now shows the time of the last call and the earliest possible next call (question from the forum, thanks!).',
+        '🧮 Solcast works out by itself how often it may be called: the daily budget and the number of different resource IDs give the number of possible call rounds per day, which the module spreads evenly over the daylight. If your set interval is shorter than the account allows, it is stretched automatically - the budget is then no longer used up by the morning. The form line shows the rounds and the actual spacing.',
+        '☀️ Solcast spares the daily quota (suggestion from the forum, thanks!): calls now only run in daylight (sunrise to sunset from your coordinates, adjustable offset) and at most as often per day as the daily budget allows (default 10, free account). At night and once the budget is reached, the last valid response applies. A line in the form shows today’s calls and whether the interval and the number of resource IDs fit the budget. Open-Meteo and Forecast.Solar are not affected.',
+        '❓ Solcast ID explained: next to the key field there is the button “Where do I find the Solcast ID?” (question from the forum, thanks!) - it explains that the resource ID of the rooftop site is meant (not the API key) and where to find it at Solcast.',
+        '🔎 Solcast: clear cause of error instead of “API/network?” - the status line now says whether the key is missing or was rejected, whether the resource ID (column “Solcast ID”) is missing or unknown for a generator, whether the daily quota is used up or there is no connection. If the resource ID is missing, this also shows in the form above the key field.',
+        '🔑 Solcast key visible: after saving, the input field stays empty for security reasons, which looked as if nothing had been saved (note from the forum, thanks!). A line above now shows whether a key is stored (with the number of characters, without the key itself).',
+        '🩹 More robust against faulty archive data: a single broken hourly aggregate in the archive (seen live on three variables) made the self-calibration show a PHP warning in the system log for the affected day, although the day was skipped cleanly anyway. The warning is now suppressed, the result is unchanged.',
+        '🔗 Form: what is detected automatically is no longer shown as an empty input field. The unit (W/kW) of the measured power shows for each generator where it comes from (“🔗 taken over automatically”); the field for overriding it sits collapsed under “Set unit yourself” and only opens where the automatic detection is unsure. Your own entry (✏️) takes precedence, and the line follows the selection immediately.',
+        '🧹 Curtailed days stay out of the self-calibration: with an NRG-Stack EMS, days on which the generation was curtailed (grid operator dimming, negative exchange price) are no longer used for the calibration factor — otherwise the throttled measurement would be learned as “model too high” and the forecast would come out too low. Events that only affect the load (Grid Rewards, boost) do not count here. Without an EMS nothing changes.',
+        '🔎 New in the form: status lines show live what was detected automatically — the archive and archiving of the measured power, the unit per power variable (with source: profile suffix or order of magnitude) and the EMS link. If it says ⚠️ or ⛔ there, the line tells you what to do.',
+        '📈 Forecast correction fixed: the “getting more accurate” correction (level) used to compensate a constant error only by about half — it learned against the already corrected forecast instead of the raw one. Now the error is compensated in full. Depending on your previous error, the PV forecast may therefore come out noticeably higher or lower (with a previously too low forecast, on average around a tenth higher or more). The correction learns anew for a few days.',
+        '🛟 More robust during the transition and with network problems: while the correction learns anew, the uncertainty band (P10/P90) is kept, and if the calibration query fails, the last good calibration factor applies (up to 3 days) instead of silently 1.0.',
+        'Plausibility limit: no forecast value (P10/P50/P90) lies above the installed module power any more (with a 10 % reserve for short peaks) — otherwise the uncertainty band could lie far above it at noon.',
+        'Also new: the correction factor per part of the day is limited to 0.5 to 2.0, and distinctly changeable-weather days (strongly fluctuating ratio of actual to forecast) do not count for the level.',
+        '☀️ PV curve corrected in time (source Open-Meteo): the 15/30-minute curve used to be about 30 minutes too early because the hourly mean was placed at the start of the hour instead of the middle of the hour. The values therefore shift by about 30 minutes later (morning later, evening later), the daily energy stays the same.',
+        'Bias and error rate of the forecast accuracy carry on unchanged; the time-of-day correction switches back on step by step with the new days.',
+        'Daylight saving time change (25 Oct / 28 Mar): weather times are now read unambiguously, energy windows for the EMS count by wall clock. More robust during network outages and at the change of day: if a weather call partly fails, the last valid forecast is kept, and the stored days are shifted on at midnight.',
     ];
 
     // ----------------------------------------------------------------
     //  Lebenszyklus
     // ----------------------------------------------------------------
+
+    /** Gemerkte Übersetzungen: Symcons Translate() liest bei jedem Aufruf die locale.json (SUITE.md Stolperstein 24). */
+    private static $textMerkliste = [];
+
+    /**
+     * Text in der Sprache der Konsole. Die Quelltexte im Code sind Englisch, die deutsche Fassung steht in
+     * locale.json. Jeder Text fragt Symcon höchstens einmal je Prozess; mit Argumenten wie sprintf (%s, %d, %%).
+     * Formulartexte (caption/label) übersetzt die Konsole selbst (Store-Review, SUITE.md Punkt 25) — t() ist für
+     * Texte mit eingesetzten Werten, Meldungen, Variablennamen und Statuszeilen.
+     */
+    private function t(string $text, ...$args): string
+    {
+        if (!isset(self::$textMerkliste[$text])) {
+            try {
+                self::$textMerkliste[$text] = (string)$this->Translate($text);
+            } catch (\Throwable $e) {
+                return $args === [] ? $text : (string)@vsprintf($text, $args);
+            }
+        }
+        $out = self::$textMerkliste[$text];
+        if ($args === []) { return $out; }
+        $args = array_map(function ($a) { return (is_scalar($a) || $a === null) ? $a : (string)json_encode($a); }, $args);
+        $r = @vsprintf($out, $args);
+        return $r === false ? $out : $r;
+    }
 
     public function Create()
     {
@@ -195,24 +221,24 @@ class PVPrognose extends IPSModule
 
         // Ausgabe
         $this->ensureNrgPercentProfile();
-        $this->RegisterVariableString('PVF_Today',     'PV-Prognose heute (JSON)',      '', 10);
-        $this->RegisterVariableString('PVF_Tomorrow',  'PV-Prognose morgen (JSON)',     '', 20);
-        $this->RegisterVariableString('PVF_DayAfter',  'PV-Prognose übermorgen (JSON)', '', 30);
-        $this->RegisterVariableFloat( 'PVF_kWhToday',    'Erwartete PV heute (kWh)',     '~Electricity', 40);
-        $this->RegisterVariableFloat( 'PVF_kWhTomorrow', 'Erwartete PV morgen (kWh)',    '~Electricity', 50);
-        $this->RegisterVariableFloat( 'PVF_kWhDayAfter', 'Erwartete PV übermorgen (kWh)','~Electricity', 60);
+        $this->RegisterVariableString('PVF_Today',     $this->t('PV forecast today (JSON)'),      '', 10);
+        $this->RegisterVariableString('PVF_Tomorrow',  $this->t('PV forecast tomorrow (JSON)'),     '', 20);
+        $this->RegisterVariableString('PVF_DayAfter',  $this->t('PV forecast day after tomorrow (JSON)'), '', 30);
+        $this->RegisterVariableFloat( 'PVF_kWhToday',    $this->t('Expected PV today (kWh)'),     '~Electricity', 40);
+        $this->RegisterVariableFloat( 'PVF_kWhTomorrow', $this->t('Expected PV tomorrow (kWh)'),    '~Electricity', 50);
+        $this->RegisterVariableFloat( 'PVF_kWhDayAfter', $this->t('Expected PV day after tomorrow (kWh)'),'~Electricity', 60);
         // Horizont-Erweiterung 3→5 Tage (20.08.2026): neue Idents für Tag 3/4,
         // bestehende Today/Tomorrow/DayAfter bewusst unverändert (Archivhistorie).
-        $this->RegisterVariableString('PVF_Day3',      'PV-Prognose in 3 Tagen (JSON)', '', 65);
-        $this->RegisterVariableString('PVF_Day4',      'PV-Prognose in 4 Tagen (JSON)', '', 68);
-        $this->RegisterVariableFloat( 'PVF_kWhDay3',     'Erwartete PV in 3 Tagen (kWh)', '~Electricity', 70);
-        $this->RegisterVariableFloat( 'PVF_kWhDay4',     'Erwartete PV in 4 Tagen (kWh)', '~Electricity', 75);
+        $this->RegisterVariableString('PVF_Day3',      $this->t('PV forecast in 3 days (JSON)'), '', 65);
+        $this->RegisterVariableString('PVF_Day4',      $this->t('PV forecast in 4 days (JSON)'), '', 68);
+        $this->RegisterVariableFloat( 'PVF_kWhDay3',     $this->t('Expected PV in 3 days (kWh)'), '~Electricity', 70);
+        $this->RegisterVariableFloat( 'PVF_kWhDay4',     $this->t('Expected PV in 4 days (kWh)'), '~Electricity', 75);
         $this->RegisterVariableString('PVF_Status',    'Status',                    '', 70);
-        $this->RegisterVariableInteger('PVF_LastUpdate','Letzte Berechnung',        '~UnixTimestamp', 80);
-        $this->RegisterVariableFloat( 'PVF_ErrorMAPE', 'Prognosefehler |Ø| (%)',    'NRG.Percent', 82);
-        $this->RegisterVariableString('PVF_Accuracy',  'Prognosegüte (Soll vs. Ist)','', 84);
+        $this->RegisterVariableInteger('PVF_LastUpdate',$this->t('Last calculation'),        '~UnixTimestamp', 80);
+        $this->RegisterVariableFloat( 'PVF_ErrorMAPE', $this->t('Forecast error |Ø| (%)'),    'NRG.Percent', 82);
+        $this->RegisterVariableString('PVF_Accuracy',  $this->t('Forecast accuracy (planned vs. actual)'),'', 84);
         // Gesamte Modulfläche (m²) aus der Generatorliste — z.B. für das Modul InverterHub.
-        $this->RegisterVariableFloat( 'PVF_ModuleArea', 'Modulfläche gesamt (m²)',   '', 86);
+        $this->RegisterVariableFloat( 'PVF_ModuleArea', $this->t('Total module area (m²)'),   '', 86);
 
         // Tages-Snapshots der Prognose (für spätere Soll-vs-Ist-Kontrolle je Tag)
         $this->RegisterAttributeString('PVF_Snapshots', '');
@@ -287,7 +313,7 @@ class PVPrognose extends IPSModule
         $form = json_decode(file_get_contents(__DIR__ . '/form.json'), true);
 
         foreach ($form['elements'] as &$el) {
-            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['caption'] ?? '') === '📖 Dokumentation & Hilfe') {
+            if (($el['type'] ?? '') === 'ExpansionPanel' && ($el['name'] ?? '') === 'PanelDokumentation') {
                 array_unshift($el['items'], $this->VersionLabel());
                 break;
             }
@@ -331,9 +357,9 @@ class PVPrognose extends IPSModule
                 'type' => 'RowLayout',
                 'name' => 'ForumHint',
                 'items' => [
-                    ['type' => 'Label', 'caption' => '💬 Rückmeldungen und Testberichte sind im Symcon-Forum-Thread willkommen:'],
+                    ['type' => 'Label', 'caption' => '💬 Feedback and test reports are welcome in the Symcon forum thread:'],
                     ['type' => 'Label', 'link' => true, 'caption' => self::FORUM_THREAD_URL],
-                    ['type' => 'Button', 'caption' => 'Nicht mehr anzeigen', 'onClick' => 'PVF_DismissForumHint($id);'],
+                    ['type' => 'Button', 'caption' => 'Do not show again', 'onClick' => 'PVF_DismissForumHint($id);'],
                 ],
             ];
         }
@@ -417,7 +443,7 @@ class PVPrognose extends IPSModule
         $rows   = [];
         $hidden = [];
         foreach ($layout as $key => $l) {
-            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$key]['caption'] ?? $key)));
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', $this->t((string)($free[$key]['caption'] ?? $key))));
             $rows[] = ['Key' => $key, 'Panel' => $name, 'Opened' => $l['open'] === 'open', 'Closed' => $l['open'] === 'closed',
                 'Hidden' => $l['open'] === 'hidden', 'Pos' => $l['pos']];
             if ($l['open'] === 'hidden') {
@@ -425,28 +451,28 @@ class PVPrognose extends IPSModule
             }
         }
         $hiddenLine = $hidden
-            ? [['type' => 'Label', 'caption' => '🙈 Ausgeblendet: ' . implode(', ', $hidden) . ' — zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen. Ausgeblendete Bereiche arbeiten weiter, nur die Anzeige fehlt.']]
+            ? [['type' => 'Label', 'caption' => $this->t('🙈 Hidden: %s — to show again, remove the tick under “Hidden”. Hidden sections keep working, only the display is missing.', implode(', ', $hidden))]]
             : [];
         return [
             'type' => 'ExpansionPanel', 'name' => 'LayoutPanel', 'expanded' => false,
-            'caption' => '🪟  Formular: Aufbau' . ($hidden ? ' (' . count($hidden) . ' ausgeblendet)' : ''),
+            'caption' => $this->t('🪟 Form: layout%s', $hidden ? $this->t(' (%d hidden)', count($hidden)) : ''),
             'items' => array_merge($hiddenLine, [
-                ['type' => 'Label', 'caption' => 'Hier legst du fest, welche Bereiche beim Öffnen des Formulars aufgeklappt sind und in welcher Reihenfolge sie stehen. Symcon merkt sich das Auf- und Zuklappen nicht selbst, deshalb gilt die Einstellung hier jedes Mal beim Öffnen. Sie wirkt nach „Übernehmen“ beim nächsten Öffnen des Formulars.'],
-                ['type' => 'Label', 'caption' => 'Kein Haken heißt „Standard“: wie das Modul es vorsieht (z. B. „Allgemein“ aufgeklappt). Wer „Zugeklappt“ wählt, sieht dann auch Neues dort nicht sofort. Die Position ist eine Zahl; bei gleicher Zahl bleibt die Standardreihenfolge. „Ausgeblendet“ nimmt einen Bereich aus der Anzeige, ohne dass er etwas verliert: seine Einstellungen bleiben erhalten und wirken weiter (gedacht für Bereiche, die man selten braucht). Zum Wiederzeigen den Haken bei „Ausgeblendet“ entfernen oder „Auf Standard zurücksetzen“ klicken. Sind mehrere Haken gesetzt, gilt „Ausgeblendet“ vor „Zugeklappt“ vor „Aufgeklappt“. Die Bereiche oben (Wozu, Neu, Dokumentation) und unten (Rückmeldungen, Über dieses Modul) bleiben, wo sie sind, und lassen sich nicht ausblenden.'],
+                ['type' => 'Label', 'caption' => 'Here you set which sections are expanded when the form opens and in which order they appear. Symcon does not remember expanding and collapsing by itself, so the setting here applies every time the form opens. It takes effect after “Apply” the next time the form is opened.'],
+                ['type' => 'Label', 'caption' => 'No tick means “Default”: as the module intends it (e.g. “General” expanded). If you choose “Collapsed”, you will not see anything new there right away either. The position is a number; with equal numbers the default order is kept. “Hidden” removes a section from the display without losing anything: its settings are kept and keep working (meant for sections you rarely need). To show it again, remove the tick under “Hidden” or click “Reset to default”. If several ticks are set, “Hidden” beats “Collapsed” beats “Expanded”. The sections at the top (purpose, news, documentation) and at the bottom (feedback, about this module) stay where they are and cannot be hidden.'],
                 [
-                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Bereiche', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
+                    'type' => 'List', 'name' => 'FormLayout', 'caption' => 'Sections', 'rowCount' => count($rows), 'add' => false, 'delete' => false,
                     'loadValuesFromConfiguration' => false,
                     'values' => $rows,
                     'columns' => [
-                        ['caption' => 'Bereich', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
-                        ['caption' => 'Schlüssel', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
-                        ['caption' => 'Aufgeklappt', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => 'Zugeklappt', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
-                        ['caption' => '🙈 Ausgeblendet', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Section', 'name' => 'Panel', 'width' => 'auto', 'add' => ''],
+                        ['caption' => 'Key', 'name' => 'Key', 'width' => '0px', 'visible' => false, 'add' => '', 'save' => true],
+                        ['caption' => 'Expanded', 'name' => 'Opened', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => 'Collapsed', 'name' => 'Closed', 'width' => '110px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
+                        ['caption' => '🙈 Hidden', 'name' => 'Hidden', 'width' => '130px', 'add' => false, 'edit' => ['type' => 'CheckBox']],
                         ['caption' => 'Position', 'name' => 'Pos', 'width' => '100px', 'add' => 1, 'edit' => ['type' => 'NumberSpinner', 'minimum' => 1, 'maximum' => 99]],
                     ],
                 ],
-                ['type' => 'Button', 'caption' => '↩️ Auf Standard zurücksetzen', 'onClick' => 'echo PVF_ResetFormLayout($id);'],
+                ['type' => 'Button', 'caption' => '↩️ Reset to default', 'onClick' => 'echo PVF_ResetFormLayout($id);'],
             ]),
         ];
     }
@@ -459,11 +485,11 @@ class PVPrognose extends IPSModule
         $rows = [];
         $i = 0;
         foreach (array_keys(self::FACH_PANELS) as $k) {
-            $name = trim((string)preg_replace('/\s*\(.*$/u', '', (string)($free[$k]['caption'] ?? $k)));
+            $name = trim((string)preg_replace('/\s*\(.*$/u', '', $this->t((string)($free[$k]['caption'] ?? $k))));
             $rows[] = ['Key' => $k, 'Panel' => $name, 'Opened' => false, 'Closed' => false, 'Hidden' => false, 'Pos' => ++$i];
         }
         $this->UpdateFormField('FormLayout', 'values', json_encode($rows, JSON_UNESCAPED_UNICODE));
-        return 'ℹ️ Auf Standard gesetzt. Zum Speichern unten „Übernehmen“ klicken.';
+        return $this->t('ℹ️ Reset to default. Click “Apply” below to save.');
     }
 
     /**
@@ -541,7 +567,7 @@ class PVPrognose extends IPSModule
             try {
                 $out[$name] = $this->$method();
             } catch (\Throwable $e) {
-                $out[$name] = '⚠️ Status konnte nicht ermittelt werden: ' . $e->getMessage();
+                $out[$name] = $this->t('⚠️ Could not determine status: %s', $e->getMessage());
             }
         }
         return $out;
@@ -553,7 +579,7 @@ class PVPrognose extends IPSModule
         $out = [];
         foreach ($this->pvGenerators() as $g) {
             if ($g['powervar'] > 0 && !isset($out[$g['powervar']])) {
-                $out[$g['powervar']] = ($g['name'] !== '') ? $g['name'] : 'Generator';
+                $out[$g['powervar']] = ($g['name'] !== '') ? $g['name'] : $this->t('Generator');
             }
         }
         return $out;
@@ -565,21 +591,21 @@ class PVPrognose extends IPSModule
         $vars = $this->powerVarsByGenerator();
         $aid = $this->archiveID();
         if (count($vars) === 0) {
-            return 'ℹ️ Archiv: keine gemessene Leistung (PowerVar) bei den Generatoren eingetragen – Selbstkalibrierung und Prognosegüte sind aus, die Prognose selbst läuft ohne.';
+            return $this->t('ℹ️ Archive: no measured power (PowerVar) entered for the generators – self-calibration and forecast accuracy are off, the forecast itself runs without them.');
         }
         if ($aid <= 0) {
-            return '⚠️ Archiv: keine Archiv-Control-Instanz gefunden – Selbstkalibrierung und Prognosegüte können die gemessene Leistung nicht lesen.';
+            return $this->t('⚠️ Archive: no Archive Control instance found – self-calibration and forecast accuracy cannot read the measured power.');
         }
-        $head = 'Archiv: verbunden mit “' . IPS_GetName($aid) . '” (#' . $aid . ', automatisch erkannt)';
+        $head = $this->t('Archive: connected to “%s” (#%d, detected automatically)', IPS_GetName($aid), $aid);
         $missing = [];
         foreach ($vars as $vid => $name) {
-            if (!IPS_VariableExists($vid)) { $missing[] = $name . ' (#' . $vid . ' existiert nicht)'; }
-            elseif (!$this->isLogged($aid, $vid)) { $missing[] = $name . ' (#' . $vid . ' nicht archiviert)'; }
+            if (!IPS_VariableExists($vid)) { $missing[] = $this->t('%s (#%d does not exist)', $name, $vid); }
+            elseif (!$this->isLogged($aid, $vid)) { $missing[] = $this->t('%s (#%d not archived)', $name, $vid); }
         }
         if (count($missing) > 0) {
-            return '⚠️ ' . $head . ', aber ohne brauchbare Messwerte für: ' . implode(', ', $missing) . ' – dort Archivierung aktivieren, sonst wird dieser Generator nicht kalibriert.';
+            return '⚠️ ' . $this->t('%s, but without usable measured values for: %s – enable archiving there, otherwise this generator is not calibrated.', $head, implode(', ', $missing));
         }
-        return '✅ ' . $head . '. Übernommen: gemessene Leistung von ' . count($vars) . ' Generator(en) für Selbstkalibrierung und Prognosegüte.';
+        return '✅ ' . $this->t('%s. Taken over: measured power of %d generator(s) for self-calibration and forecast accuracy.', $head, count($vars));
     }
 
     /** Einheit (W/kW) je gemessener Leistungsvariable, mit Quelle der Erkennung. */
@@ -587,33 +613,33 @@ class PVPrognose extends IPSModule
     {
         $mode = $this->selectedInt('PVF_PowerUnit');
         if ($mode === 0 || $mode === 1) {
-            return '✏️ Einheit: fest auf ' . ($mode === 1 ? 'kW' : 'W') . ' eingestellt (eigene Angabe, überschreibt die Automatik) – gilt für alle gemessenen Leistungsvariablen.';
+            return $this->t('✏️ Unit: fixed to %s (own setting, overrides the automatic detection) – applies to all measured power variables.', $mode === 1 ? 'kW' : 'W');
         }
         $vars = $this->powerVarsByGenerator();
         if (count($vars) === 0) {
-            return 'ℹ️ Einheit: noch keine gemessene Leistung (PowerVar) gewählt – die Einheit (W/kW) wird je Variable automatisch erkannt, sobald eine gewählt ist.';
+            return $this->t('ℹ️ Unit: no measured power (PowerVar) selected yet – the unit (W/kW) is detected automatically per variable as soon as one is selected.');
         }
         $lines = [];
         $unsure = false;
         foreach ($vars as $vid => $gen) {
-            $name = $gen . ' – „' . (IPS_VariableExists($vid) ? IPS_GetName($vid) : '?') . '“ (#' . $vid . ')';
+            $name = $this->t('%s – “%s” (#%d)', $gen, IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $vid);
             if (!IPS_VariableExists($vid)) {
-                $lines[] = '• ' . $name . ': Variable existiert nicht';
+                $lines[] = $this->t('• %s: variable does not exist', $name);
                 $unsure = true;
                 continue;
             }
             $u = $this->autoPowerUnit($vid);
             $unit = ($u['factor'] == 1000.0) ? 'kW' : (($u['factor'] == 1000000.0) ? 'MW' : 'W');
             if ($u['source'] === 'profile') {
-                $lines[] = '• ' . $name . ': ' . $unit . ' – aus dem Profil-Suffix „' . $u['detail'] . '“';
+                $lines[] = $this->t('• %s: %s – from the profile suffix “%s”', $name, $unit, $u['detail']);
             } elseif ($u['source'] === 'magnitude') {
-                $lines[] = '• ' . $name . ': ' . $unit . ' – aus der Größenordnung (Tagesmaximum der letzten 7 Tage ' . $u['detail'] . ')';
+                $lines[] = $this->t('• %s: %s – from the order of magnitude (daily maximum of the last 7 days %s)', $name, $unit, $u['detail']);
             } else {
-                $lines[] = '• ' . $name . ': W angenommen – weder Profil-Suffix noch auswertbare Archivdaten; bei einer kW-Variable bitte oben manuell festlegen';
+                $lines[] = $this->t('• %s: W assumed – neither a profile suffix nor evaluable archive data; for a kW variable please set it manually above', $name);
                 $unsure = true;
             }
         }
-        return ($unsure ? '⚠️' : '🔗') . " Einheit (automatisch übernommen):\n" . implode("\n", $lines);
+        return ($unsure ? '⚠️' : '🔗') . ' ' . $this->t('Unit (taken over automatically):') . "\n" . implode("\n", $lines);
     }
 
     /**
@@ -625,7 +651,7 @@ class PVPrognose extends IPSModule
     {
         $gens = array_values(array_filter($this->pvGenerators(), function ($g) { return $g['powervar'] > 0; }));
         if (count($gens) === 0) {
-            return 'ℹ️ Vorzeichen: noch keine gemessene Leistung (PowerVar) gewählt. Zählt dein Wechselrichter die Erzeugung negativ, schalte in der Generatorliste „Vorzeichen umkehren“ ein.';
+            return $this->t('ℹ️ Sign: no measured power (PowerVar) selected yet. If your inverter counts the generation as negative, switch on “Invert sign” in the generator list.');
         }
         $aid = $this->archiveID();
         $warn = [];
@@ -645,20 +671,20 @@ class PVPrognose extends IPSModule
             }
             $checked++;
             if (!$g['invert'] && $maxNeg > 0 && $maxNeg > 2 * $maxPos) {
-                $warn[] = $name . ': die Werte sind überwiegend negativ (stärkster Wert −' . round($maxNeg, 1) . ', höchster positiver ' . round($maxPos, 1) . ') – „Vorzeichen umkehren“ einschalten';
+                $warn[] = $this->t('%s: the values are predominantly negative (strongest value −%s, highest positive %s) – switch “Invert sign” on', $name, round($maxNeg, 1), round($maxPos, 1));
             } elseif ($g['invert'] && $maxPos > 0 && $maxPos >= 2 * $maxNeg) {
-                $warn[] = $name . ': die Werte sind überwiegend positiv (höchster ' . round($maxPos, 1) . ', stärkster negativer −' . round($maxNeg, 1) . ') – „Vorzeichen umkehren“ ausschalten, sonst zählt die Erzeugung als 0';
+                $warn[] = $this->t('%s: the values are predominantly positive (highest %s, strongest negative −%s) – switch “Invert sign” off, otherwise the generation counts as 0', $name, round($maxPos, 1), round($maxNeg, 1));
             }
         }
         if (count($warn) > 0) {
-            return "⚠️ Vorzeichen:\n• " . implode("\n• ", $warn);
+            return '⚠️ ' . $this->t('Sign:') . "\n• " . implode("\n• ", $warn);
         }
         if (count($inverted) > 0) {
-            return '✏️ Vorzeichen: bei ' . implode(', ', $inverted) . ' umgekehrt (eigene Angabe) – negative Erzeugung wird als Ertrag gelesen, ein positiver Wert (Standby-Bezug) als 0.';
+            return $this->t('✏️ Sign: inverted for %s (own setting) – negative generation is read as yield, a positive value (standby draw) as 0.', implode(', ', $inverted));
         }
         return $checked > 0
-            ? '✅ Vorzeichen: Erzeugung wird positiv gemessen, nichts umzukehren.'
-            : 'ℹ️ Vorzeichen: noch keine auswertbaren Archivdaten – Erzeugung wird als positiver Wert erwartet; bei negativer Zählweise „Vorzeichen umkehren“ einschalten.';
+            ? $this->t('✅ Sign: generation is measured as positive, nothing to invert.')
+            : $this->t('ℹ️ Sign: no evaluable archive data yet – generation is expected as a positive value; switch on “Invert sign” if it is counted negatively.');
     }
 
     /**
@@ -676,21 +702,21 @@ class PVPrognose extends IPSModule
             // Resource-ID je Generator (Spalte "Solcast-ID"): ohne sie gibt es für diesen Generator keinen Abruf.
             $noRid = [];
             $gens = $this->pvGenerators();
-            foreach ($gens as $g) { if (trim($g['solcast']) === '') { $noRid[] = ($g['name'] !== '') ? '„' . $g['name'] . '“' : 'ein Generator'; } }
+            foreach ($gens as $g) { if (trim($g['solcast']) === '') { $noRid[] = ($g['name'] !== '') ? $this->t('“%s”', $g['name']) : $this->t('a generator'); } }
             if (count($noRid) > 0) {
-                return '⛔ Solcast-Schlüssel gespeichert, aber für ' . implode(', ', $noRid) . ' ist keine Resource-ID in der Spalte „Solcast-ID“ der Generatorliste eingetragen – dafür gibt es keinen Abruf (Hilfe: Button „Wo finde ich die Solcast-ID?“)'
-                    . (count($noRid) === count($gens) ? ', die Vorhersage kann so nicht geladen werden.' : ', er fehlt in der Summe.');
+                return count($noRid) === count($gens)
+                    ? $this->t('⛔ Solcast key stored, but no resource ID is entered for %s in the “Solcast ID” column of the generator list – there is no call for it (help: button “Where do I find the Solcast ID?”), the forecast cannot be loaded this way.', implode(', ', $noRid))
+                    : $this->t('⛔ Solcast key stored, but no resource ID is entered for %s in the “Solcast ID” column of the generator list – there is no call for it (help: button “Where do I find the Solcast ID?”), it is missing from the total.', implode(', ', $noRid));
             }
         }
         if ($secret !== '') {
-            $len = mb_strlen($secret);
-            return '✏️ Solcast-Schlüssel: gespeichert (' . $len . ' Zeichen, wird aus Sicherheitsgründen nicht angezeigt; das Feld unten bleibt deshalb leer).'
-                . ($isSolcast ? ' Er wird für den Abruf verwendet.' : ' Er wird nur verwendet, wenn die Quelle auf Solcast steht.')
-                . ' Zum Ändern einfach einen neuen Schlüssel eintragen und übernehmen.';
+            return $this->t('✏️ Solcast key: stored (%d characters, not shown for security reasons; the field below therefore stays empty).', mb_strlen($secret))
+                . ' ' . ($isSolcast ? $this->t('It is used for the call.') : $this->t('It is only used when the source is set to Solcast.'))
+                . ' ' . $this->t('To change it, just enter a new key and apply.');
         }
         return $isSolcast
-            ? '⛔ Solcast-Schlüssel: Quelle Solcast ist gewählt, aber noch kein Schlüssel hinterlegt – ohne Schlüssel kein Abruf. Bitte unten eintragen und übernehmen.'
-            : 'ℹ️ Solcast-Schlüssel: nicht hinterlegt (nur nötig, wenn die Quelle auf Solcast steht).';
+            ? $this->t('⛔ Solcast key: the Solcast source is selected, but no key is stored yet – without a key there is no call. Please enter it below and apply.')
+            : $this->t('ℹ️ Solcast key: not stored (only needed when the source is set to Solcast).');
     }
 
     /**
@@ -701,7 +727,7 @@ class PVPrognose extends IPSModule
     private function solcastBudgetStatusLine(): string
     {
         if ($this->ReadPropertyInteger('PVF_Source') !== PVF_SRC_SOLCAST) {
-            return 'ℹ️ Solcast-Abrufe: nicht relevant, die Quelle steht nicht auf Solcast.';
+            return $this->t('ℹ️ Solcast calls: not relevant, the source is not set to Solcast.');
         }
         $budget = max(0, $this->ReadPropertyInteger('PVF_SolcastDailyBudget'));
         $n = $this->solcastCallsToday();
@@ -713,34 +739,37 @@ class PVPrognose extends IPSModule
         $fmt = function (int $sec) { $h = intdiv($sec, 3600); $m = (int)round(($sec % 3600) / 60); if ($m === 60) { $h++; $m = 0; } return $h . ' h' . ($m > 0 ? ' ' . $m . ' min' : ''); };
         $perDay = ($plan['ids'] > 0) ? $plan['ids'] * ((int)floor($plan['window'] / $gap) + 1) : 0;
 
-        $line = 'Solcast-Abrufe heute: ' . $n . ($budget > 0 ? ' von ' . $budget : ' (kein Tagesbudget)');
-        $line .= ($win !== null)
-            ? ', Abrufe nur bei Tageslicht (' . date('H:i', $win[0]) . '–' . date('H:i', $win[1]) . ')'
-            : ($daylight ? ', Tageslicht-Fenster nicht bestimmbar (Koordinaten prüfen), Abrufe rund um die Uhr' : ', Abrufe rund um die Uhr');
+        $line = ($budget > 0 ? $this->t('Solcast calls today: %d of %d', $n, $budget) : $this->t('Solcast calls today: %d (no daily budget)', $n)) . ', '
+            . (($win !== null)
+                ? $this->t('calls only in daylight (%s–%s)', date('H:i', $win[0]), date('H:i', $win[1]))
+                : ($daylight ? $this->t('daylight window cannot be determined (check coordinates), calls around the clock') : $this->t('calls around the clock')));
         if ($budget > 0 && $plan['ids'] > 0) {
-            $line .= '. Mit ' . $plan['ids'] . ($plan['ids'] === 1 ? ' Resource-ID' : ' verschiedenen Resource-IDs') . ' und Budget ' . $budget . ' sind '
-                . $plan['rounds'] . ' Abrufrunden am Tag möglich (' . $plan['rounds'] . ' × ' . $plan['ids'] . ' = ' . ($plan['rounds'] * $plan['ids']) . ' Abrufe)';
-            if ($plan['gap'] > $interval * 3600) {
-                $line .= ' - deshalb wird höchstens alle ' . $fmt($gap) . ' abgerufen (länger als dein Intervall von ' . $interval . ' h, automatisch gestreckt)';
-            } else {
-                $line .= '; dein Intervall von ' . $interval . ' h passt, es sind etwa ' . $perDay . ' Abrufe pro Tag';
-            }
-            $line .= '.';
+            $ids = ($plan['ids'] === 1) ? $this->t('1 resource ID') : $this->t('%d different resource IDs', $plan['ids']);
+            $line .= '. ' . (($plan['gap'] > $interval * 3600)
+                ? $this->t('With %s and budget %d, %d call rounds per day are possible (%d × %d = %d calls) - therefore a call is made at most every %s (longer than your interval of %d h, stretched automatically).',
+                    $ids, $budget, $plan['rounds'], $plan['rounds'], $plan['ids'], $plan['rounds'] * $plan['ids'], $fmt($gap), $interval)
+                : $this->t('With %s and budget %d, %d call rounds per day are possible (%d × %d = %d calls); your interval of %d h fits, that is about %d calls per day.',
+                    $ids, $budget, $plan['rounds'], $plan['rounds'], $plan['ids'], $plan['rounds'] * $plan['ids'], $interval, $perDay));
         } elseif ($budget <= 0) {
-            $line .= '. Intervall ' . $interval . ' h' . ($plan['ids'] > 0 ? ', etwa ' . $perDay . ' Abrufe pro Tag' : '') . '.';
+            $line .= '. ' . ($plan['ids'] > 0
+                ? $this->t('Interval %d h, about %d calls per day.', $interval, $perDay)
+                : $this->t('Interval %d h.', $interval));
+        } else {
+            $line .= '.';
         }
         // Wann war der letzte Abruf, wann ist der nächste frühestens möglich (Forum lungo #61: "wo sieht man die geplanten Slots")
         $t = $this->solcastCallTimes();
         $dayOf = function (int $ts) { return (date('Y-m-d', $ts) === date('Y-m-d', $this->solcastNow())) ? '' : date('d.m. ', $ts); };
         if ($plan['ids'] > 0) {
-            $line .= ' Letzter Abruf: ' . ($t['last'] !== null ? $dayOf($t['last']) . date('H:i', $t['last']) : 'noch keiner')
-                . '; nächster frühestens: ' . (($t['next'] !== null && $t['next'] > $this->solcastNow() + 60) ? $dayOf($t['next']) . date('H:i', $t['next']) : 'beim nächsten Berechnungslauf') . '.';
+            $line .= ' ' . $this->t('Last call: %s; earliest next: %s.',
+                $t['last'] !== null ? $dayOf($t['last']) . date('H:i', $t['last']) : $this->t('none yet'),
+                ($t['next'] !== null && $t['next'] > $this->solcastNow() + 60) ? $dayOf($t['next']) . date('H:i', $t['next']) : $this->t('at the next calculation run'));
         }
         if ($budget > 0 && $n >= $budget) {
-            return '⚠️ ' . $line . ' Das Tagesbudget ist erreicht, bis morgen gilt die letzte gültige Antwort.';
+            return '⚠️ ' . $line . ' ' . $this->t('The daily budget is reached, until tomorrow the last valid response applies.');
         }
         if ($budget > 0 && $plan['ids'] > $budget) {
-            return '⚠️ ' . $line . ' Es gibt mehr verschiedene Resource-IDs als das Budget Abrufe erlaubt - Generatoren derselben Site dieselbe ID geben.';
+            return '⚠️ ' . $line . ' ' . $this->t('There are more different resource IDs than the budget allows calls - give generators of the same site the same ID.');
         }
         return 'ℹ️ ' . $line;
     }
@@ -750,27 +779,27 @@ class PVPrognose extends IPSModule
     {
         $ems = function_exists('EMS_GetSpecialEvents') ? $this->emsInstance() : 0;
         if ($ems <= 0) {
-            return 'ℹ️ EMS: nicht gefunden – Tage mit abgeregelter Erzeugung (Netzbetreiber-Dimmung, Negativpreis …) werden weder aus der Selbstkalibrierung noch aus der Prognosegüte herausgerechnet, alle Tage zählen.';
+            return $this->t('ℹ️ EMS: not found – days with curtailed generation (grid operator dimming, negative price …) are not removed from the self-calibration or the forecast accuracy, every day counts.');
         }
         $days = max(7, $this->ReadPropertyInteger('PVF_CalibDays'));
         $events = $this->calibrationEvents($days);
-        $head = 'EMS: verbunden mit “' . IPS_GetName($ems) . '” (#' . $ems . ', automatisch erkannt)';
+        $head = $this->t('EMS: connected to “%s” (#%d, detected automatically)', IPS_GetName($ems), $ems);
         if ($this->specialEventsVersionMismatch !== null) {
-            return '⚠️ ' . $head . ', aber der Vertrag EMS_GetSpecialEvents hat Version ' . $this->specialEventsVersionMismatch . ' (unterstützt: ' . self::EMS_EVENTS_MAJOR . '.x) – Kopplung bis zum Modul-Update aus.';
+            return '⚠️ ' . $this->t('%s, but the contract EMS_GetSpecialEvents has version %s (supported: %d.x) – link switched off until the module is updated.', $head, $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         if ($this->specialEventsContract === null) {
-            return '⚠️ ' . $head . ', aber EMS_GetSpecialEvents liefert keine Ereignisliste – Sondereffekte werden nicht berücksichtigt.';
+            return '⚠️ ' . $this->t('%s, but EMS_GetSpecialEvents returns no event list – special effects are not taken into account.', $head);
         }
         $pvDays = 0;
         for ($d = 1; $d <= $days; $d++) {
             $ts = strtotime('today -' . $d . ' days');
             if ($this->dayHasSpecialEvent($events, $ts, $this->dayEndExclusive($ts) - 1, 'pv')) { $pvDays++; }
         }
-        $line = '✅ ' . $head . ', Vertrag EMS_GetSpecialEvents ' . $this->specialEventsContract . '. Übernommen: ' . count($events)
-            . ' Sonderereignis(se), davon betreffen ' . $pvDays . ' Tag(e) der letzten ' . $days . ' die PV-Erzeugung – diese Tage bleiben aus der Selbstkalibrierung, der Prognosegüte und der Fehler-Korrektur (Band, Pegel) heraus.'
-            . ' Ereignisse, die nur die Last betreffen (z. B. Grid Rewards), zählen hier nicht.';
+        $line = '✅ ' . $this->t('%s, contract EMS_GetSpecialEvents %s. Taken over: %d special event(s), of which %d day(s) of the last %d affect the PV generation – these days stay out of the self-calibration, the forecast accuracy and the error correction (band, level).',
+                $head, $this->specialEventsContract, count($events), $pvDays, $days)
+            . ' ' . $this->t('Events that only affect the load (e.g. Grid Rewards) do not count here.');
         if (version_compare($this->specialEventsContract, '1.1', '<')) {
-            $line .= ' Hinweis: Vertrag ' . $this->specialEventsContract . ' liefert kein Feld „affects“ – jedes Ereignis gilt dann für Last und PV.';
+            $line .= ' ' . $this->t('Note: contract %s provides no field “affects” – every event then applies to load and PV.', $this->specialEventsContract);
         }
         return $line;
     }
@@ -788,12 +817,12 @@ class PVPrognose extends IPSModule
         }
         return [
             'type' => 'ExpansionPanel', 'name' => 'PurposeIntroPanel', 'expanded' => true,
-            'caption' => '👋  Wozu dieses Modul?',
+            'caption' => '👋  What is this module for?',
             'items' => [
-                ['type' => 'Label', 'caption' => 'PVPrognose berechnet für die kommenden Tage aus Wetterdaten (Open-Meteo, Forecast.Solar oder Solcast) und den Daten deiner PV-Anlage eine physikbasierte Erzeugungsprognose mit Unsicherheitsband (P10/P50/P90) — und lernt aus dem Vergleich mit der tatsächlichen Erzeugung laufend dazu.'],
-                ['type' => 'Label', 'caption' => 'Der Nutzen: eine verlässliche Planungsgrundlage für Lastmanagement, Batteriesteuerung oder ein Energiemanagement-System (EMS), ohne selbst aufs Wetter schauen zu müssen.'],
-                ['type' => 'Label', 'caption' => 'Für die Verbrauchsseite gehört Lastprognose dazu, für eine gemeinsame Übersicht beider Prognosen die Prognose-Kachel im NRG-Dashboard.'],
-                ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'PVF_AckPurposeIntro($id);'],
+                ['type' => 'Label', 'caption' => 'PVPrognose calculates a physics-based generation forecast with an uncertainty band (P10/P50/P90) for the coming days from weather data (Open-Meteo, Forecast.Solar or Solcast) and the data of your PV system — and keeps learning from the comparison with the actual generation.'],
+                ['type' => 'Label', 'caption' => 'The benefit: a reliable planning basis for load management, battery control or an energy management system (EMS), without having to look at the weather yourself.'],
+                ['type' => 'Label', 'caption' => 'For the consumption side, Lastprognose (load forecast) is the counterpart; for a combined overview of both forecasts there is the forecast tile in the NRG dashboard.'],
+                ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'PVF_AckPurposeIntro($id);'],
             ],
         ];
     }
@@ -809,8 +838,8 @@ class PVPrognose extends IPSModule
     {
         $lib = @IPS_GetLibrary(self::LIBRARY_GUID);
         $txt = (is_array($lib) && isset($lib['Version']))
-            ? 'ℹ️ PV-Prognose — Teil der NRG-Stack Prognose-Suite, Version ' . $lib['Version'] . ' (Build ' . ($lib['Build'] ?? '?') . ')'
-            : 'ℹ️ PV-Prognose';
+            ? $this->t('ℹ️ PV forecast — part of the NRG-Stack forecast suite, version %s (build %s)', $lib['Version'], $lib['Build'] ?? '?')
+            : $this->t('ℹ️ PV forecast');
         return ['type' => 'Label', 'caption' => $txt];
     }
 
@@ -820,12 +849,12 @@ class PVPrognose extends IPSModule
         if ($this->ReadAttributeString('SeenNews') === self::NEWS_VERSION) {
             return null;
         }
-        $items = [['type' => 'Label', 'caption' => '🆕 Neu — bitte kurz ansehen und ggf. die Einstellungen prüfen:']];
+        $items = [['type' => 'Label', 'caption' => '🆕 New — please take a quick look and check your settings if necessary:']];
         foreach (self::NEWS_ITEMS as $line) {
-            $items[] = ['type' => 'Label', 'caption' => '• ' . $line];
+            $items[] = ['type' => 'Label', 'caption' => '• ' . $this->t($line)];
         }
-        $items[] = ['type' => 'Button', 'caption' => 'Verstanden – nicht mehr anzeigen', 'onClick' => 'PVF_AckNews($id);'];
-        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => '🆕 Neu in Version ' . self::NEWS_VERSION, 'expanded' => true, 'items' => $items];
+        $items[] = ['type' => 'Button', 'caption' => 'Understood – do not show again', 'onClick' => 'PVF_AckNews($id);'];
+        return ['type' => 'ExpansionPanel', 'name' => 'NewsPanel', 'caption' => $this->t('🆕 New in version %s', self::NEWS_VERSION), 'expanded' => true, 'items' => $items];
     }
 
     public function AckNews(): void
@@ -849,14 +878,14 @@ class PVPrognose extends IPSModule
     {
         return [
             'type' => 'ExpansionPanel', 'expanded' => false,
-            'caption' => '🧡  Über dieses Modul',
+            'caption' => '🧡  About this module',
             'items' => [
-                ['type' => 'Label', 'caption' => 'Entstanden aus echter Begeisterung für die eigene Anlage — und ein paar durchgetippten Abenden. Trotzdem: Software-Hobby hin oder her, das hier ist geistiges Eigentum und echte Arbeit steckt drin.'],
-                ['type' => 'Label', 'caption' => 'Lizenz: PolyForm Noncommercial 1.0.0 — privat und nicht-kommerziell frei nutzbar, für den gewerblichen Einsatz braucht es eine gesonderte Lizenz vom Rechteinhaber.'],
-                ['type' => 'Button', 'caption' => 'Lizenztext ansehen', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
-                ['type' => 'Label', 'caption' => 'Gewerbliche Nutzung oder Fragen zur Lizenz? Einfach melden: dietmar@gureth.eu'],
-                ['type' => 'Label', 'caption' => 'Gefällt dir das Modul und du möchtest trotzdem etwas dalassen? Über eine kleine Spende freue ich mich — völlig freiwillig, keine Gegenleistung nötig.'],
-                ['type' => 'Button', 'caption' => '☕  Spenden via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Born out of genuine enthusiasm for my own installation — and a few evenings of typing. Still: hobby software or not, this is intellectual property and real work went into it.'],
+                ['type' => 'Label', 'caption' => 'License: PolyForm Noncommercial 1.0.0 — free for private and non-commercial use; commercial use needs a separate license from the rights holder.'],
+                ['type' => 'Button', 'caption' => 'View license text', 'onClick' => "echo '" . self::LICENSE_URL . "';", 'link' => true],
+                ['type' => 'Label', 'caption' => 'Commercial use or questions about the license? Just get in touch: dietmar@gureth.eu'],
+                ['type' => 'Label', 'caption' => 'Do you like the module and still want to leave something? I would be happy about a small donation — completely voluntary, nothing owed in return.'],
+                ['type' => 'Button', 'caption' => '☕  Donate via PayPal', 'onClick' => "echo '" . self::PAYPAL_URL . "';", 'link' => true],
             ],
         ];
     }
@@ -967,7 +996,7 @@ class PVPrognose extends IPSModule
     public function Rebuild(): string
     {
         if (count($this->pvGenerators()) === 0) {
-            $msg = '⛔ Keine PV-Generatoren konfiguriert.';
+            $msg = $this->t('⛔ No PV generators configured.');
             $this->SetValue('PVF_Status', $msg);
             return $msg;
         }
@@ -984,8 +1013,8 @@ class PVPrognose extends IPSModule
             if ($model === null) {
                 $why = $this->solcastIssueText();
                 $msg = ($why !== '')
-                    ? '⚠️ Vorhersage konnte nicht geladen werden: ' . $why . ' — zuletzt gültige Prognose bleibt erhalten.'
-                    : '⚠️ Vorhersage konnte nicht geladen werden (API/Netzwerk?) — zuletzt gültige Prognose bleibt erhalten.';
+                    ? $this->t('⚠️ Forecast could not be loaded: %s — the last valid forecast is kept.', $why)
+                    : $this->t('⚠️ Forecast could not be loaded (API/network?) — the last valid forecast is kept.');
                 $this->rotateForecastCache(); // Tageswechsel trotzdem nachziehen (siehe RollDay())
                 $this->SetValue('PVF_Status', $msg);
                 $this->SetStatus(104);
@@ -997,7 +1026,7 @@ class PVPrognose extends IPSModule
             // frisch berechnetes Übergangsband (bzw. die neuen Residuen) wirkte dadurch erst ab dem ZWEITEN
             // Rebuild nach dem Update, also ca. 6 h später.
             try { $this->evaluateAccuracy(); }
-            catch (\Throwable $e) { $this->log(PVF_LOG_BASIC, 'Prognosegüte-Auswertung fehlgeschlagen: ' . $e->getMessage()); }
+            catch (\Throwable $e) { $this->log(PVF_LOG_BASIC, $this->t('Forecast accuracy evaluation failed: %s', $e->getMessage())); }
 
             $idents = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
             $kwhIds = ['PVF_kWhToday', 'PVF_kWhTomorrow', 'PVF_kWhDayAfter', 'PVF_kWhDay3', 'PVF_kWhDay4'];
@@ -1012,8 +1041,8 @@ class PVPrognose extends IPSModule
             $this->saveIntradaySnapshot($fcs);
 
             $this->SetValue('PVF_LastUpdate', time());
-            $status = sprintf(
-                '✅ heute %.1f / morgen %.1f / übermorgen %.1f / Tag 4 %.1f / Tag 5 %.1f kWh',
+            $status = $this->t(
+                '✅ today %.1f / tomorrow %.1f / day after tomorrow %.1f / day 4 %.1f / day 5 %.1f kWh',
                 $this->GetValue('PVF_kWhToday'),
                 $this->GetValue('PVF_kWhTomorrow'),
                 $this->GetValue('PVF_kWhDayAfter'),
@@ -1027,14 +1056,14 @@ class PVPrognose extends IPSModule
             $status .= $this->statusNotices();
             $this->SetValue('PVF_Status', $status);
             $this->SetStatus(102);
-            $this->log(PVF_LOG_BASIC, 'Neuberechnung abgeschlossen');
+            $this->log(PVF_LOG_BASIC, $this->t('Recalculation completed'));
             return $status;
 
         } catch (Exception $e) {
-            $msg = '⛔ Fehler: ' . $e->getMessage();
+            $msg = $this->t('⛔ Error: %s', $e->getMessage());
             $this->SetValue('PVF_Status', $msg);
             $this->SetStatus(104);
-            $this->log(PVF_LOG_BASIC, 'Fehler: ' . $e->getMessage());
+            $this->log(PVF_LOG_BASIC, $this->t('Error: %s', $e->getMessage()));
             return $msg;
         }
     }
@@ -1062,7 +1091,7 @@ class PVPrognose extends IPSModule
             $v   = IPS_GetVariable($g['powervar']);
             $age = time() - max((int)$v['VariableUpdated'], (int)$v['VariableChanged']);
             if ($age > $staleSec) {
-                $warnings[] = sprintf('%s: PowerVar seit %.1f Tagen ohne neuen Messwert', $g['name'], $age / 86400);
+                $warnings[] = $this->t('%s: PowerVar without a new measured value for %.1f days', $g['name'], $age / 86400);
             }
         }
         return $warnings;
@@ -1595,7 +1624,7 @@ class PVPrognose extends IPSModule
             if ($g['powervar'] > 0 && IPS_VariableExists($g['powervar'])) { $gens[] = $g['powervar']; }
         }
         if (count($gens) === 0) {
-            $this->SetValue('PVF_Accuracy', 'Keine gemessene Leistung (PowerVar je Generator) konfiguriert');
+            $this->SetValue('PVF_Accuracy', $this->t('No measured power (PowerVar per generator) configured'));
             return;
         }
 
@@ -1677,18 +1706,20 @@ class PVPrognose extends IPSModule
             // Grund nennen (Forum cbeham, 20.10.2026: nach Wochen immer noch "Snapshots sammeln sich", obwohl sie sich sammeln,
             // nur die Messwerte fehlen): ohne Snapshots = es dauert bis morgen; mit Snapshots fehlt die Gegenseite.
             if ($snapDays === 0) {
-                $txt = 'Noch keine auswertbaren Tage: es liegen noch keine Snapshots vor (sie entstehen bei jeder Neuberechnung für heute und morgen und werden am Folgetag mit der Messung verglichen)';
+                $txt = $this->t('No evaluable days yet: there are no snapshots yet (they are created with every recalculation for today and tomorrow and compared with the measurement on the following day)');
             } else {
                 $why = [];
-                if ($noMeas > 0)  { $why[] = $noMeas . ' ohne Messwerte im Archiv (Leistungsvariable je Generator archiviert und mit Werten?)'; }
-                if ($lowMeas > 0) { $why[] = $lowMeas . ' mit gemessener Erzeugung unter 0,5 kWh'; }
-                $txt = 'Noch keine auswertbaren Tage: ' . $snapDays . ' Snapshot-Tag(e) vorhanden' . (count($why) > 0 ? ', davon ' . implode(', ', $why) : '');
+                if ($noMeas > 0)  { $why[] = $this->t('%d without measured values in the archive (power variable per generator archived and with values?)', $noMeas); }
+                if ($lowMeas > 0) { $why[] = $this->t('%d with measured generation below 0.5 kWh', $lowMeas); }
+                $txt = (count($why) > 0)
+                    ? $this->t('No evaluable days yet: %d snapshot day(s) present, of which %s', $snapDays, implode(', ', $why))
+                    : $this->t('No evaluable days yet: %d snapshot day(s) present', $snapDays);
             }
             if ($excluded > 0) {
-                $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+                $txt .= ' | ' . $this->t('%d day(s) excluded due to a special effect', $excluded);
             }
             if ($corrupted > 0) {
-                $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
+                $txt .= ' | ' . $this->t('%d day(s) excluded due to an archive fault', $corrupted);
             }
             $this->SetValue('PVF_Accuracy', $txt);
             $this->WriteAttributeString('PVF_AccuracyDetail', json_encode([
@@ -1706,32 +1737,32 @@ class PVPrognose extends IPSModule
             'bias' => round($bias, 2), 'mape' => round($mape, 2), 'updated' => time(),
             'slotLevelDays' => $rDays, 'slotLevelLegacyDays' => $legacyDays, 'slotLevelNoisyDays' => $noisyDays,
         ]));
-        $txt = sprintf('%d Tage: Bias %+.1f %% · |Ø-Fehler| %.1f %%', count($errs), $bias, $mape);
+        $txt = $this->t('%d days: bias %+.1f %% · |Ø error| %.1f %%', count($errs), $bias, $mape);
         $res = json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true);
         if (is_array($res) && isset($res['q50']) && is_array($res['q50'])) {
             $q50vals = array_filter($res['q50'], function ($v) { return $v !== null; });
             if (count($q50vals) > 0) {
-                $txt .= sprintf(' | Tagesgang-Residuen ×%.2f…×%.2f (%d Tage)',
+                $txt .= ' | ' . $this->t('time-of-day residuals ×%.2f…×%.2f (%d days)',
                     min($q50vals), max($q50vals), $res['days']);
             }
         }
         if ($excluded > 0) {
-            $txt .= sprintf(' | %d Tag(e) mit Sondereffekt ausgeschlossen', $excluded);
+            $txt .= ' | ' . $this->t('%d day(s) excluded due to a special effect', $excluded);
         }
         if ($corrupted > 0) {
-            $txt .= sprintf(' | %d Tag(e) mit Archivstörung ausgeschlossen', $corrupted);
+            $txt .= ' | ' . $this->t('%d day(s) excluded due to an archive fault', $corrupted);
         }
         if ($noisyDays > 0) {
-            $txt .= sprintf(' | %d Wechselwetter-Tag(e) zählen nicht für den Pegel', $noisyDays);
+            $txt .= ' | ' . $this->t('%d changeable-weather day(s) do not count for the level', $noisyDays);
         }
         if ($this->specialEventsVersionMismatch !== null) {
-            $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
+            $txt .= ' | ' . $this->t('⚠️ EMS contract %s not supported (major %d expected) — special-effect exclusion inactive, check for a module update',
                 $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
         $hint = $this->learningHint($bias, count($errs));
         if ($hint !== '') { $txt .= ' | ' . $hint; }
         $this->SetValue('PVF_Accuracy', $txt);
-        $this->log(PVF_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
+        $this->log(PVF_LOG_BASIC, $this->t('Forecast accuracy (%d days): bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
     }
 
     /**
@@ -2153,8 +2184,8 @@ class PVPrognose extends IPSModule
         // bei klarem Himmel). Lieber verwerfen — Rebuild()/GetForecast() greifen
         // dann auf die zuletzt gültige, gespeicherte Prognose zurück.
         if ($failed > 0) {
-            $this->log(PVF_LOG_BASIC, sprintf(
-                'Vorhersage verworfen: Abruf für %d von %d Generatoren fehlgeschlagen — eine Teilsumme wäre stillschweigend zu niedrig',
+            $this->log(PVF_LOG_BASIC, $this->t(
+                'Forecast discarded: call failed for %d of %d generators — a partial sum would be silently too low',
                 $failed, count($gens)
             ));
             return null;
@@ -2236,12 +2267,17 @@ class PVPrognose extends IPSModule
         if ($days < 7 || abs($bias) < 30.0) { return ''; }
         $calibActive = ($this->ReadPropertyInteger('PVF_Source') === PVF_SRC_OPENMETEO) && $this->ReadPropertyBoolean('PVF_Calibrate');
         $levelActive = ($this->ReadPropertyInteger('PVF_ResidualMode') === 2);
-        $todo = [];
-        if (!$calibActive && $this->ReadPropertyInteger('PVF_Source') === PVF_SRC_OPENMETEO) { $todo[] = 'die Selbstkalibrierung einschalten'; }
-        if (!$levelActive) { $todo[] = 'das Unsicherheitsband auf „Band + Pegelkorrektur“ stellen'; }
-        if (count($todo) === 0) { return ''; }
-        return sprintf('💡 Die Prognose liegt im Schnitt %d %% %s als gemessen. Sie lernt davon noch nichts: im Formular %s.',
-            (int)round(abs($bias)), $bias > 0 ? 'höher' : 'niedriger', implode(' und ', $todo));
+        $needCalib = !$calibActive && $this->ReadPropertyInteger('PVF_Source') === PVF_SRC_OPENMETEO;
+        $needLevel = !$levelActive;
+        if (!$needCalib && !$needLevel) { return ''; }
+        $pct = (int)round(abs($bias));
+        $dir = $bias > 0 ? $this->t('higher') : $this->t('lower');
+        if ($needCalib && $needLevel) {
+            return $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, switch on the self-calibration and set the uncertainty band to “band + level correction”.', $pct, $dir);
+        }
+        return $needCalib
+            ? $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, switch on the self-calibration.', $pct, $dir)
+            : $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, set the uncertainty band to “band + level correction”.', $pct, $dir);
     }
 
     /**
@@ -2253,28 +2289,28 @@ class PVPrognose extends IPSModule
     {
         $parts = []; $seen = [];
         foreach ($this->solcastIssues as $i) {
-            $gen = ($i['gen'] !== '') ? '„' . $i['gen'] . '“' : 'ein Generator';
+            $gen = ($i['gen'] !== '') ? $this->t('“%s”', $i['gen']) : $this->t('a generator');
             switch ($i['kind']) {
                 case 'nokey':
-                    $t = '⛔ Solcast: kein API-Schlüssel hinterlegt'; $k = 'nokey'; break;
+                    $t = $this->t('⛔ Solcast: no API key stored'); $k = 'nokey'; break;
                 case 'norid':
-                    $t = '⛔ Solcast: für ' . $gen . ' ist keine Resource-ID eingetragen (Spalte „Solcast-ID“ der Generatorliste; Hilfe: Button „Wo finde ich die Solcast-ID?“)'; $k = 'norid' . $i['gen']; break;
+                    $t = $this->t('⛔ Solcast: no resource ID is entered for %s (“Solcast ID” column of the generator list; help: button “Where do I find the Solcast ID?”)', $gen); $k = 'norid' . $i['gen']; break;
                 case 'auth':
-                    $t = '⛔ Solcast: Schlüssel abgelehnt (HTTP ' . $i['http'] . ') – bitte den API-Schlüssel prüfen'; $k = 'auth'; break;
+                    $t = $this->t('⛔ Solcast: key rejected (HTTP %s) – please check the API key', $i['http']); $k = 'auth'; break;
                 case 'notfound':
-                    $t = '⛔ Solcast: Resource-ID „' . $i['rid'] . '“ für ' . $gen . ' nicht gefunden (HTTP 404) – bitte die Solcast-ID prüfen'; $k = 'nf' . $i['rid']; break;
+                    $t = $this->t('⛔ Solcast: resource ID “%s” for %s not found (HTTP 404) – please check the Solcast ID', $i['rid'], $gen); $k = 'nf' . $i['rid']; break;
                 case 'quota':
-                    $t = '⚠️ Solcast: Tageskontingent erschöpft (HTTP 429), nächster Versuch in 2 Stunden'; $k = 'quota'; break;
+                    $t = $this->t('⚠️ Solcast: daily quota used up (HTTP 429), next attempt in 2 hours'); $k = 'quota'; break;
                 case 'network':
-                    $t = '⚠️ Solcast: keine Verbindung (Netzwerk, DNS oder Zeitüberschreitung)'; $k = 'net'; break;
+                    $t = $this->t('⚠️ Solcast: no connection (network, DNS or timeout)'); $k = 'net'; break;
                 case 'budget':
-                    $t = 'ℹ️ Solcast: Tagesbudget der Abrufe erreicht, bis morgen kein weiterer Abruf'; $k = 'budget'; break;
+                    $t = $this->t('ℹ️ Solcast: daily budget of calls reached, no further call until tomorrow'); $k = 'budget'; break;
                 default:
-                    $t = '⚠️ Solcast: Abruf für ' . $gen . ' fehlgeschlagen (HTTP ' . $i['http'] . ')'; $k = 'http' . $i['http'] . $i['gen'];
+                    $t = $this->t('⚠️ Solcast: call for %s failed (HTTP %s)', $gen, $i['http']); $k = 'http' . $i['http'] . $i['gen'];
             }
             if (isset($seen[$k])) { continue; }
             $seen[$k] = true;
-            if (!empty($i['stale'])) { $t .= ' (letzte gültige Antwort wird weiterverwendet)'; }
+            if (!empty($i['stale'])) { $t .= ' ' . $this->t('(the last valid response continues to be used)'); }
             $parts[] = $t;
         }
         return implode('; ', $parts);
@@ -2288,12 +2324,12 @@ class PVPrognose extends IPSModule
         if (count($this->calibNotes) > 0) {
             $names = array_map(function ($n) { return $n['name']; }, $this->calibNotes);
             $oldest = min(array_map(function ($n) { return $n['ts']; }, $this->calibNotes));
-            $out .= sprintf(' | ⚠️ Kalibrierung nicht abrufbar — Ersatzwert (letzter Faktor vom %s) für %s',
+            $out .= ' | ' . $this->t('⚠️ Calibration not available — substitute value (last factor from %s) for %s',
                 date('d.m. H:i', $oldest), implode(', ', $names));
         }
         if (!$this->residualsUsable(json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true))
             && is_array(json_decode((string)$this->ReadAttributeString('PVF_TransitionBand'), true))) {
-            $out .= ' | ℹ️ Korrektur lernt neu — Unsicherheitsband aus den Tagen davor';
+            $out .= ' | ' . $this->t('ℹ️ Correction is learning anew — uncertainty band from the days before');
         }
         $d = json_decode((string)$this->ReadAttributeString('PVF_AccuracyDetail'), true);
         if (is_array($d) && isset($d['bias'], $d['days'])) {
@@ -2322,7 +2358,7 @@ class PVPrognose extends IPSModule
         }
         if (isset($cache[$key]['f'], $cache[$key]['ts']) && (time() - (int)$cache[$key]['ts']) <= 3 * 86400) {
             $name = $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']);
-            $this->log(PVF_LOG_BASIC, sprintf('Kalibrierung für %s nicht verfügbar — letzter Faktor %.3f vom %s wird weiterverwendet',
+            $this->log(PVF_LOG_BASIC, $this->t('Calibration for %s not available — last factor %.3f from %s continues to be used',
                 $name, (float)$cache[$key]['f'], date('d.m. H:i', (int)$cache[$key]['ts'])));
             $this->calibNotes[] = ['name' => $name, 'ts' => (int)$cache[$key]['ts']];
             return (float)$cache[$key]['f'];
@@ -2429,7 +2465,7 @@ class PVPrognose extends IPSModule
             $ratios[] = $meas / $pred;
         }
         if ($skipped > 0) {
-            $this->log(PVF_LOG_VERBOSE, sprintf('Kalibrierung %s: %d Tag(e) mit abgeregelter Erzeugung (Sondereffekt) übersprungen, %d Tage verwendet',
+            $this->log(PVF_LOG_VERBOSE, $this->t('Calibration %s: %d day(s) with curtailed generation (special effect) skipped, %d days used',
                 $g['name'] !== '' ? $g['name'] : ('#' . $g['powervar']), $skipped, count($ratios)));
         }
         if (count($ratios) < 5) { return null; }
@@ -2501,7 +2537,7 @@ class PVPrognose extends IPSModule
         );
         $j = $this->httpGetJson($url);
         if ($j === null || !isset($j['result']['watts'])) {
-            $this->log(PVF_LOG_VERBOSE, 'Forecast.Solar ohne Ergebnis (Limit erreicht?)');
+            $this->log(PVF_LOG_VERBOSE, $this->t('Forecast.Solar returned no result (limit reached?)'));
             return null;
         }
 
@@ -2647,7 +2683,7 @@ class PVPrognose extends IPSModule
         $key = $this->solcastKey();
         $rid = trim($g['solcast']);
         if ($key === '' || $rid === '') {
-            $this->log(PVF_LOG_VERBOSE, 'Solcast: API-Schlüssel oder Resource-ID fehlt');
+            $this->log(PVF_LOG_VERBOSE, $this->t('Solcast: API key or resource ID missing'));
             $this->solcastIssues[] = ['kind' => ($key === '') ? 'nokey' : 'norid', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 0];
             return null;
         }
@@ -2666,7 +2702,7 @@ class PVPrognose extends IPSModule
         $cooldown = $this->ReadAttributeInteger('PVF_SolcastCooldownUntil');
         if ($cooldown > time()) {
             if (is_array($entry)) {
-                $this->log(PVF_LOG_VERBOSE, sprintf('Solcast: Abkühlphase nach Tageslimit bis %s — letzte gültige Antwort wird weiterverwendet.', date('H:i', $cooldown)));
+                $this->log(PVF_LOG_VERBOSE, $this->t('Solcast: cool-down after the daily limit until %s — the last valid response continues to be used.', date('H:i', $cooldown)));
                 $this->solcastIssues[] = ['kind' => 'quota', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 429, 'stale' => true];
                 return $this->mapOffsets($entry['byDate'], true);
             }
@@ -2680,14 +2716,14 @@ class PVPrognose extends IPSModule
         $budget = max(0, $this->ReadPropertyInteger('PVF_SolcastDailyBudget'));
         if ($budget > 0 && $this->solcastCallsToday() >= $budget) {
             $this->solcastIssues[] = ['kind' => 'budget', 'gen' => (string)$g['name'], 'rid' => $rid, 'http' => 0, 'stale' => is_array($entry)];
-            $this->log(PVF_LOG_VERBOSE, sprintf('Solcast: Tagesbudget (%d Abrufe) erreicht — letzte gültige Antwort wird weiterverwendet.', $budget));
+            $this->log(PVF_LOG_VERBOSE, $this->t('Solcast: daily budget (%d calls) reached — the last valid response continues to be used.', $budget));
             return is_array($entry) ? $this->mapOffsets($entry['byDate'], true) : null;
         }
         if ($this->ReadPropertyBoolean('PVF_SolcastDaylightOnly') && is_array($entry)) {
             $win = $this->solcastDaylightWindow();
             $now = $this->solcastNow();
             if ($win !== null && ($now < $win[0] || $now > $win[1])) {
-                $this->log(PVF_LOG_VERBOSE, sprintf('Solcast: außerhalb des Tageslicht-Fensters (%s–%s) — kein Abruf, letzte gültige Antwort wird weiterverwendet.', date('H:i', $win[0]), date('H:i', $win[1])));
+                $this->log(PVF_LOG_VERBOSE, $this->t('Solcast: outside the daylight window (%s–%s) — no call, the last valid response continues to be used.', date('H:i', $win[0]), date('H:i', $win[1])));
                 return $this->mapOffsets($entry['byDate'], true);
             }
         }
@@ -2702,7 +2738,7 @@ class PVPrognose extends IPSModule
                 // Tageskontingent erschöpft — 2 h Pause statt weiter dagegen
                 // anzurennen (jeder Versuch würde nur wieder 429 liefern).
                 $this->WriteAttributeInteger('PVF_SolcastCooldownUntil', time() + 2 * 3600);
-                $this->log(PVF_LOG_BASIC, 'Solcast: Tageskontingent erschöpft (HTTP 429). Das Gratiskonto erlaubt nur ~10 Abrufe/Tag — je Generator einer pro Neuberechnung, andere Skripte mit demselben Schlüssel zählen mit. Nächster Versuch in 2 Stunden; bis dahin wird die letzte gültige Antwort weiterverwendet.');
+                $this->log(PVF_LOG_BASIC, $this->t('Solcast: daily quota used up (HTTP 429). The free account only allows ~10 calls/day — one per generator per recalculation, other scripts using the same key count as well. Next attempt in 2 hours; until then the last valid response continues to be used.'));
             }
             $kind = ($httpCode === 429) ? 'quota'
                 : (($httpCode === 401 || $httpCode === 403) ? 'auth'
@@ -2918,8 +2954,8 @@ class PVPrognose extends IPSModule
             // Kompatibilität nur innerhalb derselben Major — Kopplung
             // deaktivieren statt Felder blind zu deuten, und sichtbar melden.
             $this->specialEventsVersionMismatch = $verStr;
-            $this->log(PVF_LOG_BASIC, sprintf(
-                'EMS_GetSpecialEvents liefert Vertrag %s, unterstützt wird nur Major %d — Sondereffekt-Ausschluss deaktiviert bis zum Modul-Update.',
+            $this->log(PVF_LOG_BASIC, $this->t(
+                'EMS_GetSpecialEvents returns contract %s, only major %d is supported — special-effect exclusion disabled until the module is updated.',
                 $verStr, self::EMS_EVENTS_MAJOR
             ));
             return [];
@@ -2975,7 +3011,7 @@ class PVPrognose extends IPSModule
             try {
                 $this->calibEvents = $this->fetchSpecialEvents($days + 1);
             } catch (\Throwable $e) {
-                $this->log(PVF_LOG_BASIC, 'EMS_GetSpecialEvents für die Kalibrierung nicht lesbar: ' . $e->getMessage());
+                $this->log(PVF_LOG_BASIC, $this->t('EMS_GetSpecialEvents not readable for the calibration: %s', $e->getMessage()));
                 $this->calibEvents = [];
             }
         }
@@ -3179,7 +3215,7 @@ class PVPrognose extends IPSModule
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
         curl_setopt($ch, CURLOPT_TIMEOUT, 25);
-        curl_setopt($ch, CURLOPT_USERAGENT, 'IP-Symcon PVForecast');
+        curl_setopt($ch, CURLOPT_USERAGENT, 'Symcon PVForecast');
         if (count($headers) > 0) { curl_setopt($ch, CURLOPT_HTTPHEADER, $headers); }
         $body = curl_exec($ch);
         $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
@@ -3188,7 +3224,7 @@ class PVPrognose extends IPSModule
         $httpCode = $code;
 
         if ($body === false || $code >= 400) {
-            $this->log(PVF_LOG_BASIC, 'HTTP-Fehler ' . $code . ' ' . $err . ' bei ' . $url);
+            $this->log(PVF_LOG_BASIC, $this->t('HTTP error %s %s at %s', $code, $err, $url));
             return null;
         }
         $j = json_decode($body, true);
