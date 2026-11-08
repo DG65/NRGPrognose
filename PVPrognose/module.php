@@ -166,14 +166,17 @@ class PVPrognose extends IPSModule
      */
     private function t(string $text, ...$args): string
     {
-        if (!isset(self::$textMerkliste[$text])) {
+        // Merkliste je Sprache: ein Wechsel der Symcon-Sprache wirkt sofort, ohne Neuladen der Bibliothek.
+        $lang = function_exists('IPS_GetOption') ? (string)@IPS_GetOption('Locale') : '';
+        $key = $lang . "\0" . $text;
+        if (!isset(self::$textMerkliste[$key])) {
             try {
-                self::$textMerkliste[$text] = (string)$this->Translate($text);
+                self::$textMerkliste[$key] = (string)$this->Translate($text);
             } catch (\Throwable $e) {
                 return $args === [] ? $text : (string)@vsprintf($text, $args);
             }
         }
-        $out = self::$textMerkliste[$text];
+        $out = self::$textMerkliste[$key];
         if ($args === []) { return $out; }
         $args = array_map(function ($a) { return (is_scalar($a) || $a === null) ? $a : (string)json_encode($a); }, $args);
         $r = @vsprintf($out, $args);
