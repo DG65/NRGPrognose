@@ -1728,6 +1728,8 @@ class PVPrognose extends IPSModule
             $txt .= sprintf(' | ⚠️ EMS-Vertrag %s nicht unterstützt (Major %d erwartet) — Sondereffekt-Ausschluss inaktiv, Modul-Update prüfen',
                 $this->specialEventsVersionMismatch, self::EMS_EVENTS_MAJOR);
         }
+        $hint = $this->learningHint($bias, count($errs));
+        if ($hint !== '') { $txt .= ' | ' . $hint; }
         $this->SetValue('PVF_Accuracy', $txt);
         $this->log(PVF_LOG_BASIC, sprintf('Prognosegüte (%d Tage): Bias %+.1f %%, MAPE %.1f %%', count($errs), $bias, $mape));
     }
@@ -2224,6 +2226,25 @@ class PVPrognose extends IPSModule
      * die Lernphase (Übergangsband aktiv). Leer, wenn alles normal ist.
      */
     /**
+     * Hinweis auf die Lernkorrektur, wenn die Prognose deutlich daneben liegt und nichts davon gelernt wird
+     * (Forum lungo, 08.11.2026: Bias +73 % bei ausgeschalteter Selbstkalibrierung und Pegelkorrektur — beides ist
+     * standardmäßig aus). Leer, wenn zu wenige Tage vorliegen, die Abweichung klein ist oder die Korrektur schon läuft.
+     * Die Selbstkalibrierung wirkt nur mit Open-Meteo; bei anderen Quellen bleibt allein die Pegelkorrektur.
+     */
+    private function learningHint(float $bias, int $days): string
+    {
+        if ($days < 7 || abs($bias) < 30.0) { return ''; }
+        $calibActive = ($this->ReadPropertyInteger('PVF_Source') === PVF_SRC_OPENMETEO) && $this->ReadPropertyBoolean('PVF_Calibrate');
+        $levelActive = ($this->ReadPropertyInteger('PVF_ResidualMode') === 2);
+        $todo = [];
+        if (!$calibActive && $this->ReadPropertyInteger('PVF_Source') === PVF_SRC_OPENMETEO) { $todo[] = 'die Selbstkalibrierung einschalten'; }
+        if (!$levelActive) { $todo[] = 'das Unsicherheitsband auf „Band + Pegelkorrektur“ stellen'; }
+        if (count($todo) === 0) { return ''; }
+        return sprintf('💡 Die Prognose liegt im Schnitt %d %% %s als gemessen. Sie lernt davon noch nichts: im Formular %s.',
+            (int)round(abs($bias)), $bias > 0 ? 'höher' : 'niedriger', implode(' und ', $todo));
+    }
+
+    /**
      * Ursachen der Solcast-Abrufprobleme dieses Rebuilds als lesbarer Text (leer ohne Probleme). Ersetzt für die
      * Quelle Solcast die pauschale Meldung "API/Netzwerk?": Schlüssel fehlt/abgelehnt, Resource-ID fehlt/unbekannt,
      * Tageskontingent, sonstiger HTTP-Fehler, keine Verbindung. Je Ursache und Generator höchstens einmal.
@@ -2273,6 +2294,11 @@ class PVPrognose extends IPSModule
         if (!$this->residualsUsable(json_decode((string)$this->ReadAttributeString('PVF_Residuals'), true))
             && is_array(json_decode((string)$this->ReadAttributeString('PVF_TransitionBand'), true))) {
             $out .= ' | ℹ️ Korrektur lernt neu — Unsicherheitsband aus den Tagen davor';
+        }
+        $d = json_decode((string)$this->ReadAttributeString('PVF_AccuracyDetail'), true);
+        if (is_array($d) && isset($d['bias'], $d['days'])) {
+            $hint = $this->learningHint((float)$d['bias'], (int)$d['days']);
+            if ($hint !== '') { $out .= ' | ' . $hint; }
         }
         return $out;
     }
