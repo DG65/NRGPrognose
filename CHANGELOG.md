@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.1
+
+- **Fix (Lastprognose, Build 159, 08.11.2026, Forum baraka #135): Formular ließ sich nicht laden, wenn Instanzen ohne geladenes Modul vorhanden sind.** Die Suche nach MeterHub-Hausverbrauch und Wallbox-Hubs geht über alle Instanzen und fragt je Instanz das Modul ab (`IPS_GetModule`). Gehört eine Instanz zu einem Modul, das nicht (mehr) geladen ist, meldet Symcon dabei eine Warnung („Modul mit der GUID … nicht gefunden“), und die Konsole schreibt sie in die Ausgabe von `GetConfigurationForm()`: „Konnte Konfigurationsform nicht laden“ (bei baraka 37 Warnungen, Zeile 1816). Betroffen waren Anlagen mit MeterHub, ChargerHub oder OCPPHub und gleichzeitig verwaisten Instanzen, das Formular der Lastprognose ließ sich dann nicht öffnen. Neu: die Abfrage ist mit `@` abgesichert (wie in MeterHub und InverterHub); Instanzen ohne Modul werden übersprungen. Prüfstand `modulfehlt.php` (Attrappe wirft bei unbekannter GUID eine Warnung, ohne Fix rot).
+
 ## 0.21 (Stable)
 
 Erste Freigabe der Bibliothek im **Stable-Kanal**. Sie enthält alles, was unten seit 0.20-beta verzeichnet ist, die Zählung der Builds läuft weiter. Die Energiebilanz-Kachel ist abgekündigt und wird am 30.10.2026 entfernt, ihr Nachfolger ist die Prognose-Kachel im NRG-Dashboard.

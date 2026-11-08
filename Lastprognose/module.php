@@ -442,7 +442,7 @@ class Lastprognose extends IPSModule
             $fn = $prefix . '_GetFunctions';
             if (!function_exists($fn)) { continue; }
             foreach (IPS_GetInstanceList() as $iid) {
-                $m = IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);
+                $m = @IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);   // @: Instanzen ohne geladenes Modul melden sonst eine Warnung ins Formular
                 if (($m['Prefix'] ?? '') !== $prefix) { continue; }
                 $raw = @$fn($iid);
                 $c = is_string($raw) ? json_decode($raw, true) : $raw;
@@ -1813,7 +1813,7 @@ class Lastprognose extends IPSModule
             $fn = $prefix . '_GetFunctions';
             if (!function_exists($fn)) { continue; }
             foreach (IPS_GetInstanceList() as $iid) {
-                $m = IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);
+                $m = @IPS_GetModule(IPS_GetInstance($iid)['ModuleInfo']['ModuleID']);   // @: Instanzen ohne geladenes Modul melden sonst eine Warnung ins Formular
                 if (($m['Prefix'] ?? '') !== $prefix) { continue; }
                 $funcs = @$fn($iid);
                 if (!is_array($funcs)) { continue; }
