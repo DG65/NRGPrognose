@@ -166,7 +166,8 @@ class PVPrognose extends IPSModule
      */
     private function t(string $text, ...$args): string
     {
-        // Merkliste je Sprache: ein Wechsel der Symcon-Sprache wirkt sofort, ohne Neuladen der Bibliothek.
+        // Merkliste je Sprache (Schlüssel: Option Locale), damit nie ein Text in der Sprache eines früheren Aufrufs hängen bleibt.
+        // Hinweis: Translate() folgt einem Sprachwechsel im laufenden Betrieb vermutlich nicht (Live-Test 08.11.2026), er wirkt erst nach Neustart.
         $lang = function_exists('IPS_GetOption') ? (string)@IPS_GetOption('Locale') : '';
         $key = $lang . "\0" . $text;
         if (!isset(self::$textMerkliste[$key])) {
