@@ -3,7 +3,7 @@
 # PV-Prognose
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.23-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.24-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
@@ -87,6 +87,23 @@ die Residuen-Quantile noch in die Selbstkalibrierung ein — eine abgeregelte Me
 hoch" gelernt. Maßgeblich ist, was ein Ereignis verfälscht (Feld `affects` im EMS-Vertrag 1.1): Es zählt, wenn
 es die PV-Erzeugung betrifft; Ereignisse, die nur die Last betreffen (Grid Rewards, Boost), bleiben außen vor.
 Ohne EMS (oder ohne diese Funktion) bleibt das Verhalten unverändert.
+
+## Schnee auf den Modulen (FrigateHub)
+
+Meldet das Modul **FrigateHub** (Beobachtungsfläche der Art „PV-Module“, Beobachtung `snow_pv`) die Module als
+bedeckt, kann die Prognose von **heute** das berücksichtigen. Der Schalter „Schnee auf den Modulen
+berücksichtigen“ (allgemeine Einstellungen) ist **standardmäßig aus**: Ohne deine Zustimmung ändert sich nie ein
+Prognosewert. Eingeschaltet, werden bei „bedeckt“ und einer Sicherheit ab 70 % alle Slots **ab jetzt** auf 0
+gesetzt, bis FrigateHub die Module wieder als frei meldet; vergangene Slots bleiben. „Teilweise bedeckt“ hat
+keinen festen Faktor und ändert nichts. **Spätere Tage bleiben unverändert** — wann Schnee abrutscht, weiß keine
+Quelle. Beobachtungen, deren letzte Prüfung länger als 2 Stunden zurückliegt (oder deren `validUntil` abgelaufen
+ist), gelten als unbekannt. Ohne FrigateHub bleibt alles wie bisher.
+
+Die Korrektur wird beim **Lesen** aufgelegt: Der gespeicherte Stand (`PVF_Today`, Snapshots) bleibt die reine
+Modellprognose, damit Prognosegüte, Residuen und Selbstkalibrierung nie aus einer Schneekorrektur lernen. Wer
+`PVF_Today` direkt liest, sieht die Korrektur deshalb nicht; `PVF_GetForecast($id, 0)` und
+`PVF_GetEnergyWindow()` enthalten sie. Schneetage im **Training** schließt das EMS über seine Sondereffekte
+(`EMS_GetSpecialEvents`, `affects` ∋ `pv`) aus, dafür baut die PVPrognose nichts.
 
 ## Öffentliche Funktionen
 

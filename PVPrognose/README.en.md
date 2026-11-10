@@ -3,7 +3,7 @@
 # PV forecast (PVPrognose)
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Module Version](https://img.shields.io/badge/Module_Version-0.23-blue)
+![Module Version](https://img.shields.io/badge/Module_Version-0.24-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
@@ -86,6 +86,23 @@ the self-calibration — otherwise a curtailed measurement would be learned as �
 what an event distorts (field `affects` in EMS contract 1.1): it counts if it affects the PV generation; events
 that only affect the load (Grid Rewards, boost) are left out. Without an EMS (or without this function) the
 behaviour stays unchanged.
+
+## Snow on the modules (FrigateHub)
+
+If the module **FrigateHub** (observation area of the type “PV modules”, observation `snow_pv`) reports the
+modules as covered, the forecast for **today** can take that into account. The switch “Take snow on the modules
+into account” (general settings) is **off by default**: no forecast value ever changes without your consent.
+When switched on, with “covered” and a certainty of at least 70 %, all slots **from now on** are set to 0 until
+FrigateHub reports the modules free again; past slots stay. “Partly covered” has no fixed factor and changes
+nothing. **Later days stay unchanged** — no source knows when snow slides off. Observations whose last check is
+more than 2 hours old (or whose `validUntil` has passed) count as unknown. Without FrigateHub everything stays as
+before.
+
+The correction is applied when **reading**: the stored state (`PVF_Today`, snapshots) remains the pure model
+forecast, so forecast accuracy, residuals and self-calibration never learn from a snow correction. Anyone reading
+`PVF_Today` directly therefore does not see the correction; `PVF_GetForecast($id, 0)` and
+`PVF_GetEnergyWindow()` include it. Snow days in the **training** are excluded by the EMS through its special
+effects (`EMS_GetSpecialEvents`, `affects` ∋ `pv`); PVPrognose builds nothing for that.
 
 ## Public functions
 

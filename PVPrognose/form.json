@@ -109,6 +109,20 @@
                     "type": "Label",
                     "name": "ConnStatusEms",
                     "caption": "EMS: checked when the form is opened …"
+                },
+                {
+                    "type": "Label",
+                    "name": "ConnStatusSnow",
+                    "caption": "FrigateHub: checked when the form is opened …"
+                },
+                {
+                    "type": "CheckBox",
+                    "name": "PVF_SnowAdjust",
+                    "caption": "Take snow on the modules into account (today’s forecast)"
+                },
+                {
+                    "type": "Label",
+                    "caption": "Needs the module FrigateHub with an observation area of the type “PV modules”. When FrigateHub reports the modules as covered with sufficient certainty, the rest of today’s forecast is set to 0 until they are reported free again. Later days stay unchanged, because no source knows when the snow slides off. Off by default: the forecast values never change without your consent; the observation is passed on as the field “moduleCover” in any case."
                 }
             ]
         },

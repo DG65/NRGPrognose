@@ -37,7 +37,7 @@ define('PVF_SRC_SOLCAST',       2);
 // Minor-Bump 1.1→1.2 (12.09.2026, additiv): neue Funktion GetIntradaySnapshot()
 // ergänzt GetSnapshot() um untertägige Prognosestände. GetForecast()/
 // GetSnapshot() selbst unverändert, kein Major-Bruch.
-define('PVF_CONTRACT_FORECAST',   '1.3'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated)
+define('PVF_CONTRACT_FORECAST',   '1.4'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated; 1.4: +moduleCover, nur GetForecast Offset 0)
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
 define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
 define('PVF_CONTRACT_TEMPERATURE', '1.0'); // GetTemperatureForecast (Außentemperatur-Tagesmittel, z. B. für die Lastprognose)
@@ -54,6 +54,12 @@ define('PVF_MAX_OFFSET', 4);
 // alle Installationen; Instanz wird zur Laufzeit gesucht (optional, kein Fehler
 // wenn kein EMS installiert ist).
 define('PVF_EMS_GUID', '{31C61A7B-28C4-4F97-9651-1A64B3469E3C}');
+
+// FrigateHub-Server — für FRIGS_GetObservations (Beobachtung `snow_pv`: Schnee auf den Modulen).
+// Optional wie das EMS: ohne FrigateHub bleibt alles unverändert. Vertrag `observation` 1.x.
+define('PVF_FRIGS_GUID', '{114A19E4-4933-4DA4-97DE-AFD2D4AE8D53}');
+define('PVF_COVER_MAX_AGE', 7200);        // Beobachtungen, deren letzte Prüfung länger zurückliegt, gelten als unbekannt
+define('PVF_COVER_MIN_CONFIDENCE', 0.7);  // darunter wird die Bedeckung gemeldet, aber nicht eingerechnet
 
 class PVPrognose extends IPSModule
 {
@@ -127,8 +133,9 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.23 (Build 163)';
+    private const NEWS_VERSION = '0.24 (Build 167)';
     private const NEWS_ITEMS = [
+        '❄️ New: snow on the modules (needs the module FrigateHub). If FrigateHub reports the modules as covered, today’s forecast can now take it into account: switch “Take snow on the modules into account” in the general settings, off by default. The rest of today is then set to 0 until the modules are reported free again; later days stay unchanged. The state is always passed on as the new field “moduleCover” of PVF_GetForecast (contract 1.4); the stored forecast and the learning stay untouched.',
         '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
         '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
         '➖ Generation reported as negative? (question from the forum, thanks!): some inverters and meters count the generation as negative (e.g. −3000 W at 3 kW) and report a small positive standby draw at night. For this, the generator list has the new column “Invert sign”: when switched on, the power is read as yield and a positive value counts as 0. The line “Sign” under “Self-calibration” tells you whether your values of the last 7 days match. Without inverting, the self-calibration would learn a negative generation as a negative yield.',
@@ -215,6 +222,9 @@ class PVPrognose extends IPSModule
 
         // Selbstkalibrierung (Open-Meteo): gemessen vs. vorhergesagt.
         $this->RegisterPropertyBoolean('PVF_Calibrate',     false);
+        // Schneebedeckung (FrigateHub `snow_pv`) in die heutige Prognose einrechnen. Standard AUS: ohne
+        // Zustimmung ändert sich nie ein Prognosewert; das Feld `moduleCover` wird trotzdem gemeldet.
+        $this->RegisterPropertyBoolean('PVF_SnowAdjust',    false);
         $this->RegisterPropertyInteger('PVF_CalibDays',     21);
         // Einheit der gemessenen Generator-Leistung: 0=W, 1=kW, 2=automatisch.
         $this->RegisterPropertyInteger('PVF_PowerUnit',     2);
@@ -565,6 +575,7 @@ class PVPrognose extends IPSModule
             'ConnStatusSolcast' => 'solcastStatusLine',
             'ConnStatusSolcastBudget' => 'solcastBudgetStatusLine',
             'ConnStatusEms'     => 'emsStatusLine',
+            'ConnStatusSnow'    => 'snowStatusLine',
         ];
         $out = [];
         foreach ($builders as $name => $method) {
@@ -1116,7 +1127,7 @@ class PVPrognose extends IPSModule
      * gespeicherte Stand, solange das 'date'-Feld noch zum Offset passt.
      * Rebuild() selbst nutzt computeForecast() direkt.
      */
-    public function GetForecast(int $offset)
+    private function forecastBase(int $offset)
     {
         $idents   = ['PVF_Today', 'PVF_Tomorrow', 'PVF_DayAfter', 'PVF_Day3', 'PVF_Day4'];
         $wantDate = date('Y-m-d', strtotime('today +' . $offset . ' days'));
@@ -1139,7 +1150,143 @@ class PVPrognose extends IPSModule
         return $this->computeForecast($offset);
     }
 
-    /** Die eigentliche, teure Modellberechnung — siehe GetForecast() für den Cache davor. */
+    /**
+     * Öffentlicher Vertrag PVF_GetForecast($id, $offset) (siehe Kommentar oben bei forecastBase()).
+     *
+     * Vertrag 1.4 (additiv): Für HEUTE (Offset 0) steht `moduleCover` im Ergebnis, wenn FrigateHub (Beobachtung
+     * `snow_pv`) eine gültige Bedeckung der Module meldet. Das Feld wird beim LESEN aufgelegt, nicht im Cache und
+     * nicht im Snapshot: Cache und gespeicherte Day-Ahead-Prognose bleiben die reine Modellprognose, so lernen
+     * Prognosegüte und Residuen nie aus einer Schneekorrektur, und „Module wieder frei“ wirkt sofort statt erst
+     * beim nächsten Rebuild. Folgetage unverändert (wann Schnee abgeht, weiß keine Quelle).
+     */
+    public function GetForecast(int $offset)
+    {
+        $fc = $this->forecastBase($offset);
+        if ($offset !== 0 || !is_array($fc)) { return $fc; }
+        if (($fc['date'] ?? '') !== date('Y-m-d') || ($fc['generated'] ?? 0) === 0) { return $fc; }
+        try {
+            return $this->withModuleCover($fc);
+        } catch (\Throwable $e) {
+            $this->log(PVF_LOG_BASIC, $this->t('Module cover could not be applied: %s', $e->getMessage()));
+            return $fc;
+        }
+    }
+
+    /**
+     * Legt `moduleCover` auf die Tagesprognose von heute und rechnet bei eingeschaltetem Schalter eine
+     * vollständige Bedeckung ein: die Slots ab jetzt (inkl. des laufenden) werden 0, bereits vergangene bleiben.
+     * Eingerechnet wird nur bei value 2 (bedeckt) und ausreichender Sicherheit; „teilweise“ hat keinen festen Faktor.
+     */
+    private function withModuleCover(array $fc): array
+    {
+        $obs = $this->snowObservation();
+        if ($obs === null) { return $fc; }
+        $cover = [
+            'level'      => $obs['level'],
+            'since'      => $obs['since'],
+            'confidence' => $obs['confidence'],
+            'source'     => $obs['source'],
+            'calibrated' => $obs['calibrated'],
+            'applied'    => false,
+        ];
+        if (isset($obs['clearedAt'])) { $cover['clearedAt'] = $obs['clearedAt']; }
+
+        $slots = (int)($fc['slots'] ?? 0);
+        $adjust = $this->ReadPropertyBoolean('PVF_SnowAdjust')
+            && $obs['level'] === 2
+            && $obs['confidence'] >= PVF_COVER_MIN_CONFIDENCE
+            && $slots > 0 && count($fc['p50'] ?? []) === $slots;
+        if ($adjust) {
+            $slotMin = intdiv(1440, $slots);
+            $from = intdiv((int)date('G') * 60 + (int)date('i'), $slotMin);   // Wanduhr-Slot wie in integrateWindow()
+            foreach (['p10', 'p50', 'p90', 'mean'] as $k) {
+                if (!is_array($fc[$k] ?? null)) { continue; }
+                for ($i = $from; $i < $slots; $i++) { $fc[$k][$i] = 0.0; }
+            }
+            $cover['kwhWithoutCover'] = $fc['kwh'];
+            $fc['kwh'] = round(array_sum($fc['p50']) * ($slotMin / 60.0) / 1000.0, 2);
+            $cover['applied'] = true;
+        }
+        $fc['moduleCover'] = $cover;
+        return $fc;
+    }
+
+    /**
+     * Gültige Beobachtung `snow_pv` aus FrigateHub (FRIGS_GetObservations, Vertrag `observation` 1.x) oder null.
+     * null = unbekannt (kein FrigateHub, keine Beobachtung, veraltet, fremder Major): dann ändert sich nichts.
+     * Veraltet heißt: validUntil in der Vergangenheit oder letzte Prüfung älter als PVF_COVER_MAX_AGE.
+     * Je Aufruf einmal gelesen.
+     */
+    private $snowObsLoaded = false;
+    private $snowObs = null;
+    private function snowObservation(): ?array
+    {
+        if ($this->snowObsLoaded) { return $this->snowObs; }
+        $this->snowObsLoaded = true;
+        $this->snowObs = null;
+        if (!function_exists('FRIGS_GetObservations')) { return null; }
+        $ids = @IPS_GetInstanceListByModuleID(PVF_FRIGS_GUID);
+        if (!is_array($ids)) { return null; }
+        $now = time();
+        foreach ($ids as $id) {
+            $r = @FRIGS_GetObservations((int)$id);
+            if (!is_array($r)) { continue; }
+            if ((int)explode('.', (string)($r['contractVersion'] ?? '1.0'))[0] !== 1) { continue; }
+            foreach (($r['observations'] ?? []) as $o) {
+                if (!is_array($o) || ($o['code'] ?? '') !== 'snow_pv') { continue; }
+                $level = $o['value'] ?? null;
+                if (is_bool($level) || !is_numeric($level) || (int)$level < 0 || (int)$level > 2) { continue; }
+                $until = (int)($o['validUntil'] ?? 0);
+                $checked = (int)($o['checkedAt'] ?? 0);
+                if ($until > 0 && $until < $now) { continue; }
+                if ($checked > 0 && $now - $checked > PVF_COVER_MAX_AGE) { continue; }
+                $obs = [
+                    'level'      => (int)$level,
+                    'since'      => (int)($o['since'] ?? 0),
+                    'confidence' => round((float)($o['confidence'] ?? 0), 2),
+                    'source'     => (string)($o['source'] ?? ''),
+                    'calibrated' => (bool)($o['calibrated'] ?? false),
+                ];
+                if (isset($o['clearedAt']) && (int)$o['clearedAt'] > 0) { $obs['clearedAt'] = (int)$o['clearedAt']; }
+                // Mehrere FrigateHub-Server: die ungünstigste (höchste) Bedeckung zählt.
+                if ($this->snowObs === null || $obs['level'] > $this->snowObs['level']) { $this->snowObs = $obs; }
+            }
+        }
+        return $this->snowObs;
+    }
+
+    /** FrigateHub-Kopplung für die Schneebedeckung der Module (Statuszeile im Formular). */
+    private function snowStatusLine(): string
+    {
+        $adjust = $this->ReadPropertyBoolean('PVF_SnowAdjust');
+        if (!function_exists('FRIGS_GetObservations')) {
+            return $this->t('ℹ️ FrigateHub: not found – snow on the modules is not taken into account.');
+        }
+        $ids = @IPS_GetInstanceListByModuleID(PVF_FRIGS_GUID);
+        if (!is_array($ids) || count($ids) === 0) {
+            return $this->t('ℹ️ FrigateHub: not found – snow on the modules is not taken into account.');
+        }
+        $id = (int)$ids[0];
+        $head = $this->t('FrigateHub: connected to “%s” (#%d, detected automatically)', IPS_GetName($id), $id);
+        $obs = $this->snowObservation();
+        if ($obs === null) {
+            return '⚠️ ' . $this->t('%s, but there is currently no valid observation “snow on the modules” (no area assigned, camera down or value too old) – the forecast stays unchanged.', $head);
+        }
+        $levels = [0 => $this->t('free'), 1 => $this->t('partly covered'), 2 => $this->t('covered')];
+        $state = $levels[$obs['level']];
+        if (!$adjust) {
+            return '✅ ' . $this->t('%s. Modules: %s (certainty %d %%). The switch below is off – the value is only passed on as “moduleCover”, the forecast stays unchanged.', $head, $state, (int)round($obs['confidence'] * 100));
+        }
+        if ($obs['level'] === 2 && $obs['confidence'] < PVF_COVER_MIN_CONFIDENCE) {
+            return '⚠️ ' . $this->t('%s. Modules: %s, but the certainty (%d %%) is below the minimum of %d %% – the forecast stays unchanged.', $head, $state, (int)round($obs['confidence'] * 100), (int)round(PVF_COVER_MIN_CONFIDENCE * 100));
+        }
+        if ($obs['level'] === 2) {
+            return '✅ ' . $this->t('%s. Modules: %s (certainty %d %%) – the rest of today is set to 0 until FrigateHub reports them free again.', $head, $state, (int)round($obs['confidence'] * 100));
+        }
+        return '✅ ' . $this->t('%s. Modules: %s (certainty %d %%) – nothing to correct.', $head, $state, (int)round($obs['confidence'] * 100));
+    }
+
+    /** Die eigentliche, teure Modellberechnung — siehe forecastBase() für den Cache davor. */
     private function computeForecast(int $offset)
     {
         if ($this->modelCache === null && time() >= $this->ReadAttributeInteger('PVF_ModelFailUntil')) {
