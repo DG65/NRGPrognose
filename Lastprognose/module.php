@@ -55,6 +55,13 @@ define('LFC_WP_HEAT', 0);   // nur Heizen   → kWh = a + b·Heizgrad
 define('LFC_WP_COOL', 1);   // nur Kühlen   → kWh = a + c·Kühlgrad
 define('LFC_WP_BOTH', 2);   // Heizen+Kühlen → V-Kurve a + b·Heizgrad + c·Kühlgrad
 
+// Pegel-Nachführung der temperaturabhängigen Geräte (Build 168): Median von Ist/Regression der letzten Tage,
+// nur Tage der letzten LFC_WP_LEVEL_WINDOW Tage mit mindestens 2 kWh erwartetem Verbrauch, mindestens 2 Tage nötig.
+define('LFC_WP_LEVEL_DAYS',   3);     // so viele jüngste Tage gehen ein
+define('LFC_WP_LEVEL_WINDOW', 7);     // nicht älter als so viele Tage
+define('LFC_WP_LEVEL_MIN',    0.7);   // Faktor nach unten begrenzt
+define('LFC_WP_LEVEL_MAX',    1.6);   // Faktor nach oben begrenzt
+
 // Logging-Level
 define('LFC_LOG_OFF',     0);
 define('LFC_LOG_BASIC',   1);
@@ -99,6 +106,8 @@ class Lastprognose extends IPSModule
     // Temperaturabhängige Geräte (Build 152): Tageshistorie je Variable und Regressionsmodell je Variable|Modus, request-lokal.
     private $wpHistCache = [];
     private $wpModelCache = [];
+    // Pegelfaktor je Variable|Modus (Build 168): ['f' => Faktor, 'n' => Anzahl der eingegangenen Tage], request-lokal.
+    private $wpLevelCache = [];
     // Geräte, deren Archivwerte unplausibel sind (z. B. Zählerstand statt Leistung): Variable => ['median' => kWh/Tag, 'cap' => kWh/Tag].
     private $wpRejected = [];
     // Größter Tagesverbrauch (kWh) der Hauptverbrauchsvariable über die Lookback-Tiefe, request-lokal (false = nicht ermittelt).
@@ -121,8 +130,9 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.23 (Build 164)';
+    private const NEWS_VERSION = '0.25 (Build 168)';
     private const NEWS_ITEMS = [
+        '📈 New: the heat pump/air conditioning follows the last days. The temperature regression knows only the outdoor temperature; in a cold spell the devices consumed up to twice what it expected (on the live system: about a third too low over the last 7 days), and the forecast, especially at night, stayed far too low. Now the daily kWh of each device is multiplied by a level factor: median of actual/regression over the last 3 days, limited to ×0.7 … ×1.6, the same factor for all forecast days. Without at least 2 usable recent days nothing changes. Backtest on the live system (21 days): error of the daily amount 22 % → 15 %, bias of the last 7 days −32 % → −9 %. The status line shows the factor; the new switch under “Temperature-dependent devices” turns it off. The contract is unchanged (kwhWp and the profiles simply contain the factor).',
         '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
         '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
         '🌡️ Heat pump and air conditioning now in the forecast (feedback from the EMS, live measurement on Dietmar’s house): until now the forecast contained only the base load, and the devices from the list “Temperature-dependent devices” ran separately in the variables “LFC_WPkWh…”. Now the forecast is base load PLUS devices: daily kWh from the temperature regression, daily profile from the days with a similar temperature, uncertainty band from the spread of the regression. The devices are subtracted automatically when learning the base load. If you do not want this, switch off the new switch under “Temperature-dependent devices”. New, additive fields in the forecast: wpIncluded, kwhBase, kwhWp, base, wp.',
@@ -250,6 +260,8 @@ class Lastprognose extends IPSModule
         // Wärmepumpe/Klima (WPDevices) in p10/p50/p90/mean/kwh einrechnen: Grundlast (ohne die Geräte gelernt) + Geräte-Prognose
         // aus Temperaturregression und Tagesprofil. Aus = Verhalten wie vor Build 152 (nur Grundlast, Geräte getrennt in LFC_WPkWh*).
         $this->RegisterPropertyBoolean('LFC_WPInForecast',   true);
+        // Pegel der Geräte an die letzten Tage anpassen (Build 168): Standard AN, weil die Regression nur die Außentemperatur kennt.
+        $this->RegisterPropertyBoolean('LFC_WPLevel',        true);
         $this->RegisterPropertyFloat('LFC_CDD_Base',         22.0);
         // Legacy-Einzelfeld (vor 0.3) — bleibt als Fallback erhalten.
         $this->RegisterPropertyInteger('VAR_WP_Power',       0);
@@ -1207,6 +1219,14 @@ class Lastprognose extends IPSModule
                 IPS_VariableExists($vid) ? IPS_GetName($vid) : '?', $vid, $r['median'], $r['cap'] / 3.0);
         }
         if (is_array($todayFc) && !empty($todayFc['wpIncluded'])) {
+            // Pegel-Nachführung: nur nennen, wo sie spürbar wirkt (Abweichung ab 2 %).
+            $lvl = [];
+            foreach ($this->wpLevelCache as $key => $l) {
+                if ($l['n'] >= 2 && abs($l['f'] - 1.0) >= 0.02) { $lvl[] = '×' . number_format($l['f'], 2, $this->t('.'), ''); }
+            }
+            if (count($lvl) > 0) {
+                $notes = ' | ' . $this->t('📈 Device level adjusted to the last days (%s)', implode(', ', $lvl)) . $notes;
+            }
             return ' | ' . $this->t('🌡️ incl. heat pump/AC: today %.1f kWh (base load %.1f)', $todayFc['kwhWp'] ?? 0, $todayFc['kwhBase'] ?? 0) . $notes;
         }
         if ($notes !== '') { return $notes; }
@@ -2815,7 +2835,47 @@ class Lastprognose extends IPSModule
 
         $pred = 0.0;
         foreach ($model['coef'] as $i => $b) { $pred += $b * $row[$i]; }
-        return max(0.0, $pred);
+        return max(0.0, $pred) * $this->wpLevel($vid, $mode);
+    }
+
+    /**
+     * Pegel-Nachführung (Build 168): die Regression kennt nur die Außentemperatur. Verbraucht das Gerät in den letzten Tagen
+     * deutlich mehr oder weniger, als sie erwartet (Kälteperiode, geänderte Einstellung, Warmwasser), folgt die Tagesmenge
+     * dem mit wenigen Tagen Verzug. Faktor = Median von Ist/Regression der jüngsten Tage (höchstens LFC_WP_LEVEL_DAYS, nicht
+     * älter als LFC_WP_LEVEL_WINDOW Tage, nur Tage mit mindestens 2 kWh erwartetem Verbrauch), begrenzt auf
+     * LFC_WP_LEVEL_MIN … LFC_WP_LEVEL_MAX. Weniger als 2 brauchbare Tage oder Schalter aus: 1,0 (wie bisher).
+     * Rückblick-Test auf Dietmars Privat-Archiv (21 Tage, kausal): Fehler der Tagesmenge 22 % → 15 %, Bias der letzten
+     * 7 Tage −32 % → −9 %. Gilt für alle Vorhersagetage gleich (kein Abklingen mit dem Horizont).
+     */
+    private function wpLevel(int $vid, int $mode): float
+    {
+        $key = $vid . '|' . $mode;
+        if (isset($this->wpLevelCache[$key])) { return $this->wpLevelCache[$key]['f']; }
+        $this->wpLevelCache[$key] = ['f' => 1.0, 'n' => 0];
+        if (!$this->ReadPropertyBoolean('LFC_WPLevel')) { return 1.0; }
+        $model = $this->wpModel($vid, $mode);
+        if ($model === null) { return 1.0; }
+
+        $hBase  = $this->ReadPropertyFloat('LFC_HDD_Base');
+        $cBase  = $this->ReadPropertyFloat('LFC_CDD_Base');
+        $oldest = strtotime('today -' . LFC_WP_LEVEL_WINDOW . ' days');
+        $ratios = [];
+        foreach ($this->wpHistory($vid) as $row) {   // jüngster Tag zuerst
+            if ($row['ts'] < $oldest) { break; }
+            $feat = $this->wpFeatureRow($mode, max(0.0, $hBase - $row['t']), max(0.0, $row['t'] - $cBase));
+            $pred = 0.0;
+            foreach ($model['coef'] as $i => $b) { $pred += $b * $feat[$i]; }
+            if ($pred < 2.0) { continue; }
+            $ratios[] = $row['kwh'] / $pred;
+            if (count($ratios) >= LFC_WP_LEVEL_DAYS) { break; }
+        }
+        if (count($ratios) < 2) { return 1.0; }
+        sort($ratios);
+        $n = count($ratios);
+        $med = ($n % 2 === 1) ? $ratios[intdiv($n, 2)] : ($ratios[$n / 2 - 1] + $ratios[$n / 2]) / 2.0;
+        $f = max(LFC_WP_LEVEL_MIN, min(LFC_WP_LEVEL_MAX, $med));
+        $this->wpLevelCache[$key] = ['f' => $f, 'n' => $n];
+        return $f;
     }
 
     /**

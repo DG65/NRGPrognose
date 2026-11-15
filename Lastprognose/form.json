@@ -571,6 +571,15 @@
                     "caption": "Include heat pump/air conditioning in the forecast (total consumption = base load + devices)"
                 },
                 {
+                    "type": "CheckBox",
+                    "name": "LFC_WPLevel",
+                    "caption": "🆕 Adjust the level of the devices to the last days"
+                },
+                {
+                    "type": "Label",
+                    "caption": "The temperature regression knows only the outdoor temperature. If the devices recently consumed clearly more or less than it expects (cold spell, changed settings, hot water), the daily kWh follow this with a delay of a few days: median of actual/regression over the last 3 days, limited to ×0.7 … ×1.6, same factor for all forecast days. Without enough recent days nothing changes. The status line shows the factor."
+                },
+                {
                     "type": "NumberSpinner",
                     "name": "LFC_CDD_Base",
                     "caption": "Cooling limit temperature (basis for cooling degree)",
