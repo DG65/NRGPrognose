@@ -152,7 +152,7 @@ bei großer Spreizung konservativer puffern, bei enger Spreizung optimistischer 
 Seit 0.26 tragen `PVF_GetForecast` und `LFC_GetForecast` (sowie `GetSnapshot` und `GetEnergyWindow`) die Felder
 `contractType` = `forecast` und `kind` = `pv` bzw. `load`. Daran erkennt das EMS Prognosen allgemein, auch die
 eines fremden Moduls. Was ein anderes Modul liefern muss, steht in der kurzen Anleitung
-[Eigenes Prognosemodul anbinden](docs/EIGENES_PROGNOSE_MODUL.md) (Felder, Einheiten, Zeitraster, Frische).
+[Eigenes Prognosemodul anbinden](EIGENES_PROGNOSE_MODUL.md) (Felder, Einheiten, Zeitraster, Frische).
 
 ## Ausbaustufen
 

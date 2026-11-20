@@ -146,7 +146,7 @@ spread, run more optimistically with a narrow spread.
 Since 0.26, `PVF_GetForecast` and `LFC_GetForecast` (and `GetSnapshot` and `GetEnergyWindow`) carry the fields
 `contractType` = `forecast` and `kind` = `pv` or `load`. This is how the EMS recognises forecasts in general,
 including those of a third-party module. What another module has to deliver is described in the short guide
-[Connecting your own forecast module](docs/EIGENES_PROGNOSE_MODUL.en.md) (fields, units, time grid, freshness).
+[Connecting your own forecast module](EIGENES_PROGNOSE_MODUL.en.md) (fields, units, time grid, freshness).
 
 ## Extension stages
 
