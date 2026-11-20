@@ -37,9 +37,9 @@ define('PVF_SRC_SOLCAST',       2);
 // Minor-Bump 1.1→1.2 (12.09.2026, additiv): neue Funktion GetIntradaySnapshot()
 // ergänzt GetSnapshot() um untertägige Prognosestände. GetForecast()/
 // GetSnapshot() selbst unverändert, kein Major-Bruch.
-define('PVF_CONTRACT_FORECAST',   '1.4'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated; 1.4: +moduleCover, nur GetForecast Offset 0)
+define('PVF_CONTRACT_FORECAST',   '1.5'); // GetForecast / GetSnapshot / GetIntradaySnapshot (1.3: +generated; 1.4: +moduleCover, nur GetForecast Offset 0; 1.5: +contractType 'forecast', +kind 'pv')
 define('PVF_CONTRACT_GENERATORS', '1.0'); // GetGenerators / GetModuleAreas
-define('PVF_CONTRACT_ENERGYWINDOW', '1.1'); // GetEnergyWindow
+define('PVF_CONTRACT_ENERGYWINDOW', '1.2'); // GetEnergyWindow (1.2: +contractType 'forecast', +kind 'pv')
 define('PVF_CONTRACT_TEMPERATURE', '1.0'); // GetTemperatureForecast (Außentemperatur-Tagesmittel, z. B. für die Lastprognose)
 // Neu 13.09.2026 (EMS' netzdienlicher Baustein B1, Mittagsspitze): strukturierte
 // Prognosegüte-Kennzahlen statt der bisherigen reinen Textausgabe in PVF_Accuracy.
@@ -1162,14 +1162,29 @@ class PVPrognose extends IPSModule
     public function GetForecast(int $offset)
     {
         $fc = $this->forecastBase($offset);
-        if ($offset !== 0 || !is_array($fc)) { return $fc; }
-        if (($fc['date'] ?? '') !== date('Y-m-d') || ($fc['generated'] ?? 0) === 0) { return $fc; }
+        if ($offset !== 0 || !is_array($fc)) { return $this->stampContract($fc); }
+        if (($fc['date'] ?? '') !== date('Y-m-d') || ($fc['generated'] ?? 0) === 0) { return $this->stampContract($fc); }
         try {
-            return $this->withModuleCover($fc);
+            return $this->stampContract($this->withModuleCover($fc));
         } catch (\Throwable $e) {
             $this->log(PVF_LOG_BASIC, $this->t('Module cover could not be applied: %s', $e->getMessage()));
-            return $fc;
+            return $this->stampContract($fc);
         }
+    }
+
+    /**
+     * Selbstbeschreibung des Prognosevertrags (1.5, additiv, Fremdanbindung 20.11.2026, SUITE.md Regel 5b):
+     * `contractType` = 'forecast', `kind` = 'pv', zusätzlich zu `contractVersion`. Wird beim LESEN aufgelegt, nicht
+     * im Cache: so tragen auch Prognosen, die vor dem Update berechnet und gespeichert wurden, die Felder, und
+     * `contractVersion` nennt immer die aktuelle Vertragsversion. Leere Antworten ([]) bleiben leer.
+     */
+    private function stampContract($fc)
+    {
+        if (!is_array($fc) || $fc === []) { return $fc; }
+        return array_merge(
+            ['contractVersion' => PVF_CONTRACT_FORECAST, 'contractType' => 'forecast', 'kind' => 'pv'],
+            array_diff_key($fc, ['contractVersion' => 1, 'contractType' => 1, 'kind' => 1])
+        );
     }
 
     /**
@@ -1456,6 +1471,8 @@ class PVPrognose extends IPSModule
     {
         $result = [
             'contractVersion' => PVF_CONTRACT_ENERGYWINDOW,
+            'contractType' => 'forecast',
+            'kind' => 'pv',
             'from' => $fromTs,
             'to'   => $toTs,
             'kwh'  => 0.0,
@@ -1663,7 +1680,7 @@ class PVPrognose extends IPSModule
         // shape/p50raw sind interne Lernfelder (Prognosegüte) und nicht Teil des Vertrags.
         $snap = $snaps[$date];
         unset($snap['shape'], $snap['p50raw']);
-        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snap);
+        return $this->stampContract($snap);
     }
 
     /**
@@ -1679,7 +1696,7 @@ class PVPrognose extends IPSModule
         if (!is_array($store) || !isset($store[$date][$checkpoint])) { return []; }
         $snap = $store[$date][$checkpoint];
         unset($snap['shape']); // interne Kennung, nicht Teil des Vertrags
-        return array_merge(['contractVersion' => PVF_CONTRACT_FORECAST], $snap);
+        return $this->stampContract($snap);
     }
 
     /**

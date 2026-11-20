@@ -23,8 +23,8 @@ define('LFC_ARCHIVE_GUID', '{43192F0B-135B-4CE7-A0A7-1475603F3060}');
 // Minor-Bump 1.0→1.1 (20.08.2026, additiv, mit EMS abgestimmt): gültiger
 // Offset-Bereich für GetForecast()/GetEnergyWindow() erweitert 0..2 → 0..4
 // (Horizont 3→5 Tage). Rückgaben für Offset 0-2 unverändert, kein Major-Bruch.
-define('LFC_CONTRACT_FORECAST', '1.3'); // GetForecast / GetSnapshot (1.2: +generated; 1.3: +wpIncluded/kwhBase/kwhWp/base/wp, siehe computeForecast)
-define('LFC_CONTRACT_ENERGYWINDOW', '1.2'); // GetEnergyWindow (1.2: +wpIncluded/kwhWp)
+define('LFC_CONTRACT_FORECAST', '1.4'); // GetForecast / GetSnapshot (1.2: +generated; 1.3: +wpIncluded/kwhBase/kwhWp/base/wp, siehe computeForecast; 1.4: +contractType 'forecast', +kind 'load')
+define('LFC_CONTRACT_ENERGYWINDOW', '1.3'); // GetEnergyWindow (1.2: +wpIncluded/kwhWp; 1.3: +contractType 'forecast', +kind 'load')
 
 // Horizont: gültige Offsets für GetForecast() sind 0..LFC_MAX_OFFSET (0=heute).
 // Deckungsgleich mit PVF_MAX_OFFSET. Grenze kommt vom Auto-Temperaturvorhersage-
@@ -1265,9 +1265,24 @@ class Lastprognose extends IPSModule
             // Treffer in anderem Speicher als dem des Offsets = Tageswechsel noch
             // nicht verschoben → nachholen, damit auch direkte Leser stimmen.
             if (isset($idents[$offset]) && $i !== $offset) { $this->rotateForecastCache(); }
-            return $cached;
+            return $this->stampContract($cached);
         }
-        return $this->computeForecast($offset);
+        return $this->stampContract($this->computeForecast($offset));
+    }
+
+    /**
+     * Selbstbeschreibung des Prognosevertrags (1.4, additiv, Fremdanbindung 20.11.2026, SUITE.md Regel 5b):
+     * `contractType` = 'forecast', `kind` = 'load', zusätzlich zu `contractVersion`. Wird beim LESEN aufgelegt, nicht
+     * im Cache: so tragen auch Prognosen, die vor dem Update berechnet und gespeichert wurden, die Felder, und
+     * `contractVersion` nennt immer die aktuelle Vertragsversion. Leere Antworten ([]) bleiben leer.
+     */
+    private function stampContract($fc)
+    {
+        if (!is_array($fc) || $fc === []) { return $fc; }
+        return array_merge(
+            ['contractVersion' => LFC_CONTRACT_FORECAST, 'contractType' => 'forecast', 'kind' => 'load'],
+            array_diff_key($fc, ['contractVersion' => 1, 'contractType' => 1, 'kind' => 1])
+        );
     }
 
     /** Die eigentliche, teure k-NN-Berechnung — siehe GetForecast() für den Cache davor. */
@@ -1423,6 +1438,8 @@ class Lastprognose extends IPSModule
     {
         $result = [
             'contractVersion' => LFC_CONTRACT_ENERGYWINDOW,
+            'contractType' => 'forecast',
+            'kind' => 'load',
             'from' => $fromTs,
             'to'   => $toTs,
             'kwh'  => 0.0,
@@ -1511,7 +1528,7 @@ class Lastprognose extends IPSModule
     {
         $snaps = json_decode((string)$this->ReadAttributeString('LFC_Snapshots'), true);
         if (!is_array($snaps) || !isset($snaps[$date])) { return []; }
-        return array_merge(['contractVersion' => LFC_CONTRACT_FORECAST], $snaps[$date]);
+        return $this->stampContract($snaps[$date]);
     }
 
     /**

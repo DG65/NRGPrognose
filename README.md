@@ -3,7 +3,7 @@
 # EnergiePrognose — Last- & PV-Prognose für IP-Symcon
 
 ![Symcon](https://img.shields.io/badge/Symcon-PHPModul-blue)
-![Modul Version](https://img.shields.io/badge/Modul_Version-0.25-blue)
+![Modul Version](https://img.shields.io/badge/Modul_Version-0.26-blue)
 ![Symcon Version](https://img.shields.io/badge/Symcon_Version-9.0%2B-blue)
 ![License](https://img.shields.io/badge/License-PolyForm_Noncommercial_1.0.0-lightgrey)
 [![Check Style](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml/badge.svg)](https://github.com/DG65/NRGPrognose/actions/workflows/check-style.yml)
@@ -146,6 +146,13 @@ bei großer Spreizung konservativer puffern, bei enger Spreizung optimistischer 
 
 > Für die grafische Darstellung der Lastprognose dient die Prognose-Kachel im **NRG-Dashboard**
 > (Modul `NRGDashboardForecast`) mit dem Schalter „PV-Erzeugung anzeigen" = aus.
+
+### Eigenes Prognosemodul anbinden
+
+Seit 0.26 tragen `PVF_GetForecast` und `LFC_GetForecast` (sowie `GetSnapshot` und `GetEnergyWindow`) die Felder
+`contractType` = `forecast` und `kind` = `pv` bzw. `load`. Daran erkennt das EMS Prognosen allgemein, auch die
+eines fremden Moduls. Was ein anderes Modul liefern muss, steht in der kurzen Anleitung
+[Eigenes Prognosemodul anbinden](docs/EIGENES_PROGNOSE_MODUL.md) (Felder, Einheiten, Zeitraster, Frische).
 
 ## Ausbaustufen
 
