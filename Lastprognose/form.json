@@ -122,8 +122,13 @@
                         {
                             "type": "SelectVariable",
                             "name": "VAR_Consumption",
-                            "caption": "House consumption — POWER (must be archived)",
+                            "caption": "House consumption (power)",
                             "onChange": "LFC_PreviewSelection($id, 'VAR_Consumption', $VAR_Consumption);"
+                        },
+                        {
+                            "type": "Label",
+                            "name": "VAR_ConsumptionHint",
+                            "caption": "House consumption — POWER (must be archived)"
                         }
                     ]
                 },
@@ -141,7 +146,7 @@
                         {
                             "type": "Select",
                             "name": "LFC_PowerUnit",
-                            "caption": "Unit of the power variables (house consumption, deduction list, devices)",
+                            "caption": "Unit of the power variables",
                             "options": [
                                 {
                                     "caption": "Detect automatically (profile/order of magnitude, per variable)",
@@ -157,6 +162,11 @@
                                 }
                             ],
                             "onChange": "LFC_PreviewSelection($id, 'LFC_PowerUnit', $LFC_PowerUnit);"
+                        },
+                        {
+                            "type": "Label",
+                            "name": "LFC_PowerUnitHint",
+                            "caption": "Unit of the power variables (house consumption, deduction list, devices)"
                         }
                     ]
                 },
@@ -171,7 +181,7 @@
                 {
                     "type": "List",
                     "name": "ExcludeVars",
-                    "caption": "Heat pump, wallbox … (power, unit as above) are subtracted slot by slot. IMPORTANT: these variables must be archived — otherwise they cannot be subtracted (a note appears in the status).",
+                    "caption": "Loads to subtract",
                     "add": true,
                     "delete": true,
                     "columns": [
@@ -187,8 +197,18 @@
                     ]
                 },
                 {
+                    "type": "Label",
+                    "name": "ExcludeVarsHint",
+                    "caption": "Heat pump, wallbox … (power, unit as above) are subtracted slot by slot. IMPORTANT: these variables must be archived — otherwise they cannot be subtracted (a note appears in the status)."
+                },
+                {
                     "type": "CheckBox",
                     "name": "LFC_AutoWallboxes",
+                    "caption": "🆕 Subtract wallboxes automatically"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_AutoWallboxesHint",
                     "caption": "🆕 Subtract wallboxes of the NRG-Stack hubs (ChargerHub/OCPPHub) automatically"
                 },
                 {
@@ -212,11 +232,21 @@
                 {
                     "type": "SelectVariable",
                     "name": "VAR_Presence",
+                    "caption": "Presence"
+                },
+                {
+                    "type": "Label",
+                    "name": "VAR_PresenceHint",
                     "caption": "Presence (bool/0..1, archived) — e.g. geofencing"
                 },
                 {
                     "type": "CheckBox",
                     "name": "LFC_PresenceInvert",
+                    "caption": "Invert presence logic"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_PresenceInvertHint",
                     "caption": "Invert logic — variable reports ABSENCE (true = nobody at home)"
                 }
             ]
@@ -258,8 +288,13 @@
                 {
                     "type": "SelectInstance",
                     "name": "LFC_OwmInstance",
-                    "caption": "OpenWeatherData instance (empty = automatic, only needed with several)",
+                    "caption": "OpenWeatherData instance",
                     "onChange": "LFC_PreviewSelection($id, 'LFC_OwmInstance', $LFC_OwmInstance);"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_OwmInstanceHint",
+                    "caption": "OpenWeatherData instance (empty = automatic, only needed with several)"
                 },
                 {
                     "type": "Label",
@@ -315,11 +350,21 @@
                 {
                     "type": "ValidationTextBox",
                     "name": "LFC_FcTempIdentLow",
+                    "caption": "Ident pattern: temperature/min"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_FcTempIdentLowHint",
                     "caption": "Ident pattern temperature (or min) per slot"
                 },
                 {
                     "type": "ValidationTextBox",
                     "name": "LFC_FcTempIdentHigh",
+                    "caption": "Ident pattern: max temperature"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_FcTempIdentHighHint",
                     "caption": "Ident pattern max temperature (optional, then (min+max)/2)"
                 },
                 {
@@ -352,6 +397,11 @@
                 {
                     "type": "SelectVariable",
                     "name": "VAR_PresenceFc",
+                    "caption": "Planned presence"
+                },
+                {
+                    "type": "Label",
+                    "name": "VAR_PresenceFcHint",
                     "caption": "Planned presence (bool/0..1) — empty = current state"
                 }
             ]
@@ -403,16 +453,26 @@
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_Latitude",
-                    "caption": "Latitude of your location (for day length, the preset is only a placeholder)",
+                    "caption": "Latitude",
                     "digits": 3,
                     "suffix": " °"
                 },
                 {
+                    "type": "Label",
+                    "name": "LFC_LatitudeHint",
+                    "caption": "Latitude of your location (for day length, the preset is only a placeholder)"
+                },
+                {
                     "type": "NumberSpinner",
                     "name": "LFC_HDD_Base",
-                    "caption": "Heating limit temperature (basis for heating degree)",
+                    "caption": "Heating limit temperature",
                     "digits": 1,
                     "suffix": " °C"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_HDD_BaseHint",
+                    "caption": "Heating limit temperature (basis for heating degree)"
                 },
                 {
                     "type": "Select",
@@ -440,7 +500,7 @@
                 {
                     "type": "Select",
                     "name": "LFC_State",
-                    "caption": "Federal state (for regional public holidays)",
+                    "caption": "Federal state",
                     "options": [
                         {
                             "caption": "— nationwide only —",
@@ -511,6 +571,11 @@
                             "value": "TH"
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_StateHint",
+                    "caption": "Federal state (for regional public holidays)"
                 }
             ]
         },
@@ -568,11 +633,21 @@
                 {
                     "type": "CheckBox",
                     "name": "LFC_WPInForecast",
+                    "caption": "Include devices in the forecast"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_WPInForecastHint",
                     "caption": "Include heat pump/air conditioning in the forecast (total consumption = base load + devices)"
                 },
                 {
                     "type": "CheckBox",
                     "name": "LFC_WPLevel",
+                    "caption": "🆕 Adjust device level"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_WPLevelHint",
                     "caption": "🆕 Adjust the level of the devices to the last days"
                 },
                 {
@@ -582,9 +657,14 @@
                 {
                     "type": "NumberSpinner",
                     "name": "LFC_CDD_Base",
-                    "caption": "Cooling limit temperature (basis for cooling degree)",
+                    "caption": "Cooling limit temperature",
                     "digits": 1,
                     "suffix": " °C"
+                },
+                {
+                    "type": "Label",
+                    "name": "LFC_CDD_BaseHint",
+                    "caption": "Cooling limit temperature (basis for cooling degree)"
                 },
                 {
                     "type": "Label",

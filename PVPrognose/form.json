@@ -66,7 +66,7 @@
                 {
                     "type": "Select",
                     "name": "PVF_Resolution",
-                    "caption": "Time resolution (same as the load forecast)",
+                    "caption": "Time resolution",
                     "options": [
                         {
                             "caption": "60 minutes (24 slots)",
@@ -81,6 +81,11 @@
                             "value": 15
                         }
                     ]
+                },
+                {
+                    "type": "Label",
+                    "name": "PVF_ResolutionHint",
+                    "caption": "Time resolution (same as the load forecast)"
                 },
                 {
                     "type": "Label",
@@ -118,6 +123,11 @@
                 {
                     "type": "CheckBox",
                     "name": "PVF_SnowAdjust",
+                    "caption": "Take snow into account"
+                },
+                {
+                    "type": "Label",
+                    "name": "PVF_SnowAdjustHint",
                     "caption": "Take snow on the modules into account (today’s forecast)"
                 },
                 {
@@ -162,14 +172,14 @@
                             "type": "NumberSpinner",
                             "name": "PVF_Latitude",
                             "caption": "Latitude",
-                            "digits": 4,
+                            "digits": 6,
                             "suffix": " °"
                         },
                         {
                             "type": "NumberSpinner",
                             "name": "PVF_Longitude",
                             "caption": "Longitude",
-                            "digits": 4,
+                            "digits": 6,
                             "suffix": " °"
                         }
                     ]
@@ -207,6 +217,11 @@
                 {
                     "type": "PasswordTextBox",
                     "name": "PVF_SolcastKey",
+                    "caption": "Solcast API key"
+                },
+                {
+                    "type": "Label",
+                    "name": "PVF_SolcastKeyHint",
                     "caption": "Solcast API key (Solcast only) - enter it here again, it is stored safely after saving and the field is cleared"
                 },
                 {
@@ -251,22 +266,37 @@
                 {
                     "type": "CheckBox",
                     "name": "PVF_SolcastDaylightOnly",
+                    "caption": "Solcast only in daylight"
+                },
+                {
+                    "type": "Label",
+                    "name": "PVF_SolcastDaylightOnlyHint",
                     "caption": "Call Solcast only in daylight (sunrise to sunset, saves quota)"
                 },
                 {
                     "type": "NumberSpinner",
                     "name": "PVF_SolcastOffsetMin",
-                    "caption": "Offset around sunrise/sunset (minutes, the window is extended by this time)",
+                    "caption": "Daylight window offset",
                     "minimum": 0,
                     "maximum": 240,
                     "suffix": " min"
                 },
                 {
+                    "type": "Label",
+                    "name": "PVF_SolcastOffsetMinHint",
+                    "caption": "Offset around sunrise/sunset (minutes, the window is extended by this time)"
+                },
+                {
                     "type": "NumberSpinner",
                     "name": "PVF_SolcastDailyBudget",
-                    "caption": "At most this many Solcast calls per day (free account: 10, 0 = unlimited)",
+                    "caption": "Solcast calls per day",
                     "minimum": 0,
                     "maximum": 1000
+                },
+                {
+                    "type": "Label",
+                    "name": "PVF_SolcastDailyBudgetHint",
+                    "caption": "At most this many Solcast calls per day (free account: 10, 0 = unlimited)"
                 },
                 {
                     "type": "Label",
@@ -418,6 +448,11 @@
                     ]
                 },
                 {
+                    "type": "Label",
+                    "name": "ConnStatusAzimuth",
+                    "caption": "Azimuth: checked when the form is opened …"
+                },
+                {
                     "type": "RowLayout",
                     "items": [
                         {
@@ -527,7 +562,7 @@
                         {
                             "type": "Select",
                             "name": "PVF_PowerUnit",
-                            "caption": "Unit of the measured power variables (PowerVar)",
+                            "caption": "Unit of the power variables",
                             "options": [
                                 {
                                     "caption": "Detect automatically (profile/order of magnitude)",
@@ -543,6 +578,11 @@
                                 }
                             ],
                             "onChange": "PVF_PreviewSelection($id, 'PVF_PowerUnit', $PVF_PowerUnit);"
+                        },
+                        {
+                            "type": "Label",
+                            "name": "PVF_PowerUnitHint",
+                            "caption": "Unit of the measured power variables (PowerVar)"
                         }
                     ]
                 },
@@ -550,24 +590,26 @@
                     "type": "Select",
                     "name": "PVF_ResidualMode",
                     "caption": "Form the uncertainty band (P10/P90) from",
+                    "width": "460px",
                     "options": [
                         {
                             "caption": "Band of the data source (default)",
                             "value": 0
                         },
                         {
-                            "caption": "Actual forecast errors — band only",
+                            "caption": "Forecast errors: band only",
                             "value": 1
                         },
                         {
-                            "caption": "Actual forecast errors — band + level correction",
+                            "caption": "Forecast errors: band + level",
                             "value": 2
                         }
                     ]
                 },
                 {
                     "type": "Label",
-                    "caption": "Important with Open-Meteo and Forecast.Solar: these sources deliver only ONE line (P10 = P50 = P90), i.e. no uncertainty band at all. The measured deviations of the last days (snapshot against actual) produce a real band for the first time — P90 then means “below this in 90 % of cases”. The correction factor is determined separately for each part of the day (sunrise to sunset divided into 8 sections), because mornings and evenings are often off differently than noon. The “band only” mode leaves the forecast value and kWh unchanged; “band + level correction” additionally corrects a systematic error. It only takes effect from 3 evaluable days and needs the PowerVar of each generator; until then the default stays active. Solcast already has a native band. With Forecast.Solar/Solcast as the source this is important: the self-calibration above works ONLY with Open-Meteo — “band + level correction” is the only automatic way here to correct a systematically too low or too high forecast afterwards (e.g. Forecast.Solar's known conservative estimate)."
+                    "name": "PVF_ResidualModeHint",
+                    "caption": "Important with Open-Meteo and Forecast.Solar: these sources deliver only ONE line (P10 = P50 = P90), i.e. no uncertainty band at all. The measured deviations of the last days (snapshot against actual) produce a real band for the first time — P90 then means “below this in 90 % of cases”. The correction factor is determined separately for each part of the day (sunrise to sunset divided into 8 sections), because mornings and evenings are often off differently than noon. The “Forecast errors: band only” mode leaves the forecast value and kWh unchanged; “Forecast errors: band + level” additionally corrects a systematic error. It only takes effect from 3 evaluable days and needs the PowerVar of each generator; until then the default stays active. Solcast already has a native band. With Forecast.Solar/Solcast as the source this is important: the self-calibration above works ONLY with Open-Meteo — “Forecast errors: band + level” is the only automatic way here to correct a systematically too low or too high forecast afterwards (e.g. Forecast.Solar's known conservative estimate)."
                 }
             ]
         }

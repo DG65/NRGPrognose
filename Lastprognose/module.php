@@ -130,8 +130,10 @@ class Lastprognose extends IPSModule
     // Ausschluss (Punkt 3) war seit der Einführung fehlerhaft (schloss
     // ALLE Tage aus statt nur die betroffenen) und wurde erst mit dem
     // EMS-Events-Wrapper-Fix zuverlässig — Wortlaut entsprechend geschärft.
-    private const NEWS_VERSION = '0.25 (Build 168)';
+    private const NEWS_VERSION = '0.27 (Build 171)';
     private const NEWS_ITEMS = [
+        '🔤 Form: shorter field labels – the explanation now sits in its own line below the field instead of being cut off in the label (house consumption, presence, location, heating and cooling limit, devices …). Nothing changes in how the fields work.',
+        '🏷️ Readable type in the object tree (German console): the module shows its full NRG-Stack name instead of the bare identifier.',
         '📈 New: the heat pump/air conditioning follows the last days. The temperature regression knows only the outdoor temperature; in a cold spell the devices consumed up to twice what it expected (on the live system: about a third too low over the last 7 days), and the forecast, especially at night, stayed far too low. Now the daily kWh of each device is multiplied by a level factor: median of actual/regression over the last 3 days, limited to ×0.7 … ×1.6, the same factor for all forecast days. Without at least 2 usable recent days nothing changes. Backtest on the live system (21 days): error of the daily amount 22 % → 15 %, bias of the last 7 days −32 % → −9 %. The status line shows the factor; the new switch under “Temperature-dependent devices” turns it off. The contract is unchanged (kwhWp and the profiles simply contain the factor).',
         '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
         '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
@@ -339,6 +341,8 @@ class Lastprognose extends IPSModule
         // Der automatische Wert wird nie ins Feld geschrieben.
         if (strpos($lines['ConnStatusOwm'], '🔗') === 0 && $this->ReadPropertyInteger('LFC_OwmInstance') === 0) {
             $this->patchElementByName($form['elements'], 'LFC_OwmInstance', ['visible' => false]);
+            // Wird ein Feld per Code ausgeblendet, geht seine Erklärung mit (SUITE.md „Einheitliche Formular-Optik“)
+            $this->patchElementByName($form['elements'], 'LFC_OwmInstanceHint', ['visible' => false]);
         }
         // Hausverbrauch: kommt er automatisch (🔗), liegt das Auswahlfeld eingeklappt unter „Eigene Variable
         // stattdessen verwenden" (bewusstes Überschreiben ist gewollt — der Zähler kann eine andere Größe

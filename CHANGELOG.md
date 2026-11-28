@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.27
+
+- **Neu (PVPrognose, Build 171, 28.11.2026, Dietmars „Ja, push Prognose 0.27“): Azimut-Zeile unter der Generatorliste.** Die Zeile `ConnStatusAzimuth` nennt die kWp-gewichtete Ausrichtung („zeigen nach Südwesten, etwa 30°“) samt Zählweise und warnt, wenn die Generatoren überwiegend nach Norden zeigen (gewichteter Kosinus unter −0,707, also etwa über ±135°, nur auf der Nordhalbkugel): „Meinst du Süden?“. Anlass: zweimal 180° aus einem Programm übernommen, in dem 180° Süd heißt (Forum Roberto 20.11., bluecontrol 28.11.), die Anlage zeigt dann für das Modul nach Norden und die Prognose fällt auf einen Bruchteil. Gemittelt wird über Einheitsvektoren, damit −170° und +170° nicht zu 0° werden. Rein anzeigend, die Rechnung bleibt unberührt.
+- **Änderung (PVPrognose): Auswahl „Unsicherheitsband bilden aus“ breiter und kürzer** (`width` 460px; Einträge „Prognosefehler: nur Band“ und „Prognosefehler: Band + Pegel“ statt der langen Fassung, Forum Roberto 25.11.). Die Wirkung ist unverändert; Lernhinweis und Erklärungstext nennen die neuen Namen.
+- **Änderung (PVPrognose): Breiten- und Längengrad nehmen 6 Nachkommastellen** (vorher 4, Forum bluecontrol 28.11.). Für die Wetterdaten reichen 4, die Position wird aber nicht mehr abgeschnitten.
+- **Änderung (beide Module): Eingabefelder höchstens 40 Zeichen** (SUITE.md „Einheitliche Formular-Optik“, 17.11.2026). 7 Felder in PVPrognose und 16 in Lastprognose bekamen eine kurze Beschriftung (Englisch und Deutsch); der bisherige lange Text steht als `<Feld>Hint`-Zeile direkt unter dem Feld. Dazu eine kürzere deutsche Beschriftung für den Hauptschalter der Selbstkalibrierung. Keine Eigenschaft wurde umbenannt, kein Wert geht verloren.
+- **Änderung (beide Module): lesbarer Typ im Objektbaum** (SUITE.md „Typ-Spalte“, 24.11.2026): `locale.json` übersetzt `PVPrognose` als „NRG-Stack PV-Prognose“ und `Lastprognose` als „NRG-Stack Lastprognose“. `module.json name` bleibt unverändert.
+- Prüfstand `formularzeichen.php` (lokal): Beschriftungen ≤ 40 Zeichen im fertigen Formular in beiden Sprachen, `…Hint`-Zeilen direkt hinter ihrem Feld, Auswahl und Koordinaten, Typ-Spalte, Azimut-Zeile in 12 Fällen. `zweisprachig.php` kennt die Modulnamen aus `module.json`; `lernhinweis.php` erwartet die neuen Namen.
+- **Bewusst nicht enthalten:** die Eingabegrenze 1000 kWp je Generatorzeile bleibt, ein Lizenzhinweis oder eine AC-Begrenzung (Wechselrichter-/Netzleistung) sind nicht Teil dieses Releases.
+
 ## 0.26
 
 - **Änderung (Build 170, 20.11.2026): Die Anleitung liegt in der Repo-Wurzel statt in `docs/`** (SUITE.md 5g: die Store-Prüfung behandelt jeden Ordner in der Wurzel ohne `module.json` als Modul-Kandidaten). Nur verschoben, kein Code geändert.

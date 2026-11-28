@@ -133,8 +133,13 @@ class PVPrognose extends IPSModule
     // „Was ist neu"-Banner — Vergleich läuft gegen den STRING NEWS_VERSION,
     // jede Erhöhung zeigt den Banner erneut, bis bestätigt. Nur bei
     // nutzerrelevanten Änderungsrunden hochziehen, nicht bei jedem Patch.
-    private const NEWS_VERSION = '0.24 (Build 167)';
+    private const NEWS_VERSION = '0.27 (Build 171)';
     private const NEWS_ITEMS = [
+        '🧭 New in the form: a line under the generator list shows which direction your generators face and warns if they point north (question from the forum, thanks!). In this module 0° = south, −90° = east, +90° = west, ±180° = north; some programs count 180° = south. Taken over unchanged, the system would face north for the module and the forecast would come out at a fraction of the real value.',
+        '↔️ The selection “Form the uncertainty band from” is wider and its options are shorter (note from the forum, thanks!): “Forecast errors: band only” and “Forecast errors: band + level”. How they work is unchanged.',
+        '📍 Latitude and longitude now take 6 decimal places (suggestion from the forum, thanks!). For the weather data 4 places are enough, but a more exact position is no longer cut off.',
+        '🔤 Form: shorter field labels – the explanation now sits in its own line below the field instead of being cut off in the label (time resolution, snow, Solcast fields, unit …). Nothing changes in how the fields work.',
+        '🏷️ Readable type in the object tree (German console): the module shows its full NRG-Stack name instead of the bare identifier.',
         '❄️ New: snow on the modules (needs the module FrigateHub). If FrigateHub reports the modules as covered, today’s forecast can now take it into account: switch “Take snow on the modules into account” in the general settings, off by default. The rest of today is then set to 0 until the modules are reported free again; later days stay unchanged. The state is always passed on as the new field “moduleCover” of PVF_GetForecast (contract 1.4); the stored forecast and the learning stay untouched.',
         '🌍 New: the module is now bilingual (German/English): form, status lines, messages and notices follow the Symcon language. Variables that already exist keep their names; newly created variables are named in the current language.',
         '🪟 New: choose the form layout yourself: in the new “Form: layout” panel (at the bottom, above the forum notice) you set for each section whether it is expanded, collapsed or hidden when the form opens, and at which position it appears. Symcon does not remember expanding and collapsing by itself, so your choice applies every time the form opens. Hidden sections keep working, only their display is missing; “Reset to default” puts everything back.',
@@ -572,6 +577,7 @@ class PVPrognose extends IPSModule
             'ConnStatusArchive' => 'archiveStatusLine',
             'ConnStatusUnit'    => 'unitStatusLine',
             'ConnStatusSign'    => 'signStatusLine',
+            'ConnStatusAzimuth' => 'azimuthStatusLine',
             'ConnStatusSolcast' => 'solcastStatusLine',
             'ConnStatusSolcastBudget' => 'solcastBudgetStatusLine',
             'ConnStatusEms'     => 'emsStatusLine',
@@ -662,6 +668,46 @@ class PVPrognose extends IPSModule
      * letzten 7 Tage, ob eine nicht umgekehrte Variable die Erzeugung negativ liefert (dann ⚠️ mit Hinweis) oder
      * eine umgekehrte positiv (Umkehr würde alles auf 0 setzen). Nur Hinweis, es wird nichts selbst umgestellt.
      */
+    /**
+     * Azimut-Plausibilität (Forum 20.11. und 28.11.2026: zweimal 180 aus einem anderen Programm übernommen, in dem 180°
+     * Süd heißt — bei uns ist 0° Süd und ±180° Nord, die Anlage zeigt dann für das Modul nach Norden und die Prognose
+     * fällt auf einen Bruchteil). Die kWp-gewichtete Ausrichtung wird über Einheitsvektoren gemittelt, damit −170° und
+     * +170° (beide nach Norden) nicht zu 0° verrechnet werden. Auf der Südhalbkugel ist Norden die Sonnenseite, dort
+     * keine Warnung. Rein anzeigend, ändert nichts an der Rechnung.
+     */
+    private function azimuthStatusLine(): string
+    {
+        $sx = 0.0; $sy = 0.0; $sum = 0.0;
+        foreach ($this->pvGenerators() as $g) {
+            $w = max(0.0, (float)$g['kwp']);
+            if ($w <= 0.0) { continue; }
+            $a = deg2rad((float)$g['az']);
+            $sx += $w * sin($a);
+            $sy += $w * cos($a);
+            $sum += $w;
+        }
+        $legend = $this->t('0° = south, −90° = east, +90° = west, ±180° = north');
+        if ($sum <= 0.0) {
+            return $this->t('ℹ️ Azimuth: no generator with kWp entered yet (%s).', $legend);
+        }
+        $mean = rad2deg(atan2($sx, $sy));
+        $strength = sqrt($sx * $sx + $sy * $sy) / $sum;
+        $deg = (int)round($mean);
+        $north = ($sy / $sum) < -0.7071;
+        if ($north && $this->ReadPropertyFloat('PVF_Latitude') >= 0.0) {
+            return $this->t('⚠️ Azimuth: the generators face mostly north (about %d°). Did you mean south? In this module %s – some programs count differently, for example 180° = south.', $deg, $legend);
+        }
+        if ($strength < 0.35) {
+            return $this->t('ℹ️ Azimuth: the generators face in different directions (%s).', $legend);
+        }
+        // Sektoren zu 45° um 0° (Süd), 45° (Südwest/-ost), 90° (West/Ost), 135° (Nordwest/-ost), 180° (Nord)
+        $sectors = ($mean < 0)
+            ? [$this->t('south'), $this->t('south-east'), $this->t('east'), $this->t('north-east'), $this->t('north')]
+            : [$this->t('south'), $this->t('south-west'), $this->t('west'), $this->t('north-west'), $this->t('north')];
+        $dir = $sectors[min(4, (int)floor((abs($mean) + 22.5) / 45.0))];
+        return $this->t('ℹ️ Azimuth: the generators face %s (about %d°; %s).', $dir, $deg, $legend);
+    }
+
     private function signStatusLine(): string
     {
         $gens = array_values(array_filter($this->pvGenerators(), function ($g) { return $g['powervar'] > 0; }));
@@ -2441,11 +2487,11 @@ class PVPrognose extends IPSModule
         $pct = (int)round(abs($bias));
         $dir = $bias > 0 ? $this->t('higher') : $this->t('lower');
         if ($needCalib && $needLevel) {
-            return $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, switch on the self-calibration and set the uncertainty band to “band + level correction”.', $pct, $dir);
+            return $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, switch on the self-calibration and set the uncertainty band to “Forecast errors: band + level”.', $pct, $dir);
         }
         return $needCalib
             ? $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, switch on the self-calibration.', $pct, $dir)
-            : $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, set the uncertainty band to “band + level correction”.', $pct, $dir);
+            : $this->t('💡 The forecast is on average %d %% %s than measured. It does not learn from this yet: in the form, set the uncertainty band to “Forecast errors: band + level”.', $pct, $dir);
     }
 
     /**
